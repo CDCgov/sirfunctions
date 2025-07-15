@@ -4,10 +4,10 @@
 \alias{recache_raw_data}
 \title{Should the local global polio dataset be recached?}
 \usage{
-recache_raw_data(analytics_folder, edav)
+recache_raw_data(analytic_folder, edav)
 }
 \arguments{
-\item{analytics_folder}{\code{str} Path to the analytics folder.}
+\item{analytic_folder}{\code{str} Path to the analytics folder.}
 
 \item{edav}{\code{logical} Should we use EDAV? Defaults to TRUE.}
 }

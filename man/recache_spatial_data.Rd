@@ -4,10 +4,10 @@
 \alias{recache_spatial_data}
 \title{Should the local spatial cache be updated?}
 \usage{
-recache_spatial_data(analytics_folder, spatial_folder, edav, output_format)
+recache_spatial_data(analytic_folder, spatial_folder, edav, output_format)
 }
 \arguments{
-\item{analytics_folder}{\code{str} Path to the analytics folder.}
+\item{analytic_folder}{\code{str} Path to the analytics folder.}
 
 \item{spatial_folder}{\code{str} Path to the spatial folder.}
 
