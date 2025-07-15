@@ -49,7 +49,11 @@ get_azure_storage_connection <- function(
       ...
     )
   } else if (stringr::str_starts(Sys.getenv("SF_PARTNER"), "posit_connect")) {
-    creds_path <- "posit_workbench_creds.yaml"
+    if (is.null(posit_yaml_path)) {
+      creds_path <- "posit_workbench_creds.yaml"
+    } else {
+      creds_path <- posit_yaml_path
+    }
     creds <- yaml::read_yaml(creds_path)
     mytoken <- AzureAuth::get_azure_token(
       resource = "https://storage.azure.com/",
