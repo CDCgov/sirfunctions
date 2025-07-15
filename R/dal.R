@@ -989,64 +989,92 @@ if (!force.new.run) {
   } else {
     cli::cli_alert_info("Loading most recent active polio data from 2019 onwards")
   }
-  raw.data.post.2019 <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
 
-  if (size == "small") {
-    raw.data <- raw.data.post.2019
-  }
+  if (!recache_raw_data(analytic_folder, edav)) {
 
-  if (size == "medium") {
-    prev_table <- sirfunctions_io("list", NULL, analytic_folder, edav = use_edav) |>
-      dplyr::filter(grepl(raw_data_2016_2018_name, name)) |>
-      dplyr::select("file" = "name", "size", "ctime" = "lastModified")
+    raw.data <- sirfunctions_io("read", NULL, file.path(rappdirs::user_data_dir("sirfunctions"),
+                                                        "raw_data", output_format),
+                                edav = use_edav)
+  } else {
+    raw.data.post.2019 <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
 
-    if (use_edav) {
-      cli::cli_alert_info("Downloading static polio data from 2016-2019")
-    } else {
-      cli::cli_alert_info("Loading static polio data from 2016-2019")
+    if (size == "small") {
+      raw.data <- raw.data.post.2019
     }
 
-    raw.data.2016.2018 <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
+    if (size == "medium") {
+      prev_table <- sirfunctions_io("list", NULL, analytic_folder, edav = use_edav) |>
+        dplyr::filter(grepl(raw_data_2016_2018_name, name)) |>
+        dplyr::select("file" = "name", "size", "ctime" = "lastModified")
 
-    raw.data <- split_concat_raw_data(
-      action = "concat",
-      raw.data.post.2019 = raw.data.post.2019,
-      raw.data.2016.2019 = raw.data.2016.2018
-    )
-  }
+      if (use_edav) {
+        cli::cli_alert_info("Downloading static polio data from 2016-2019")
+      } else {
+        cli::cli_alert_info("Loading static polio data from 2016-2019")
+      }
 
-  if (size == "large") {
-    prev_table <- sirfunctions_io("list", NULL, analytic_folder,
-      edav = use_edav, full_names = TRUE
-    ) |>
-      dplyr::filter(grepl(raw_data_2016_2018_name, name)) |>
-      dplyr::select("file" = "name", "size", "ctime" = "lastModified")
+      raw.data.2016.2018 <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
 
-    if (use_edav) {
-      cli::cli_alert_info("Downloading static polio data from 2016-2019")
-    } else {
-      cli::cli_alert_info("Loading static polio data from 2016-2019")
-    }
-    raw.data.2016.2019 <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
-
-    prev_table <- sirfunctions_io("list", NULL, analytic_folder, edav = use_edav) |>
-      dplyr::filter(grepl(raw_data_2000_name, name)) |>
-      dplyr::select("file" = "name", "size", "ctime" = "lastModified")
-
-    if (use_edav) {
-      cli::cli_alert_info("Downloading static polio data from 2001-2016")
-    } else {
-      cli::cli_alert_info("Loading static polio data from 2001-2016")
+      raw.data <- split_concat_raw_data(
+        action = "concat",
+        raw.data.post.2019 = raw.data.post.2019,
+        raw.data.2016.2019 = raw.data.2016.2018
+      )
     }
 
-    raw.data.2001.2016 <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
+    if (size == "large") {
+      prev_table <- sirfunctions_io("list", NULL, analytic_folder,
+                                    edav = use_edav, full_names = TRUE
+      ) |>
+        dplyr::filter(grepl(raw_data_2016_2018_name, name)) |>
+        dplyr::select("file" = "name", "size", "ctime" = "lastModified")
 
-    raw.data <- split_concat_raw_data(
-      action = "concat",
-      raw.data.post.2019 = raw.data.post.2019,
-      raw.data.2016.2019 = raw.data.2016.2019,
-      raw.data.2001.2016 = raw.data.2001.2016
-    )
+      if (use_edav) {
+        cli::cli_alert_info("Downloading static polio data from 2016-2019")
+      } else {
+        cli::cli_alert_info("Loading static polio data from 2016-2019")
+      }
+      raw.data.2016.2019 <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
+
+      prev_table <- sirfunctions_io("list", NULL, analytic_folder, edav = use_edav) |>
+        dplyr::filter(grepl(raw_data_2000_name, name)) |>
+        dplyr::select("file" = "name", "size", "ctime" = "lastModified")
+
+      if (use_edav) {
+        cli::cli_alert_info("Downloading static polio data from 2001-2016")
+      } else {
+        cli::cli_alert_info("Loading static polio data from 2001-2016")
+      }
+
+      raw.data.2001.2016 <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
+
+      raw.data <- split_concat_raw_data(
+        action = "concat",
+        raw.data.post.2019 = raw.data.post.2019,
+        raw.data.2016.2019 = raw.data.2016.2019,
+        raw.data.2001.2016 = raw.data.2001.2016
+      )
+    }
+
+      cli::cli_process_start("Caching global polio data locally")
+      sirfunctions_io("write", NULL,
+                      file.path(rappdirs::user_data_dir("sirfunctions"), "raw_data", output_format),
+                      obj = raw.data,
+                      edav = FALSE)
+      # Add edav tag file to local cache dir
+      edav_raw_data_timestamp <- sirfunctions_io(
+        "read",
+        NULL,
+        file.path(analytics_folder, "raw_data_timestamp.rds"),
+        edav = use_edav
+      )
+
+      sirfunctions_io("write", NULL,
+                      file.path(analytics_folder, "raw_data_timestamp.rds"),
+                      obj = edav_raw_data_timestamp,
+                      edav = FALSE)
+
+      cli::cli_process_done()
   }
 
   cli::cli_process_done()
@@ -1054,21 +1082,6 @@ if (!force.new.run) {
   cli::cli_process_start("Checking for duplicates in datasets.")
   raw.data <- duplicate_check(raw.data)
   cli::cli_process_done()
-
-  if (create_raw_data_cache) {
-    cli::cli_process_start("Caching global polio data locally")
-    sirfunctions_io("write", NULL,
-                    file.path(cache_dir, "raw_data", output_format),
-                    obj = raw.data,
-                    edav = FALSE)
-    # Add edav tag file to local cache dir
-    sirfunctions_io("write", NULL,
-                    local_processed_time,
-                    obj = raw.data,
-                    edav = FALSE)
-
-    cli::cli_process_done()
-  }
 
   if (attach.spatial.data) {
     if (use_edav) {
@@ -3713,7 +3726,7 @@ get_archived_polis_data <- function(data_folder_path, edav, keep_n_archives = In
 #' @keywords internal
 #'
 recache_raw_data <- function(analytics_folder, edav) {
-  recache <- TRUE
+
   raw_data_timestamp_exists <- sirfunctions_io(
     "exists.file",
     NULL,
@@ -3723,7 +3736,7 @@ recache_raw_data <- function(analytics_folder, edav) {
 
   if (!raw_data_timestamp_exists) {
     cli::cli_alert_info(paste0("No timestamp exists for the global polio dataset. ",
-                               "Please run {.code get_all_polio_data(recreate.static.files=TRUE)}."))
+                               "Please run {.code get_all_polio_data(recreate.static.files=TRUE)} if you'd like to cache locally."))
     return(FALSE)
   }
 
@@ -3738,7 +3751,7 @@ recache_raw_data <- function(analytics_folder, edav) {
     "exists.file",
     NULL,
     file.path(rappdirs::user_data_dir("sirfunctions"), "raw_data_timestamp.rds"),
-    edav = edav
+    edav = FALSE
   )
 
   if (local_timestamp_exists) {
@@ -3746,17 +3759,90 @@ recache_raw_data <- function(analytics_folder, edav) {
       "read",
       NULL,
       file.path(rappdirs::user_data_dir("sirfunctions"), "raw_data_timestamp.rds"),
-      edav = edav
+      edav = FALSE
     )
 
     if (local_raw_data_timestamp == edav_raw_data_timestamp) {
       cli::cli_alert_info("Local cache is up to date. Loading cache.")
-      recache <- FALSE
+      return(FALSE)
     } else {
       cli::cli_alert_info("Local cache is outdated. Recaching...")
+      return(TRUE)
     }
   }
 
-  return(recache)
+  invisible()
 
 }
+
+#' Should the local spatial cache be updated?
+#'
+#' @param analytics_folder `str` Path to the analytics folder.
+#' @param spatial_folder  `str` Path to the spatial folder.
+#' @param edav `logical` Use EDAV?
+#' @param output_format `str` Output format the spatial files are in.
+#'
+#' @returns `logical` Should we recache the spatial data or not?
+#' @keywords internal
+recache_spatial_data <- function(analytics_folder, spatial_folder, edav, output_format) {
+
+  spatial_timestamp_exists <- sirfunctions_io(
+    "exists.file",
+    NULL,
+    file.path(analytics_folder, "spatial_timestamp.rds"),
+    edav = edav
+  )
+
+  if (!spatial_timestamp_exists) {
+    cli::cli_alert_info(paste0("No timestamp exists for the spatial dataset. ",
+                               "Please run {.code get_all_polio_data(recreate.static.files=TRUE)} if you'd like to cache locally."))
+    return(FALSE)
+  }
+
+  spatial_files <- sirfunctions_io("list",
+                                   NULL,
+                                   spatial_folder,
+                                   edav = edav,
+                                   full_names = TRUE)
+
+  edav_spatial_timestamp <- spatial_files |>
+    dplyr::filter(stringr::str_detect(name, "global."),
+                  stringr::str_ends(name, output_format)) |>
+    dplyr::select(name, lastModifiedEDAV = lastModified)
+
+  local_timestamp_exists <- sirfunctions_io(
+    "exists.file",
+    NULL,
+    file.path(rappdirs::user_data_dir("sirfunctions"), "spatial_timestamp.rds"),
+    edav = FALSE)
+
+  if (!local_timestamp_exists) {
+    cli::cli_alert_info("No spatial data cached locally. Caching...")
+    return(TRUE)
+  } else {
+    local_timestamp <- sirfunctions_io(
+      "read",
+      NULL,
+      file.path(rappdirs::user_data_dir("sirfunctions"), "spatial_timestamp.rds"),
+      edav = FALSE)
+
+    updated <- dplyr::left_join(edav_spatial_timestamp,
+                                 local_timestamp) |>
+      dplyr::mutate(updated = ifelse(lastModifiedEDAV == lastModified, TRUE, FALSE)) |>
+      dplyr::pull(updated) |>
+      sum()
+
+    if (updated == 3) {
+      cli::cli_alert_info("Local spatial data is up to date.")
+      return(FALSE)
+    } else {
+      cli::cli_alert_info("More recent spatial data available on EDAV. Caching...")
+      return(TRUE)
+    }
+
+  }
+
+  invisible()
+
+  }
+
