@@ -983,74 +983,6 @@ if (recreate.static.files) {
 
 if (!force.new.run) {
 
-  create_raw_data_cache <- FALSE
-  if (use_edav) {
-    # Check if there's an existing processed_timestamp.csv tag
-    edav_process_time_file_path <- file.path(analytic_folder, "processed_timestamp.rds")
-
-    if (sirfunctions_io("exists.file", NULL,
-                        file_loc = edav_process_time_file_path)) {
-
-      edav_process_time <- sirfunctions_io("read", NULL,
-                                           file_loc = edav_process_time_file_path)
-      # Check if there's data in the local cache
-      cache_dir <- rappdirs::user_data_dir("sirfunctions")
-      local_process_time_file_path <- file.path(cache_dir,
-                                                "processed_timestamp.rds")
-      spatial_process_time_file_path <- file.path(cache_dir,
-                                                  "spatial_timestamp.rds")
-
-      if (sirfunctions_io("exists.file", NULL,
-                          file_loc = local_process_time_file_path,
-                          edav = FALSE)) {
-        local_process_time <- sirfunctions_io("read", NULL,
-                                              file_loc = local_process_time_file_path,
-                                              edav = FALSE)
-        if (local_process_time == edav_process_time) {
-          raw.data <- sirfunctions_io("read", NULL,
-                                      file_loc = file.path(cache_dir, "raw.data", output_format))
-          if (attach.spatial.data) {
-
-            # check if it's cached otherwise download
-            # if (sirfunctions_io("exists.file", NULL,
-            #                     file_loc = file.path(cache_dir, "spatial.data", output_format),
-            #                     edav = FALSE)) {
-            #   spatial.data <- sirfunctions_io("read", NULL,
-            #                                           file_loc = file.path(cache_dir, "spatial.data", output_format),
-            #                                           edav = FALSE)
-            # } else {
-            #   spatial.data <- sirfunctions_io("read", NULL,
-            #                                   file_loc = file.path(analytic_folder, spatial_data_name))
-            #   cli::cli_process_start("Caching spatial data")
-            #
-            # }
-
-            spatial.data <- sirfunctions_io("read", NULL,
-                                            file.path(analytic_folder, spatial_data_name),
-                                            edav = use_edav
-            )
-
-            raw.data$global.ctry <- spatial.data$global.ctry
-            raw.data$global.prov <- spatial.data$global.prov
-            raw.data$global.dist <- spatial.data$global.dist
-            raw.data$roads <- spatial.data$roads
-            raw.data$cities <- spatial.data$cities
-          }
-
-          return(raw.data)
-
-        } else {
-          cli::cli_alert_info("A more recent global polio data is available from EDAV, downloading...")
-          create_raw_data_cache <- TRUE
-        }
-
-      } else {
-        cli::cli_alert_info("No data in the local cache, downloading from EDAV.")
-        create_raw_data_cache <- TRUE
-      }
-    }
-  }
-
   # determine all raw data files to be downloaded
   if (use_edav) {
     cli::cli_alert_info("Downloading most recent active polio data from 2019 onwards")
@@ -3761,4 +3693,70 @@ get_archived_polis_data <- function(data_folder_path, edav, keep_n_archives = In
     }
 
   }
+}
+
+#' Should the local global polio dataset be recached?
+#'
+#' @description
+#' The function checks the analytics folder for changes in the global polio dataset.
+#' If there is a change between versions in EDAV and locally, returns whether the
+#' it should be recached locally.
+#'
+#' @param analytics_folder `str` Path to the analytics folder.
+#' @param edav `logical` Should we use EDAV? Defaults to TRUE.
+#'
+#' @details
+#' If `get_all_polio_data()` is used locally, then calling the function does not
+#' really make sense given there is already a local copy of the global polio dataset.
+#'
+#' @returns `logical` Whether the global polio dataset should be cached.
+#' @keywords internal
+#'
+recache_raw_data <- function(analytics_folder, edav) {
+  recache <- TRUE
+  raw_data_timestamp_exists <- sirfunctions_io(
+    "exists.file",
+    NULL,
+    file.path(analytics_folder, "raw_data_timestamp.rds"),
+    edav = edav
+  )
+
+  if (!raw_data_timestamp_exists) {
+    cli::cli_alert_info(paste0("No timestamp exists for the global polio dataset. ",
+                               "Please run {.code get_all_polio_data(recreate.static.files=TRUE)}."))
+    return(FALSE)
+  }
+
+  edav_raw_data_timestamp <- sirfunctions_io(
+    "read",
+    NULL,
+    file.path(analytics_folder, "raw_data_timestamp.rds"),
+    edav = edav
+  )
+
+  local_timestamp_exists <- sirfunctions_io(
+    "exists.file",
+    NULL,
+    file.path(rappdirs::user_data_dir("sirfunctions"), "raw_data_timestamp.rds"),
+    edav = edav
+  )
+
+  if (local_timestamp_exists) {
+    local_raw_data_timestamp <- sirfunctions_io(
+      "read",
+      NULL,
+      file.path(rappdirs::user_data_dir("sirfunctions"), "raw_data_timestamp.rds"),
+      edav = edav
+    )
+
+    if (local_raw_data_timestamp == edav_raw_data_timestamp) {
+      cli::cli_alert_info("Local cache is up to date. Loading cache.")
+      recache <- FALSE
+    } else {
+      cli::cli_alert_info("Local cache is outdated. Recaching...")
+    }
+  }
+
+  return(recache)
+
 }
