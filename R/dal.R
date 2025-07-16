@@ -876,8 +876,8 @@ normalize_format <- function(fmt) {
 #'   (e.g., 3) to automatically delete older archives beyond the N most recent.
 #' @param output_format str: output_format to save files as.
 #' Available formats include 'rds' 'rda' 'csv' 'qs2' and 'parquet', Defaults is #' 'rds'.
-#'
-#'
+#' @param local_caching `logical` Enable local caching so data is stored locally and
+#' only downloaded when there is updated data from EDAV.
 #' @param use_archived_data `logical` Allows the ability to recreate the raw data file using previous
 #' preprocessed data. If
 #' @returns Named `list` containing polio data that is relevant to CDC.
@@ -900,7 +900,8 @@ get_all_polio_data <- function(
     use_archived_data = FALSE,
     archive = TRUE,
     keep_n_archives = Inf,
-    output_format = "rds") {
+    output_format = "rds",
+    local_caching = TRUE) {
 
   # check to see that size parameter is appropriate
   if (!size %in% c("small", "medium", "large")) {
@@ -984,7 +985,7 @@ if (recreate.static.files) {
 if (!force.new.run) {
 
   # Check if using the local cache is sufficient
-  if (use_edav & size == "small") {
+  if (use_edav & size == "small" & local_caching) {
     if (!recache_raw_data(analytic_folder, use_edav)) {
 
       raw.data <- sirfunctions_io("read", NULL, file.path(rappdirs::user_data_dir("sirfunctions"),
@@ -1107,7 +1108,7 @@ if (!force.new.run) {
   }
 
   # Only cache the small dataset, which we use in 90% of the case
-  if (use_edav) {
+  if (use_edav & local_caching) {
     raw_data_timestamp_exists <- invisible(sirfunctions_io(
       "exists.file",
       NULL,
@@ -1118,7 +1119,7 @@ if (!force.new.run) {
   } else {
     raw_data_timestamp_exists <- FALSE
   }
-  if (size == "small" & raw_data_timestamp_exists) {
+  if (size == "small" & raw_data_timestamp_exists & local_caching) {
     cli::cli_process_start("Caching global polio data locally")
 
     if (!dir.exists(rappdirs::user_data_dir("sirfunctions"))) {
@@ -1155,7 +1156,7 @@ if (!force.new.run) {
 
     # Don't recache spatial if up to date
     if (!recache_spatial_data(analytic_folder, spatial_folder,
-                              use_edav, output_format)) {
+                              use_edav, output_format) & local_caching) {
       spatial.data <- sirfunctions_io("read", NULL, file.path(rappdirs::user_data_dir("sirfunctions"),
                                                               paste0("spatial_data", output_format)),
                                       edav = FALSE)
@@ -1187,7 +1188,7 @@ if (!force.new.run) {
 
     cli::cli_process_done()
 
-    if (use_edav) {
+    if (use_edav & local_caching) {
       spatial_timestamp_exists <- sirfunctions_io(
         "exists.file",
         NULL,
@@ -1199,7 +1200,7 @@ if (!force.new.run) {
     }
 
     if (recache_spatial_data(analytic_folder, spatial_folder,
-                             use_edav, output_format) & spatial_timestamp_exists) {
+                             use_edav, output_format) & spatial_timestamp_exists & local_caching) {
       sirfunctions_io("write",
                       NULL,
                       file.path(rappdirs::user_data_dir("sirfunctions"),
