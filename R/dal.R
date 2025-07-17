@@ -1024,7 +1024,7 @@ if (!force.new.run) {
           edav_spatial_timestamp <- sirfunctions_io(
             "read",
             NULL,
-            file.path(analytic_folder, "spatial_timestamp.rds"),
+            file.path(analytic_folder, paste0("spatial_timestamp", output_format)),
             obj = edav_spatial_timestamp,
             edav = use_edav
           )
@@ -1118,7 +1118,7 @@ if (!force.new.run) {
     raw_data_timestamp_exists <- invisible(sirfunctions_io(
       "exists.file",
       NULL,
-      file.path(analytic_folder, "raw_data_timestamp.rds"),
+      file.path(analytic_folder, paste0("raw_data_timestamp", output_format)),
       edav = use_edav
     ))
 
@@ -1140,12 +1140,12 @@ if (!force.new.run) {
     edav_raw_data_timestamp <- sirfunctions_io(
       "read",
       NULL,
-      file.path(analytic_folder, "raw_data_timestamp.rds"),
+      file.path(analytic_folder, paste0("raw_data_timestamp", output_format)),
       edav = use_edav
     )
 
     sirfunctions_io("write", NULL,
-                    file.path(rappdirs::user_data_dir("sirfunctions"), "raw_data_timestamp.rds"),
+                    file.path(rappdirs::user_data_dir("sirfunctions"), paste0("raw_data_timestamp", output_format)),
                     obj = edav_raw_data_timestamp,
                     edav = FALSE)
 
@@ -1198,7 +1198,7 @@ if (!force.new.run) {
       spatial_timestamp_exists <- sirfunctions_io(
         "exists.file",
         NULL,
-        file.path(analytic_folder, "spatial_timestamp.rds"),
+        file.path(analytic_folder, paste0("spatial_timestamp", output_format)),
         edav = use_edav
       )
     } else {
@@ -1218,12 +1218,12 @@ if (!force.new.run) {
       spatial_processed_tag <- sirfunctions_io("read",
                                                NULL,
                                                file.path(analytic_folder,
-                                                         "spatial_timestamp.rds"),
+                                                         paste0("spatial_timestamp", output_format)),
                                                edav = use_edav)
       sirfunctions_io("write",
                       NULL,
                       file.path(rappdirs::user_data_dir("sirfunctions"),
-                                "spatial_timestamp.rds"),
+                                paste0("spatial_timestamp", output_format)),
                       edav = FALSE)
     }
   }
@@ -1347,7 +1347,7 @@ if (!force.new.run) {
   spatial_timestamp_exists <- sirfunctions_io(
     "exists.file",
     NULL,
-    file.path(analytic_folder, "spatial_timestamp.rds"),
+    file.path(analytic_folder, paste0("spatial_timestamp", output_format)),
     edav = edav
   )
 
@@ -1356,7 +1356,7 @@ if (!force.new.run) {
     edav_spatial_timestamp <- sirfunctions_io(
       "read",
       NULL,
-      file.path(analytic_folder, "spatial_timestamp.rds"),
+      file.path(analytic_folder, paste0("spatial_timestamp", output_format)),
       edav = edav
     ) |>
       dplyr::select(name, lastModifiedEDAV = lastModified)
@@ -1742,7 +1742,7 @@ if (create.cache) {
   if (use_edav & !use_archived_data) {
     # Create raw data file tag for future comparisons
     sirfunctions_io("write", NULL,
-                    file_loc = file.path(analytic_folder, "raw_data_timestamp.rds"),
+                    file_loc = file.path(analytic_folder, paste0("raw_data_timestamp", output_format)),
                     obj = Sys.time())
 
     # Create spatial data file tag for future comparisons
@@ -1760,7 +1760,7 @@ if (create.cache) {
     sirfunctions_io(
       "write",
       NULL,
-      file.path(analytic_folder, "spatial_timestamp.rds"),
+      file.path(analytic_folder, paste0("spatial_timestamp", output_format)),
       obj = edav_spatial_timestamp,
       edav = use_edav
     )
@@ -3899,7 +3899,7 @@ recache_raw_data <- function(analytic_folder, edav) {
   raw_data_timestamp_exists <- invisible(sirfunctions_io(
     "exists.file",
     NULL,
-    file.path(analytic_folder, "raw_data_timestamp.rds"),
+    file.path(analytic_folder, paste0("raw_data_timestamp", output_format)),
     edav = edav
   ))
 
@@ -3912,14 +3912,14 @@ recache_raw_data <- function(analytic_folder, edav) {
   edav_raw_data_timestamp <- invisible(sirfunctions_io(
     "read",
     NULL,
-    file.path(analytic_folder, "raw_data_timestamp.rds"),
+    file.path(analytic_folder, paste0("raw_data_timestamp", output_format)),
     edav = edav
   ))
 
   local_timestamp_exists <- invisible(sirfunctions_io(
     "exists.file",
     NULL,
-    file.path(rappdirs::user_data_dir("sirfunctions"), "raw_data_timestamp.rds"),
+    file.path(rappdirs::user_data_dir("sirfunctions"), paste0("raw_data_timestamp", output_format)),
     edav = FALSE
   ))
 
@@ -3927,7 +3927,7 @@ recache_raw_data <- function(analytic_folder, edav) {
     local_raw_data_timestamp <- suppressMessages(invisible(sirfunctions_io(
       "read",
       NULL,
-      file.path(rappdirs::user_data_dir("sirfunctions"), "raw_data_timestamp.rds"),
+      file.path(rappdirs::user_data_dir("sirfunctions"), paste0("raw_data_timestamp", output_format)),
       edav = FALSE
     )))
 
@@ -3961,7 +3961,7 @@ recache_spatial_data <- function(analytic_folder, spatial_folder, edav, output_f
   spatial_timestamp_exists <- sirfunctions_io(
     "exists.file",
     NULL,
-    file.path(analytic_folder, "spatial_timestamp.rds"),
+    file.path(analytic_folder, paste0("spatial_timestamp", output_format)),
     edav = edav
   )
 
@@ -3974,7 +3974,7 @@ recache_spatial_data <- function(analytic_folder, spatial_folder, edav, output_f
   edav_spatial_timestamp <- sirfunctions_io(
     "read",
     NULL,
-    file.path(analytic_folder, "spatial_timestamp.rds"),
+    file.path(analytic_folder, paste0("spatial_timestamp", output_format)),
     edav = edav
     ) |>
     dplyr::select(name, lastModifiedEDAV = lastModified)
@@ -3982,7 +3982,7 @@ recache_spatial_data <- function(analytic_folder, spatial_folder, edav, output_f
   local_timestamp_exists <- sirfunctions_io(
     "exists.file",
     NULL,
-    file.path(rappdirs::user_data_dir("sirfunctions"), "spatial_timestamp.rds"),
+    file.path(rappdirs::user_data_dir("sirfunctions"), paste0("spatial_timestamp", output_format)),
     edav = FALSE)
 
   if (!local_timestamp_exists) {
@@ -3992,7 +3992,7 @@ recache_spatial_data <- function(analytic_folder, spatial_folder, edav, output_f
     local_timestamp <- sirfunctions_io(
       "read",
       NULL,
-      file.path(rappdirs::user_data_dir("sirfunctions"), "spatial_timestamp.rds"),
+      file.path(rappdirs::user_data_dir("sirfunctions"), paste0("spatial_timestamp", output_format)),
       edav = FALSE)
 
     updated <- dplyr::left_join(edav_spatial_timestamp,
