@@ -1337,26 +1337,78 @@ if (!force.new.run) {
   raw.data <- list()
   spatial.data <- list()
 
-  cli::cli_process_start("1) Loading country shape files")
-  spatial.data$global.ctry <- load_clean_ctry_sp(
-    fp = file.path(spatial_folder, global_ctry_sf_name),
-    edav = use_edav
+  # Check if spatial data needs to be redownloaded from the analytics folder
+  spatial_timestamp_exists <- sirfunctions_io(
+    "exists.file",
+    NULL,
+    file.path(analytic_folder, "spatial_timestamp.rds"),
+    edav = edav
   )
-  cli::cli_process_done()
 
-  cli::cli_process_start("2) Loading province shape files")
-  spatial.data$global.prov <- load_clean_prov_sp(
-    fp = file.path(spatial_folder, global_prov_sf_name),
-    edav = use_edav
-  )
-  cli::cli_process_done()
+  if (spatial_timestamp_exists) {
+    # Check if it's recent or needs updating
+    edav_spatial_timestamp <- sirfunctions_io(
+      "read",
+      NULL,
+      file.path(analytic_folder, "spatial_timestamp.rds"),
+      edav = edav
+    ) |>
+      dplyr::select(name, lastModifiedEDAV = lastModified)
 
-  cli::cli_process_start("3) Loading district shape files")
-  spatial.data$global.dist <- load_clean_dist_sp(
-    fp = file.path(spatial_folder, global_dist_sf_name),
-    edav = use_edav
-  )
-  cli::cli_process_done()
+    edav_spatial_folder_info <- sirfunctions_io(
+      "read",
+      NULL,
+      file.path(spatial_folder),
+      edav = edav
+    ) |>
+      dplyr::select(name, lastModified)
+
+    spatial_timestamp_comparison <- dplyr::left_join(edav_spatial_timestamp,
+                                                     edav_spatial_folder_info) |>
+      dplyr::mutate(updated = ifelse(lastModifiedEDAV == lastModified, TRUE, FALSE)) |>
+      dplyr::pull(updated) |> sum(na.rm = TRUE)
+  } else {
+
+    spatial_timestamp_comparison <- 0
+
+  }
+
+  if (spatial_timestamp_comparison == 3) {
+    cli::cli_alert_success("Spatial data in the analytic folder is up to date. Loading from cache...")
+    spatial.data <- sirfunctions_io(
+      "read",
+      NULL,
+      file.path(analytic_folder, spatial_data_name),
+      edav = edav
+    )
+  } else {
+    if (spatial_timestamp_exists) {
+      cli::cli_alert_warning("Spatial data in the analytic folder is outdated. Recreating from the spatial folder")
+    } else {
+      cli::cli_alert_warning("No spatial timestamp exists. Recreating from the spatial folder")
+    }
+
+    cli::cli_process_start("1) Loading country shape files")
+    spatial.data$global.ctry <- load_clean_ctry_sp(
+      fp = file.path(spatial_folder, global_ctry_sf_name),
+      edav = use_edav
+    )
+    cli::cli_process_done()
+
+    cli::cli_process_start("2) Loading province shape files")
+    spatial.data$global.prov <- load_clean_prov_sp(
+      fp = file.path(spatial_folder, global_prov_sf_name),
+      edav = use_edav
+    )
+    cli::cli_process_done()
+
+    cli::cli_process_start("3) Loading district shape files")
+    spatial.data$global.dist <- load_clean_dist_sp(
+      fp = file.path(spatial_folder, global_dist_sf_name),
+      edav = use_edav
+    )
+    cli::cli_process_done()
+  }
 
   cli::cli_process_start("4) Loading AFP line list data (This file is almost 3GB and can take a while)")
   raw.data$afp <-
