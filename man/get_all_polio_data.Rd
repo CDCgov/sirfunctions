@@ -54,7 +54,7 @@ Defaults to \code{Inf}, which keeps all archives. Set to a finite number
 (e.g., 3) to automatically delete older archives beyond the N most recent.}
 
 \item{output_format}{str: output_format to save files as.
-Available formats include 'rds' 'rda' 'csv' 'qs2' and 'parquet', Defaults is #' 'rds'.}
+Available formats include 'rds' and 'qs2'. Defaults is 'rds'.}
 
 \item{local_caching}{\code{logical} Enable local caching so data is stored locally and
 only downloaded when there is updated data from EDAV.}

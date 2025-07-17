@@ -120,7 +120,8 @@ get_azure_storage_connection <- function(
 #' - `"exists.dir"`: determines whether a directory is present.
 #' - `"exists.file"`: determines whether a file is present.
 #' - `"create.dir"`: creates a directory to the specified `file_path`.
-#' - `"delete"`: deletes a file or folder in the specified `file_path`.
+#' - `"delete"`: deletes a file in the specified `file_path`.
+#' - `"delete.dir"`: deletes a folder in the specified `file_path.`
 #' @param file_loc `str` Path of file relative to the `default_folder`.
 #' @param default_folder `str` The default folder to use. Defaults to `"GID/PEB/SIR`.
 #' @param edav `logical` Whether the function should interact with the EDAV environment.
@@ -875,7 +876,7 @@ normalize_format <- function(fmt) {
 #'   Defaults to `Inf`, which keeps all archives. Set to a finite number
 #'   (e.g., 3) to automatically delete older archives beyond the N most recent.
 #' @param output_format str: output_format to save files as.
-#' Available formats include 'rds' 'rda' 'csv' 'qs2' and 'parquet', Defaults is #' 'rds'.
+#' Available formats include 'rds' and 'qs2'. Defaults is 'rds'.
 #' @param local_caching `logical` Enable local caching so data is stored locally and
 #' only downloaded when there is updated data from EDAV.
 #' @param use_archived_data `logical` Allows the ability to recreate the raw data file using previous
@@ -906,6 +907,11 @@ get_all_polio_data <- function(
   # check to see that size parameter is appropriate
   if (!size %in% c("small", "medium", "large")) {
     stop("The parameter 'size' must be either 'small', 'medium', or 'large'")
+  }
+
+  # Check output format
+  if (!output_format %in% c("rds", "qs2")) {
+    stop("Only rds and qs2 is supported at this time.")
   }
 
 # normalize and validate both output formats

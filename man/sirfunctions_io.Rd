@@ -24,7 +24,8 @@ sirfunctions_io(
 \item \code{"exists.dir"}: determines whether a directory is present.
 \item \code{"exists.file"}: determines whether a file is present.
 \item \code{"create.dir"}: creates a directory to the specified \code{file_path}.
-\item \code{"delete"}: deletes a file or folder in the specified \code{file_path}.
+\item \code{"delete"}: deletes a file in the specified \code{file_path}.
+\item \code{"delete.dir"}: deletes a folder in the specified \code{file_path.}
 }}
 
 \item{default_folder}{\code{str} The default folder to use. Defaults to \verb{"GID/PEB/SIR}.}
