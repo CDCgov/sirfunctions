@@ -1356,7 +1356,7 @@ if (!force.new.run) {
       dplyr::select(name, lastModifiedEDAV = lastModified)
 
     edav_spatial_folder_info <- sirfunctions_io(
-      "read",
+      "list",
       NULL,
       file.path(spatial_folder),
       edav = edav
