@@ -917,6 +917,28 @@ get_all_polio_data <- function(
 # normalize and validate both output formats
 output_format <- normalize_format(output_format)
 
+# Fail safe in instances where EDAV connection fails
+if (use_edav) {
+  verify_edav <- tryCatch(
+    {
+      invisible(capture.output(test_EDAV_connection()))
+      cli::cli_alert_success("Connect to EDAV successful.")
+      TRUE
+    },
+    error = \(e) {
+      cli::cli_alert_info("Connection to EDAV unsuccessful.")
+      FALSE
+    }
+  )
+}
+
+if (!verify_edav) {
+  cli::cli_alert_info("Unable to obtain data from EDAV. Loading from local cache instead.")
+  cli::cli_alert_info("NOTE: Data may be stale. Please review the global polio dataset metadata for information on when the data was last processed.")
+  raw.data <- force_load_polio_data_cache(attach.spatial.data, output_format)
+  return(raw.data)
+}
+
 # Constant variables
 # Each file comes out of these folders
 analytic_folder <- file.path(data_folder, "analytic")
@@ -944,27 +966,6 @@ if (use_archived_data) {
     keep_n_archives
   )
   recreate.static.files <- TRUE
-}
-
-
-# Fail safe in instances where EDAV connection fails
-if (use_edav) {
-  verify_edav <- tryCatch(
-    {
-      test_EDAV_connection()
-      TRUE
-    },
-    error = \(e) {
-      cli::cli_alert_info("Connection to EDAV unsuccessful.")
-      FALSE
-    }
-  )
-}
-
-if (!verify_edav) {
-  cli::cli_alert_info("Unable to obtain data from EDAV. Loading from local cache instead.")
-  raw.data <- force_load_polio_data_cache(attach.spatial.data, output_format)
-  return(raw.data)
 }
 
 # look to see if the recent raw data rds is in the analytic folder
@@ -1014,7 +1015,7 @@ if (!force.new.run) {
 
   # Check if using the local cache is sufficient
   if (use_edav & size == "small" & local_caching) {
-    if (!recache_raw_data(analytic_folder, use_edav)) {
+    if (!recache_raw_data(analytic_folder, use_edav, output_format)) {
 
       raw.data <- sirfunctions_io("read", NULL, file.path(rappdirs::user_data_dir("sirfunctions"),
                                                           paste0("raw_data", output_format)),
@@ -3908,6 +3909,7 @@ get_archived_polis_data <- function(data_folder_path, edav, keep_n_archives = In
 #'
 #' @param analytic_folder `str` Path to the analytics folder.
 #' @param edav `logical` Should we use EDAV? Defaults to TRUE.
+#' @param output_format `str` Output format to load.
 #'
 #' @details
 #' If `get_all_polio_data()` is used locally, then calling the function does not
@@ -3916,7 +3918,7 @@ get_archived_polis_data <- function(data_folder_path, edav, keep_n_archives = In
 #' @returns `logical` Whether the global polio dataset should be cached.
 #' @keywords internal
 #'
-recache_raw_data <- function(analytic_folder, edav) {
+recache_raw_data <- function(analytic_folder, edav, output_format) {
 
   raw_data_timestamp_exists <- invisible(sirfunctions_io(
     "exists.file",
@@ -4068,7 +4070,7 @@ force_load_polio_data_cache <- function(attach.spatial.data, output_format = ".r
 
   if (attach.spatial.data) {
     # Check if spatial data exists in the cache
-    if (sirfunction_io("exists.file", NULL, spatial_data_path, edav = FALSE)) {
+    if (sirfunctions_io("exists.file", NULL, spatial_data_path, edav = FALSE)) {
       cli::cli_alert_info("Loading spatial data from cache")
       spatial_data <- sirfunctions_io("read", NULL, spatial_data_path, edav = FALSE)
 
@@ -4081,7 +4083,8 @@ force_load_polio_data_cache <- function(attach.spatial.data, output_format = ".r
       cli::cli_alert_danger("The local cache does not have a copy of the spatial dataset. Unable to attach spatial data.")
     }
   }
-
+  cli::cli_alert_info(paste0("The local global polio dataset was last pulled from POLIS on: ",
+                             raw.data$metadata$download_time))
   return (raw.data)
 
 }
