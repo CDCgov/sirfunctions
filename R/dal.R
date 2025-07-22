@@ -946,6 +946,27 @@ if (use_archived_data) {
   recreate.static.files <- TRUE
 }
 
+
+# Fail safe in instances where EDAV connection fails
+if (use_edav) {
+  verify_edav <- tryCatch(
+    {
+      test_EDAV_connection()
+      TRUE
+    },
+    error = \(e) {
+      cli::cli_alert_info("Connection to EDAV unsuccessful.")
+      FALSE
+    }
+  )
+}
+
+if (!verify_edav) {
+  cli::cli_alert_info("Unable to obtain data from EDAV. Loading from local cache instead.")
+  raw.data <- force_load_polio_data_cache(attach.spatial.data, output_format)
+  return(raw.data)
+}
+
 # look to see if the recent raw data rds is in the analytic folder
 prev_table <- sirfunctions_io("list", NULL, analytic_folder,
   edav = use_edav
@@ -987,6 +1008,7 @@ if (recreate.static.files) {
   force.new.run <- T
   create.cache <- T
 }
+
 
 if (!force.new.run) {
 
