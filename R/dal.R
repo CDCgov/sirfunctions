@@ -4015,3 +4015,51 @@ recache_spatial_data <- function(analytic_folder, spatial_folder, edav, output_f
 
   }
 
+#' Force load data from the local cache
+#'
+#' @description
+#' In certain instances, it may be desirable to load the global polio data directly from the local
+#' cache. For example, if connection from EDAV fails or if there are internet connection issues.
+#'
+#' @param attach.spatial.data `logical` Should spatial data be attached?
+#' @param output_format `str` Output format of the file to load to R.
+#'
+#' @returns `list` List containing information pertinent to the global polio dataset.
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' force_load_polio_data_cache(attach.spatial.data = TRUE)
+#' }
+force_load_polio_data_cache <- function(attach.spatial.data, output_format = ".rds") {
+  cache_dir <- rappdirs::user_data_dir("sirfunctions")
+  raw_data_path <- file.path(cache_dir, paste0("raw_data", output_format))
+  spatial_data_path <- file.path(cache_dir, paste0("spatial_data", output_format))
+
+  # Check if raw_data exists in the cache
+  if (sirfunctions_io("exists.file", NULL, raw_data_path, edav = FALSE)) {
+    cli::cli_alert_info("Loading polio data from cache")
+    raw.data <- sirfunctions_io("read", NULL, raw_data_path, edav = FALSE)
+  } else {
+    cli::cli_abort("The local cache does not have a copy of the global polio dataset.")
+  }
+
+  if (attach.spatial.data) {
+    # Check if spatial data exists in the cache
+    if (sirfunction_io("exists.file", NULL, spatial_data_path, edav = FALSE)) {
+      cli::cli_alert_info("Loading spatial data from cache")
+      spatial_data <- sirfunctions_io("read", NULL, spatial_data_path, edav = FALSE)
+
+      raw.data$global.ctry <- spatial.data$global.ctry
+      raw.data$global.prov <- spatial.data$global.prov
+      raw.data$global.dist <- spatial.data$global.dist
+      raw.data$roads <- spatial.data$roads
+      raw.data$cities <- spatial.data$cities
+    } else {
+      cli::cli_alert_danger("The local cache does not have a copy of the spatial dataset. Unable to attach spatial data.")
+    }
+  }
+
+  return (raw.data)
+
+}
