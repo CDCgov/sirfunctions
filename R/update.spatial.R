@@ -24,9 +24,22 @@ update.city.spatial.data <- function(edav, city.loc = "Data/spatial/cities.new.r
 }
 
 
+#' Update Roads Spatial data
+#'
+#' @description
+#' Function to download latest roads data for mapping purposes
+#' @param edav boolean: T or F depending on if final save location is in Azure
+#' @param city.loc str: location to save roads spatial rds
+#' @returns NULL
+update.road.spatial.data <- function(edav, road.loc = "Data/spatial/roads.new.rds"){
 
+  roads <- rnaturalearth::ne_download(scale = 10, type = "roads")
 
-roads <- rnaturalearth::ne_download(scale = 10, type = "roads")
+  if(edav){
+    edav_io(io = "write", file_loc = road.loc, obj = roads)
+  }else{
+    readr::write_rds(road.loc)
+  }
 
-edav_io(io = "write", file_loc = "Data/spatial/roads.new.rds", obj = roads)
+}
 
