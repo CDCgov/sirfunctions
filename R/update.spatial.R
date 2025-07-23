@@ -18,7 +18,7 @@ update.city.spatial.data <- function(edav, city.loc = "Data/spatial/cities.new.r
   if(edav){
     edav_io(io = "write", file_loc = city.loc, obj = cities)
   }else{
-    readr::write_rds(city.loc)
+    readr::write_rds(cities, city.loc)
   }
 
 }
@@ -38,7 +38,7 @@ update.road.spatial.data <- function(edav, road.loc = "Data/spatial/roads.new.rd
   if(edav){
     edav_io(io = "write", file_loc = road.loc, obj = roads)
   }else{
-    readr::write_rds(road.loc)
+    readr::write_rds(roads, road.loc)
   }
 
 }
