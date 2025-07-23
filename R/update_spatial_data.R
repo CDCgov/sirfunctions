@@ -12,7 +12,9 @@ update_city_spatial_data <- function(edav, city.loc = "Data/spatial/cities.new.r
   #create temp file to store city data
   temp.cities.loc <- tempfile(fileext=".geojson")
 
-  download.file(url = "https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/World_Cities/FeatureServer/0/query?outFields=*&where=1%3D1&f=geojson",
+  download.file(url = paste0("https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/",
+                             "rest/services/World_Cities/FeatureServer/0/",
+                             "query?outFields=*&where=1%3D1&f=geojson"),
                 destfile = temp.cities.loc)
 
   cities <- sf::st_read(temp.cities.loc)
