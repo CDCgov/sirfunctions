@@ -4,10 +4,21 @@
 #' Function to download latest city data for mapping purposes.
 #'
 #' @param edav `logical` `TRUE` or `FALSE` depending on if final save location is in Azure.
-#' @param city.loc `str` Location to save city spatial rds.
+#' @param output_path `str` Absolute file path location to save city spatial data. Outputs in RDS by default,
+#' but also supports `.qs2` format.
 #' @returns `NULL`, invisibly.
 #' @export
-update_city_spatial_data <- function(edav, city.loc = "Data/spatial/cities.new.rds"){
+#' @examples
+#' \dontrun{
+#' update_city_spatial_data(edav = TRUE)
+#' }
+#'
+update_city_spatial_data <- function(edav, output_path = "GID/PEB/SIR/Data/spatial/cities.new.rds"){
+
+  if (!endsWith(output_path, ".rds") &
+      !endsWith(output_path, ".qs2")) {
+    cli::cli_abort("Only 'rds' and 'qs2' outputs are supported at this time.")
+  }
 
   #create temp file to store city data
   temp.cities.loc <- tempfile(fileext=".geojson")
@@ -19,12 +30,7 @@ update_city_spatial_data <- function(edav, city.loc = "Data/spatial/cities.new.r
 
   cities <- sf::st_read(temp.cities.loc)
 
-  if(edav){
-    edav_io(io = "write", file_loc = city.loc, obj = cities)
-  }else{
-    readr::write_rds(cities, city.loc)
-  }
-
+  sirfunctions_io("write", NULL, file_loc = output_path, edav = edav, obj = cities)
   invisible()
 
 }
@@ -35,10 +41,22 @@ update_city_spatial_data <- function(edav, city.loc = "Data/spatial/cities.new.r
 #' @description
 #' Function to download latest roads data for mapping purposes
 #' @param edav `logical` `TRUE` or `FALSE` depending on if final save location is in Azure.
-#' @param road_loc `str` Location to save roads spatial rds.
+#' @param output_path `str` Absolute file path location to save roads spatial data. Outputs in RDS by default,
+#' but also supports `.qs2` format.
 #' @returns `NULL`, invisibly.
 #' @export
-update_road_spatial_data <- function(edav, road_loc = "Data/spatial/roads.new.rds"){
+#' @examples
+#' \dontrun{
+#' update_road_spatial_data(edav = TRUE)
+#' }
+#'
+update_road_spatial_data <- function(edav, output_path = "GID/PEB/SIR/Data/spatial/roads.new.rds"){
+
+  if (!endsWith(output_path, ".rds") &
+      !endsWith(output_path, ".qs2")) {
+    cli::cli_abort("Only 'rds' and 'qs2' outputs are supported at this time.")
+  }
+
 
   if (!requireNamespace("rnaturalearth", quietly = TRUE)) {
     stop('Package "rnaturalearth" must be installed to use this function.',
@@ -48,12 +66,7 @@ update_road_spatial_data <- function(edav, road_loc = "Data/spatial/roads.new.rd
 
   roads <- rnaturalearth::ne_download(scale = 10, type = "roads")
 
-  if(edav){
-    edav_io(io = "write", file_loc = road.loc, obj = roads)
-  }else{
-    readr::write_rds(roads, road_loc)
-  }
-
+  sirfunctions_io("write", NULL, file_loc = output_path, edav = edav, obj = roads)
   invisible()
 
   }

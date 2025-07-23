@@ -4,16 +4,26 @@
 \alias{update_city_spatial_data}
 \title{Update City Spatial data}
 \usage{
-update_city_spatial_data(edav, city.loc = "Data/spatial/cities.new.rds")
+update_city_spatial_data(
+  edav,
+  output_path = "GID/PEB/SIR/Data/spatial/cities.new.rds"
+)
 }
 \arguments{
 \item{edav}{\code{logical} \code{TRUE} or \code{FALSE} depending on if final save location is in Azure.}
 
-\item{city.loc}{\code{str} Location to save city spatial rds.}
+\item{output_path}{\code{str} Absolute file path location to save city spatial data. Outputs in RDS by default,
+but also supports \code{.qs2} format.}
 }
 \value{
 \code{NULL}, invisibly.
 }
 \description{
 Function to download latest city data for mapping purposes.
+}
+\examples{
+\dontrun{
+update_city_spatial_data(edav = TRUE)
+}
+
 }

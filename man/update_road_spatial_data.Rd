@@ -4,16 +4,26 @@
 \alias{update_road_spatial_data}
 \title{Update Roads Spatial data}
 \usage{
-update_road_spatial_data(edav, road_loc = "Data/spatial/roads.new.rds")
+update_road_spatial_data(
+  edav,
+  output_path = "GID/PEB/SIR/Data/spatial/roads.new.rds"
+)
 }
 \arguments{
 \item{edav}{\code{logical} \code{TRUE} or \code{FALSE} depending on if final save location is in Azure.}
 
-\item{road_loc}{\code{str} Location to save roads spatial rds.}
+\item{output_path}{\code{str} Absolute file path location to save roads spatial data. Outputs in RDS by default,
+but also supports \code{.qs2} format.}
 }
 \value{
 \code{NULL}, invisibly.
 }
 \description{
 Function to download latest roads data for mapping purposes
+}
+\examples{
+\dontrun{
+update_road_spatial_data(edav = TRUE)
+}
+
 }
