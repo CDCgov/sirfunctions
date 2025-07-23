@@ -1371,7 +1371,7 @@ if (!force.new.run) {
     "exists.file",
     NULL,
     file.path(analytic_folder, paste0("spatial_timestamp", output_format)),
-    edav = edav
+    edav = use_edav
   )
 
   if (spatial_timestamp_exists) {
@@ -1380,7 +1380,7 @@ if (!force.new.run) {
       "read",
       NULL,
       file.path(analytic_folder, paste0("spatial_timestamp", output_format)),
-      edav = edav
+      edav = use_edav
     ) |>
       dplyr::select(name, lastModifiedEDAV = lastModified)
 
@@ -1388,7 +1388,7 @@ if (!force.new.run) {
       "list",
       NULL,
       file.path(spatial_folder),
-      edav = edav
+      edav = use_edav
     ) |>
       dplyr::select(name, lastModified)
 
@@ -1408,7 +1408,7 @@ if (!force.new.run) {
       "read",
       NULL,
       file.path(analytic_folder, spatial_data_name),
-      edav = edav
+      edav = use_edav
     )
   } else {
     if (spatial_timestamp_exists) {
