@@ -6,7 +6,8 @@
 \usage{
 update_road_spatial_data(
   edav,
-  output_path = "GID/PEB/SIR/Data/spatial/roads.new.rds"
+  output_path = "GID/PEB/SIR/Data/spatial/roads.new.rds",
+  resolution = 10
 )
 }
 \arguments{
@@ -14,6 +15,9 @@ update_road_spatial_data(
 
 \item{output_path}{\code{str} Absolute file path location to save roads spatial data. Outputs in RDS by default,
 but also supports \code{.qs2} format.}
+
+\item{resolution}{\code{int} options are 110 (low resolution), 50 (medium resolution)
+and 10 (high resolution); default is 10}
 }
 \value{
 \code{NULL}, invisibly.
