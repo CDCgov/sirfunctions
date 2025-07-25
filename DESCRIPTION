@@ -57,6 +57,7 @@ Suggests:
     ggpubr,
     ggrepel,
     prettyunits,
+    rnaturalearth,
     janitor,
     readxl,
     tibble,
