@@ -43,6 +43,8 @@ update_city_spatial_data <- function(edav, output_path = "GID/PEB/SIR/Data/spati
 #' @param edav `logical` `TRUE` or `FALSE` depending on if final save location is in Azure.
 #' @param output_path `str` Absolute file path location to save roads spatial data. Outputs in RDS by default,
 #' but also supports `.qs2` format.
+#' @param resolution `int` options are 110 (low resolution), 50 (medium resolution)
+#' and 10 (high resolution); default is 10
 #' @returns `NULL`, invisibly.
 #' @export
 #' @examples
@@ -50,7 +52,8 @@ update_city_spatial_data <- function(edav, output_path = "GID/PEB/SIR/Data/spati
 #' update_road_spatial_data(edav = TRUE)
 #' }
 #'
-update_road_spatial_data <- function(edav, output_path = "GID/PEB/SIR/Data/spatial/roads.new.rds"){
+update_road_spatial_data <- function(edav, output_path = "GID/PEB/SIR/Data/spatial/roads.new.rds",
+                                     resolution = 10){
 
   if (!endsWith(output_path, ".rds") &
       !endsWith(output_path, ".qs2")) {
@@ -64,7 +67,11 @@ update_road_spatial_data <- function(edav, output_path = "GID/PEB/SIR/Data/spati
     )
   }
 
-  roads <- rnaturalearth::ne_download(scale = 10, type = "roads")
+  if (!resolution %in% c(10, 50, 110)) {
+    stop("Resolution must be either 10, 50 or 110", .call = FALSE)
+  }
+
+  roads <- rnaturalearth::ne_download(scale = resolution, type = "roads")
 
   sirfunctions_io("write", NULL, file_loc = output_path, edav = edav, obj = roads)
   invisible()
