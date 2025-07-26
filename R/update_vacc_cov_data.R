@@ -21,5 +21,29 @@
 #' }
 #'
 update_vacc_cov_data <- function(tif_folder, edav, output_path){
+
+  if (!endsWith(output_path, ".rds") &
+      !endsWith(output_path, ".qs2")) {
+    cli::cli_abort("Only 'rds' and 'qs2' outputs are supported at this time.")
+  }
+
+
+  if (!requireNamespace("terra", quietly = TRUE)) {
+    stop('Package "terra" must be installed to use this function.',
+         .call = FALSE
+    )
+  }
+
+  cli::cli_process_start("Downloading SIR spatial data",
+                         "SIR spatial data downloaded")
   ctry <- load_clean_ctry_sp()
+  prov <- load_clean_prov_sp()
+  dist <- load_clean_dist_sp()
+  cli::cli_process_done()
+
+  tif_files <- list.files(tif_folder, pattern = "\\.tif$", full.names = TRUE)
+
+  my_brick2 <- terra::rast(tif_files)
+
+  x <- exactextractr::exact_extract(my_brick2, ctry, fun = "mean")
 }
