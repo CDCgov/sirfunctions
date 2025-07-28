@@ -47,11 +47,13 @@ update_vacc_cov_data <- function(tif_folder, edav, output_path){
   dist <- load_clean_dist_sp()
   cli::cli_process_done()
 
+  cli::cli_process_start("Generating a raster brick from geotifs", "Raster brick generated")
   tif_files <- list.files(tif_folder, pattern = "\\.tif$", full.names = TRUE)
 
   raster_brick <- terra::rast(tif_files)
+  cli::cli_process_done()
 
-  #extracting the mean coverage by spatial area
+  #extracting the mean coverage by spatial area at the country level
   ctry_extract <- exactextractr::exact_extract(raster_brick, ctry, fun = "mean")
 
   #bind the columns of the spatial data and extracted output together
@@ -65,7 +67,7 @@ update_vacc_cov_data <- function(tif_folder, edav, output_path){
     #the values here can change depending on how many years of data
     #are available and vaccines included so they are dynamically
     #chosen
-    tidyr::pivot_longer(names(x)[1]:names(x)[length(x)]) |>
+    tidyr::pivot_longer(names(ctry_extract)[1]:names(ctry_extract)[length(ctry_extract)]) |>
     #dropping all extracts without values
     dplyr::filter(!is.na(value)) |>
     #removing '.mean' from the name
@@ -98,5 +100,65 @@ update_vacc_cov_data <- function(tif_folder, edav, output_path){
     #we drop all inappropriate years
     dplyr::filter(dplyr::between(year, yr.st, yr.end)) |>
     dplyr::select(ADM0_NAME, GUID, year, vacc, value)
+
+  #extracting the mean coverage by spatial area at the province level
+  prov_extract <- exactextractr::exact_extract(raster_brick, prov, fun = "mean")
+
+  prov_cov <- dplyr::bind_cols(
+    prov |>
+      tibble::as_tibble() |>
+      dplyr::select(ADM1_NAME, GUID, yr.st, yr.end),
+    prov_extract
+  ) |>
+    tidyr::pivot_longer(names(prov_extract)[1]:names(prov_extract)[length(prov_extract)]) |>
+    dplyr::filter(!is.na(value)) |>
+    dplyr::mutate(name = str_replace(name, "mean.", "")) |>
+    tidyr::separate(name,
+                    c("vacc", "cov", "type", "method",
+                      "start", "end", "index")) |>
+    dplyr::select(ADM1_NAME, GUID, yr.st, yr.end, vacc,
+                  start, end, index, value) |>
+    dplyr::mutate(
+      start = as.integer(start),
+      end = as.integer(end),
+      index = as.integer(index)
+    ) |>
+    dplyr::rowwise() |>
+    dplyr::mutate(
+      year = (start:end)[index]
+    ) |>
+    dplyr::ungroup() |>
+    dplyr::filter(dplyr::between(year, yr.st, yr.end)) |>
+    dplyr::select(ADM1_NAME, GUID, year, vacc, value)
+
+  #extracting the mean coverage by spatial area at the district level
+  dist_extract <- exactextractr::exact_extract(raster_brick, dist, fun = "mean")
+
+  dist_cov <- dplyr::bind_cols(
+    dist |>
+      tibble::as_tibble() |>
+      dplyr::select(ADM2_NAME, GUID, yr.st, yr.end),
+    dist_extract
+  ) |>
+    tidyr::pivot_longer(names(dist_extract)[1]:names(dist_extract)[length(dist_extract)]) |>
+    dplyr::filter(!is.na(value)) |>
+    dplyr::mutate(name = str_replace(name, "mean.", "")) |>
+    tidyr::separate(name,
+                    c("vacc", "cov", "type", "method",
+                      "start", "end", "index")) |>
+    dplyr::select(ADM2_NAME, GUID, yr.st, yr.end, vacc,
+                  start, end, index, value) |>
+    dplyr::mutate(
+      start = as.integer(start),
+      end = as.integer(end),
+      index = as.integer(index)
+    ) |>
+    dplyr::rowwise() |>
+    dplyr::mutate(
+      year = (start:end)[index]
+    ) |>
+    dplyr::ungroup() |>
+    dplyr::filter(dplyr::between(year, yr.st, yr.end)) |>
+    dplyr::select(ADM2_NAME, GUID, year, vacc, value)
 
 }
