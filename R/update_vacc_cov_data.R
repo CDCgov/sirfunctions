@@ -11,7 +11,7 @@
 #'
 #' @param tif_folder `str` absolute path to the folder containing all tifs of interest
 #' @param edav `logical` `TRUE` or `FALSE` depending on if final save location is in Azure.
-#' @param output_path `str` Absolute file path location to save coverage
+#' @param output_folder_path `str` Absolute folder path location to save ctry, prov and dist coverage
 #' data. Outputs in RDS by default, but also supports `.qs2` format.
 #' @returns `NULL`, invisibly.
 #' @export
@@ -20,7 +20,7 @@
 #' update_vacc_cov_data()
 #' }
 #'
-update_vacc_cov_data <- function(tif_folder, edav, output_path){
+update_vacc_cov_data <- function(tif_folder, edav, output_folder_path){
 
   if (!endsWith(output_path, ".rds") &
       !endsWith(output_path, ".qs2")) {
@@ -101,6 +101,8 @@ update_vacc_cov_data <- function(tif_folder, edav, output_path){
     dplyr::filter(dplyr::between(year, yr.st, yr.end)) |>
     dplyr::select(ADM0_NAME, GUID, year, vacc, value)
 
+  sirfunctions_io("write", NULL, file_loc = output_path, edav = edav, obj = ctry_cov)
+
   #extracting the mean coverage by spatial area at the province level
   prov_extract <- exactextractr::exact_extract(raster_brick, prov, fun = "mean")
 
@@ -130,6 +132,8 @@ update_vacc_cov_data <- function(tif_folder, edav, output_path){
     dplyr::ungroup() |>
     dplyr::filter(dplyr::between(year, yr.st, yr.end)) |>
     dplyr::select(ADM1_NAME, GUID, year, vacc, value)
+
+  sirfunctions_io("write", NULL, file_loc = output_path, edav = edav, obj = ctry_cov)
 
   #extracting the mean coverage by spatial area at the district level
   dist_extract <- exactextractr::exact_extract(raster_brick, dist, fun = "mean")
