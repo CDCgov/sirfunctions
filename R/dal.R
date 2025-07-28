@@ -1048,7 +1048,6 @@ if (!force.new.run) {
             "read",
             NULL,
             file.path(analytic_folder, paste0("spatial_timestamp", output_format)),
-            obj = edav_spatial_timestamp,
             edav = use_edav
           )
           sirfunctions_io("write", NULL, file.path(rappdirs::user_data_dir("sirfunctions"),
