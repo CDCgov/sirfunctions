@@ -53,6 +53,8 @@ update_vacc_cov_data <- function(tif_folder, edav, output_folder, output_format 
   raster_brick <- terra::rast(tif_files)
   cli::cli_process_done()
 
+  cli::cli_process_start("Extracting country level measurements", "Country level measurements extracted")
+
   #extracting the mean coverage by spatial area at the country level
   ctry_extract <- exactextractr::exact_extract(raster_brick, ctry, fun = "mean")
 
@@ -103,6 +105,10 @@ update_vacc_cov_data <- function(tif_folder, edav, output_folder, output_format 
 
   sirfunctions_io("write", NULL, file_loc = file.path(output_folder, paste0("ctry_cov",output_format)), edav = edav, obj = ctry_cov)
 
+  cli::cli_process_done()
+
+  cli::cli_process_start("Extracting province level measurements", "Province level measurements extracted")
+
   #extracting the mean coverage by spatial area at the province level
   prov_extract <- exactextractr::exact_extract(raster_brick, prov, fun = "mean")
 
@@ -135,6 +141,10 @@ update_vacc_cov_data <- function(tif_folder, edav, output_folder, output_format 
 
   sirfunctions_io("write", NULL, file_loc = file.path(output_folder, paste0("prov_cov",output_format)), edav = edav, obj = prov_cov)
 
+  cli::cli_process_done()
+
+  cli::cli_process_start("Extracting district level measurements", "District level measurements extracted")
+
   #extracting the mean coverage by spatial area at the district level
   dist_extract <- exactextractr::exact_extract(raster_brick, dist, fun = "mean")
 
@@ -166,5 +176,9 @@ update_vacc_cov_data <- function(tif_folder, edav, output_folder, output_format 
     dplyr::select(ADM2_NAME, GUID, year, vacc, value)
 
   sirfunctions_io("write", NULL, file_loc = file.path(output_folder, paste0("dist_cov",output_format)), edav = edav, obj = dist_cov)
+
+  cli::cli_process_done()
+
+  invisible()
 
 }
