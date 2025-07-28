@@ -71,7 +71,9 @@ Suggests:
     zoo,
     writexl,
     rvg,
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0), 
+    exactextractr, 
+    terra
 VignetteBuilder:
     knitr
 Config/testthat/edition: 3
