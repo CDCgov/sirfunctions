@@ -120,7 +120,8 @@ get_azure_storage_connection <- function(
 #' - `"exists.dir"`: determines whether a directory is present.
 #' - `"exists.file"`: determines whether a file is present.
 #' - `"create.dir"`: creates a directory to the specified `file_path`.
-#' - `"delete"`: deletes a file or folder in the specified `file_path`.
+#' - `"delete"`: deletes a file in the specified `file_path`.
+#' - `"delete.dir"`: deletes a folder in the specified `file_path.`
 #' @param file_loc `str` Path of file relative to the `default_folder`.
 #' @param default_folder `str` The default folder to use. Defaults to `"GID/PEB/SIR`.
 #' @param edav `logical` Whether the function should interact with the EDAV environment.
@@ -875,9 +876,9 @@ normalize_format <- function(fmt) {
 #'   Defaults to `Inf`, which keeps all archives. Set to a finite number
 #'   (e.g., 3) to automatically delete older archives beyond the N most recent.
 #' @param output_format str: output_format to save files as.
-#' Available formats include 'rds' 'rda' 'csv' 'qs2' and 'parquet', Defaults is #' 'rds'.
-#'
-#'
+#' Available formats include 'rds' and 'qs2'. Defaults is 'rds'.
+#' @param local_caching `logical` Enable local caching so data is stored locally and
+#' only downloaded when there is updated data from EDAV.
 #' @param use_archived_data `logical` Allows the ability to recreate the raw data file using previous
 #' preprocessed data. If
 #' @returns Named `list` containing polio data that is relevant to CDC.
@@ -900,15 +901,43 @@ get_all_polio_data <- function(
     use_archived_data = FALSE,
     archive = TRUE,
     keep_n_archives = Inf,
-    output_format = "rds") {
+    output_format = "rds",
+    local_caching = TRUE) {
 
   # check to see that size parameter is appropriate
   if (!size %in% c("small", "medium", "large")) {
     stop("The parameter 'size' must be either 'small', 'medium', or 'large'")
   }
 
+  # Check output format
+  if (!output_format %in% c("rds", "qs2")) {
+    stop("Only rds and qs2 is supported at this time.")
+  }
+
 # normalize and validate both output formats
 output_format <- normalize_format(output_format)
+
+# Fail safe in instances where EDAV connection fails
+if (use_edav) {
+  verify_edav <- tryCatch(
+    {
+      invisible(capture.output(test_EDAV_connection()))
+      cli::cli_alert_success("Connect to EDAV successful.")
+      TRUE
+    },
+    error = \(e) {
+      cli::cli_alert_info("Connection to EDAV unsuccessful.")
+      FALSE
+    }
+  )
+}
+
+if (!verify_edav) {
+  cli::cli_alert_info("Unable to obtain data from EDAV. Loading from local cache instead.")
+  cli::cli_alert_info("NOTE: Data may be stale. Please review the global polio dataset metadata for information on when the data was last processed.")
+  raw.data <- force_load_polio_data_cache(attach.spatial.data, output_format)
+  return(raw.data)
+}
 
 # Constant variables
 # Each file comes out of these folders
@@ -981,13 +1010,71 @@ if (recreate.static.files) {
   create.cache <- T
 }
 
+
 if (!force.new.run) {
-  # determine all raw data files to be downloaded
+
+  # Check if using the local cache is sufficient
+  if (use_edav & size == "small" & local_caching) {
+    if (!recache_raw_data(analytic_folder, use_edav, output_format)) {
+
+      raw.data <- sirfunctions_io("read", NULL, file.path(rappdirs::user_data_dir("sirfunctions"),
+                                                          paste0("raw_data", output_format)),
+                                  edav = FALSE)
+
+      cli::cli_process_start("Checking for duplicates in datasets.")
+      raw.data <- duplicate_check(raw.data)
+      cli::cli_process_done()
+      if (attach.spatial.data) {
+        if (!recache_spatial_data(analytic_folder, spatial_folder,
+                                  use_edav, output_format)) {
+          spatial.data <- sirfunctions_io("read", NULL, file.path(rappdirs::user_data_dir("sirfunctions"),
+                                                                  paste0("spatial_data", output_format)),
+                                          edav = FALSE)
+          raw.data$global.ctry <- spatial.data$global.ctry
+          raw.data$global.prov <- spatial.data$global.prov
+          raw.data$global.dist <- spatial.data$global.dist
+          raw.data$roads <- spatial.data$roads
+          raw.data$cities <- spatial.data$cities
+
+          return(raw.data)
+        } else {
+          spatial.data <- sirfunctions_io("read", NULL, file.path(analytic_folder, spatial_data_name),
+                                          edav = use_edav)
+          sirfunctions_io("write", NULL, file.path(rappdirs::user_data_dir("sirfunctions"),
+                                                                  paste0("spatial_data", output_format)),
+                                          obj = spatial.data,
+                                          edav = FALSE)
+          edav_spatial_timestamp <- sirfunctions_io(
+            "read",
+            NULL,
+            file.path(analytic_folder, paste0("spatial_timestamp", output_format)),
+            edav = use_edav
+          )
+          sirfunctions_io("write", NULL, file.path(rappdirs::user_data_dir("sirfunctions"),
+                                                   paste0("spatial_timestamp", output_format)),
+                          obj = edav_spatial_timestamp,
+                          edav = FALSE)
+
+          raw.data$global.ctry <- spatial.data$global.ctry
+          raw.data$global.prov <- spatial.data$global.prov
+          raw.data$global.dist <- spatial.data$global.dist
+          raw.data$roads <- spatial.data$roads
+          raw.data$cities <- spatial.data$cities
+
+          return(raw.data)
+        }
+      } else {
+        return(raw.data)
+      }
+    }
+  }
+
   if (use_edav) {
     cli::cli_alert_info("Downloading most recent active polio data from 2019 onwards")
   } else {
     cli::cli_alert_info("Loading most recent active polio data from 2019 onwards")
   }
+
   raw.data.post.2019 <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
 
   if (size == "small") {
@@ -1016,7 +1103,7 @@ if (!force.new.run) {
 
   if (size == "large") {
     prev_table <- sirfunctions_io("list", NULL, analytic_folder,
-      edav = use_edav, full_names = TRUE
+                                  edav = use_edav, full_names = TRUE
     ) |>
       dplyr::filter(grepl(raw_data_2016_2018_name, name)) |>
       dplyr::select("file" = "name", "size", "ctime" = "lastModified")
@@ -1048,9 +1135,68 @@ if (!force.new.run) {
     )
   }
 
+  # Only cache the small dataset, which we use in 90% of the case
+  if (use_edav & local_caching) {
+    raw_data_timestamp_exists <- invisible(sirfunctions_io(
+      "exists.file",
+      NULL,
+      file.path(analytic_folder, paste0("raw_data_timestamp", output_format)),
+      edav = use_edav
+    ))
+
+  } else {
+    raw_data_timestamp_exists <- FALSE
+  }
+  if (size == "small" & raw_data_timestamp_exists & local_caching) {
+    cli::cli_process_start("Caching global polio data locally")
+
+    if (!dir.exists(rappdirs::user_data_dir("sirfunctions"))) {
+      dir.create(rappdirs::user_data_dir("sirfunctions"), recursive = TRUE)
+    }
+
+    sirfunctions_io("write", NULL,
+                    file.path(rappdirs::user_data_dir("sirfunctions"), paste0("raw_data", output_format)),
+                    obj = raw.data,
+                    edav = FALSE)
+    # Add edav tag file to local cache dir
+    edav_raw_data_timestamp <- sirfunctions_io(
+      "read",
+      NULL,
+      file.path(analytic_folder, paste0("raw_data_timestamp", output_format)),
+      edav = use_edav
+    )
+
+    sirfunctions_io("write", NULL,
+                    file.path(rappdirs::user_data_dir("sirfunctions"), paste0("raw_data_timestamp", output_format)),
+                    obj = edav_raw_data_timestamp,
+                    edav = FALSE)
+
+    cli::cli_process_done()
+  }
+
+  cli::cli_process_done()
+
+  cli::cli_process_start("Checking for duplicates in datasets.")
+  raw.data <- duplicate_check(raw.data)
   cli::cli_process_done()
 
   if (attach.spatial.data) {
+
+    # Don't recache spatial if up to date
+    if (!recache_spatial_data(analytic_folder, spatial_folder,
+                              use_edav, output_format) & local_caching) {
+      spatial.data <- sirfunctions_io("read", NULL, file.path(rappdirs::user_data_dir("sirfunctions"),
+                                                              paste0("spatial_data", output_format)),
+                                      edav = FALSE)
+      raw.data$global.ctry <- spatial.data$global.ctry
+      raw.data$global.prov <- spatial.data$global.prov
+      raw.data$global.dist <- spatial.data$global.dist
+      raw.data$roads <- spatial.data$roads
+      raw.data$cities <- spatial.data$cities
+
+      return(raw.data)
+    }
+
     if (use_edav) {
       cli::cli_process_start("Downloading and attaching spatial data")
     } else {
@@ -1058,9 +1204,9 @@ if (!force.new.run) {
     }
 
     spatial.data <- sirfunctions_io("read", NULL,
-      file.path(analytic_folder, spatial_data_name),
-      edav = use_edav
-    )
+                                      file.path(analytic_folder, spatial_data_name),
+                                      edav = use_edav
+      )
 
     raw.data$global.ctry <- spatial.data$global.ctry
     raw.data$global.prov <- spatial.data$global.prov
@@ -1069,13 +1215,43 @@ if (!force.new.run) {
     raw.data$cities <- spatial.data$cities
 
     cli::cli_process_done()
+
+    if (use_edav & local_caching) {
+      spatial_timestamp_exists <- sirfunctions_io(
+        "exists.file",
+        NULL,
+        file.path(analytic_folder, paste0("spatial_timestamp", output_format)),
+        edav = use_edav
+      )
+    } else {
+      spatial_timestamp_exists <- FALSE
+    }
+
+    if (recache_spatial_data(analytic_folder, spatial_folder,
+                             use_edav, output_format) & spatial_timestamp_exists & local_caching) {
+      sirfunctions_io("write",
+                      NULL,
+                      file.path(rappdirs::user_data_dir("sirfunctions"),
+                                paste0("spatial_data",
+                                output_format)),
+                      obj = spatial.data,
+                      edav = FALSE)
+
+      spatial_processed_tag <- sirfunctions_io("read",
+                                               NULL,
+                                               file.path(analytic_folder,
+                                                         paste0("spatial_timestamp", output_format)),
+                                               edav = use_edav)
+      sirfunctions_io("write",
+                      NULL,
+                      file.path(rappdirs::user_data_dir("sirfunctions"),
+                                paste0("spatial_timestamp", output_format)),
+                      edav = FALSE)
+    }
   }
 
-  cli::cli_process_start("Checking for duplicates in datasets.")
-  raw.data <- duplicate_check(raw.data)
-  cli::cli_process_done()
-
   return(raw.data)
+
 } else {
 
   # Check that the required folders have data
@@ -1189,26 +1365,78 @@ if (!force.new.run) {
   raw.data <- list()
   spatial.data <- list()
 
-  cli::cli_process_start("1) Loading country shape files")
-  spatial.data$global.ctry <- load_clean_ctry_sp(
-    fp = file.path(spatial_folder, global_ctry_sf_name),
+  # Check if spatial data needs to be redownloaded from the analytics folder
+  spatial_timestamp_exists <- sirfunctions_io(
+    "exists.file",
+    NULL,
+    file.path(analytic_folder, paste0("spatial_timestamp", output_format)),
     edav = use_edav
   )
-  cli::cli_process_done()
 
-  cli::cli_process_start("2) Loading province shape files")
-  spatial.data$global.prov <- load_clean_prov_sp(
-    fp = file.path(spatial_folder, global_prov_sf_name),
-    edav = use_edav
-  )
-  cli::cli_process_done()
+  if (spatial_timestamp_exists) {
+    # Check if it's recent or needs updating
+    edav_spatial_timestamp <- sirfunctions_io(
+      "read",
+      NULL,
+      file.path(analytic_folder, paste0("spatial_timestamp", output_format)),
+      edav = use_edav
+    ) |>
+      dplyr::select(name, lastModifiedEDAV = lastModified)
 
-  cli::cli_process_start("3) Loading district shape files")
-  spatial.data$global.dist <- load_clean_dist_sp(
-    fp = file.path(spatial_folder, global_dist_sf_name),
-    edav = use_edav
-  )
-  cli::cli_process_done()
+    edav_spatial_folder_info <- sirfunctions_io(
+      "list",
+      NULL,
+      file.path(spatial_folder),
+      edav = use_edav
+    ) |>
+      dplyr::select(name, lastModified)
+
+    spatial_timestamp_comparison <- dplyr::left_join(edav_spatial_timestamp,
+                                                     edav_spatial_folder_info) |>
+      dplyr::mutate(updated = ifelse(lastModifiedEDAV == lastModified, TRUE, FALSE)) |>
+      dplyr::pull(updated) |> sum(na.rm = TRUE)
+  } else {
+
+    spatial_timestamp_comparison <- 0
+
+  }
+
+  if (spatial_timestamp_comparison == 3) {
+    cli::cli_alert_success("Spatial data in the analytic folder is up to date. Loading from cache...")
+    spatial.data <- sirfunctions_io(
+      "read",
+      NULL,
+      file.path(analytic_folder, spatial_data_name),
+      edav = use_edav
+    )
+  } else {
+    if (spatial_timestamp_exists) {
+      cli::cli_alert_warning("Spatial data in the analytic folder is outdated. Recreating from the spatial folder")
+    } else {
+      cli::cli_alert_warning("No spatial timestamp exists. Recreating from the spatial folder")
+    }
+
+    cli::cli_process_start("1) Loading country shape files")
+    spatial.data$global.ctry <- load_clean_ctry_sp(
+      fp = file.path(spatial_folder, global_ctry_sf_name),
+      edav = use_edav
+    )
+    cli::cli_process_done()
+
+    cli::cli_process_start("2) Loading province shape files")
+    spatial.data$global.prov <- load_clean_prov_sp(
+      fp = file.path(spatial_folder, global_prov_sf_name),
+      edav = use_edav
+    )
+    cli::cli_process_done()
+
+    cli::cli_process_start("3) Loading district shape files")
+    spatial.data$global.dist <- load_clean_dist_sp(
+      fp = file.path(spatial_folder, global_dist_sf_name),
+      edav = use_edav
+    )
+    cli::cli_process_done()
+  }
 
   cli::cli_process_start("4) Loading AFP line list data (This file is almost 3GB and can take a while)")
   raw.data$afp <-
@@ -1532,6 +1760,34 @@ if (create.cache) {
     obj = spatial.data, edav = use_edav
   )
 
+  # Create tags only if not using "archived" version
+  if (use_edav & !use_archived_data) {
+    # Create raw data file tag for future comparisons
+    sirfunctions_io("write", NULL,
+                    file_loc = file.path(analytic_folder, paste0("raw_data_timestamp", output_format)),
+                    obj = Sys.time())
+
+    # Create spatial data file tag for future comparisons
+    spatial_files <- sirfunctions_io("list",
+                                     NULL,
+                                     spatial_folder,
+                                     edav = use_edav,
+                                     full_names = TRUE)
+
+    edav_spatial_timestamp <- spatial_files |>
+      dplyr::filter(stringr::str_detect(name, "global."),
+                    stringr::str_ends(name, output_format)) |>
+      dplyr::select(name, lastModified)
+
+    sirfunctions_io(
+      "write",
+      NULL,
+      file.path(analytic_folder, paste0("spatial_timestamp", output_format)),
+      obj = edav_spatial_timestamp,
+      edav = use_edav
+    )
+  }
+
   cli::cli_process_done()
 }
 
@@ -1544,6 +1800,10 @@ raw.data <- split_concat_raw_data(action = "split",
                                   split.years = raw_data_cut_size,
                                   raw.data.all = raw.data)[[1]]
 
+cli::cli_process_start("Checking for duplicates in datasets.")
+raw.data <- duplicate_check(raw.data)
+cli::cli_process_done()
+
 if (attach.spatial.data) {
   raw.data$global.ctry <- spatial.data$global.ctry
   raw.data$global.prov <- spatial.data$global.prov
@@ -1551,10 +1811,6 @@ if (attach.spatial.data) {
   raw.data$roads <- spatial.data$roads
   raw.data$cities <- spatial.data$cities
 }
-
-cli::cli_process_start("Checking for duplicates in datasets.")
-raw.data <- duplicate_check(raw.data)
-cli::cli_process_done()
 
 if (use_archived_data) {
   cli::cli_alert_success(paste0("Successfully recreated global polio data from ",
@@ -3641,4 +3897,193 @@ get_archived_polis_data <- function(data_folder_path, edav, keep_n_archives = In
     }
 
   }
+}
+
+#' Should the local global polio dataset be recached?
+#'
+#' @description
+#' The function checks the analytics folder for changes in the global polio dataset.
+#' If there is a change between versions in EDAV and locally, returns whether the
+#' it should be recached locally.
+#'
+#' @param analytic_folder `str` Path to the analytics folder.
+#' @param edav `logical` Should we use EDAV? Defaults to TRUE.
+#' @param output_format `str` Output format to load.
+#'
+#' @details
+#' If `get_all_polio_data()` is used locally, then calling the function does not
+#' really make sense given there is already a local copy of the global polio dataset.
+#'
+#' @returns `logical` Whether the global polio dataset should be cached.
+#' @keywords internal
+#'
+recache_raw_data <- function(analytic_folder, edav, output_format) {
+
+  raw_data_timestamp_exists <- invisible(sirfunctions_io(
+    "exists.file",
+    NULL,
+    file.path(analytic_folder, paste0("raw_data_timestamp", output_format)),
+    edav = edav
+  ))
+
+  if (!raw_data_timestamp_exists) {
+    cli::cli_alert_info(paste0("No timestamp exists for the global polio dataset. ",
+                               "Please run {.code get_all_polio_data(recreate.static.files=TRUE)} if you'd like to cache data from EDAV locally."))
+    return(TRUE)
+  }
+
+  edav_raw_data_timestamp <- invisible(sirfunctions_io(
+    "read",
+    NULL,
+    file.path(analytic_folder, paste0("raw_data_timestamp", output_format)),
+    edav = edav
+  ))
+
+  local_timestamp_exists <- invisible(sirfunctions_io(
+    "exists.file",
+    NULL,
+    file.path(rappdirs::user_data_dir("sirfunctions"), paste0("raw_data_timestamp", output_format)),
+    edav = FALSE
+  ))
+
+  if (local_timestamp_exists) {
+    local_raw_data_timestamp <- suppressMessages(invisible(sirfunctions_io(
+      "read",
+      NULL,
+      file.path(rappdirs::user_data_dir("sirfunctions"), paste0("raw_data_timestamp", output_format)),
+      edav = FALSE
+    )))
+
+    if (local_raw_data_timestamp == edav_raw_data_timestamp) {
+      cli::cli_alert_info("Local cache is up to date. Loading cache.")
+      return(FALSE)
+    } else {
+      cli::cli_alert_info("Local cache is outdated. Recaching...")
+      return(TRUE)
+    }
+  } else {
+    cli::cli_alert_info("No global polio dataset cached locally. Caching...")
+    return(TRUE)
+  }
+
+  invisible()
+
+}
+
+#' Should the local spatial cache be updated?
+#'
+#' @param analytic_folder `str` Path to the analytics folder.
+#' @param spatial_folder  `str` Path to the spatial folder.
+#' @param edav `logical` Use EDAV?
+#' @param output_format `str` Output format the spatial files are in.
+#'
+#' @returns `logical` Should we recache the spatial data or not?
+#' @keywords internal
+recache_spatial_data <- function(analytic_folder, spatial_folder, edav, output_format) {
+
+  spatial_timestamp_exists <- sirfunctions_io(
+    "exists.file",
+    NULL,
+    file.path(analytic_folder, paste0("spatial_timestamp", output_format)),
+    edav = edav
+  )
+
+  if (!spatial_timestamp_exists) {
+    cli::cli_alert_info(paste0("No timestamp exists for the spatial dataset. ",
+                               "Please run {.code get_all_polio_data(recreate.static.files=TRUE)} if you'd like to cache data from EDAV locally."))
+    return(TRUE)
+  }
+
+  edav_spatial_timestamp <- sirfunctions_io(
+    "read",
+    NULL,
+    file.path(analytic_folder, paste0("spatial_timestamp", output_format)),
+    edav = edav
+    ) |>
+    dplyr::select(name, lastModifiedEDAV = lastModified)
+
+  local_timestamp_exists <- sirfunctions_io(
+    "exists.file",
+    NULL,
+    file.path(rappdirs::user_data_dir("sirfunctions"), paste0("spatial_timestamp", output_format)),
+    edav = FALSE)
+
+  if (!local_timestamp_exists) {
+    cli::cli_alert_info("No spatial data cached locally. Caching...")
+    return(TRUE)
+  } else {
+    local_timestamp <- sirfunctions_io(
+      "read",
+      NULL,
+      file.path(rappdirs::user_data_dir("sirfunctions"), paste0("spatial_timestamp", output_format)),
+      edav = FALSE)
+
+    updated <- dplyr::left_join(edav_spatial_timestamp,
+                                 local_timestamp) |>
+      dplyr::mutate(updated = ifelse(lastModifiedEDAV == lastModified, TRUE, FALSE)) |>
+      dplyr::pull(updated) |>
+      sum()
+
+    if (updated == 3) {
+      cli::cli_alert_info("Local spatial data is up to date.")
+      return(FALSE)
+    } else {
+      cli::cli_alert_info("More recent spatial data available on EDAV. Caching...")
+      return(TRUE)
+    }
+
+  }
+
+  invisible()
+
+  }
+
+#' Force load data from the local cache
+#'
+#' @description
+#' In certain instances, it may be desirable to load the global polio data directly from the local
+#' cache. For example, if connection from EDAV fails or if there are internet connection issues.
+#'
+#' @param attach.spatial.data `logical` Should spatial data be attached?
+#' @param output_format `str` Output format of the file to load to R.
+#'
+#' @returns `list` List containing information pertinent to the global polio dataset.
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' force_load_polio_data_cache(attach.spatial.data = TRUE)
+#' }
+force_load_polio_data_cache <- function(attach.spatial.data, output_format = ".rds") {
+  cache_dir <- rappdirs::user_data_dir("sirfunctions")
+  raw_data_path <- file.path(cache_dir, paste0("raw_data", output_format))
+  spatial_data_path <- file.path(cache_dir, paste0("spatial_data", output_format))
+
+  # Check if raw_data exists in the cache
+  if (sirfunctions_io("exists.file", NULL, raw_data_path, edav = FALSE)) {
+    cli::cli_alert_info("Loading polio data from cache")
+    raw.data <- sirfunctions_io("read", NULL, raw_data_path, edav = FALSE)
+  } else {
+    cli::cli_abort("The local cache does not have a copy of the global polio dataset.")
+  }
+
+  if (attach.spatial.data) {
+    # Check if spatial data exists in the cache
+    if (sirfunctions_io("exists.file", NULL, spatial_data_path, edav = FALSE)) {
+      cli::cli_alert_info("Loading spatial data from cache")
+      spatial_data <- sirfunctions_io("read", NULL, spatial_data_path, edav = FALSE)
+
+      raw.data$global.ctry <- spatial.data$global.ctry
+      raw.data$global.prov <- spatial.data$global.prov
+      raw.data$global.dist <- spatial.data$global.dist
+      raw.data$roads <- spatial.data$roads
+      raw.data$cities <- spatial.data$cities
+    } else {
+      cli::cli_alert_danger("The local cache does not have a copy of the spatial dataset. Unable to attach spatial data.")
+    }
+  }
+  cli::cli_alert_info(paste0("The local global polio dataset was last pulled from POLIS on: ",
+                             raw.data$metadata$download_time))
+  return (raw.data)
+
 }
