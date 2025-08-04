@@ -157,6 +157,14 @@ flag_cg_positives <- function(cg_super_regions, pos, start.year = 2016){
 #' sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds")
 #' originating from this CG super region
 #' @returns `ggplot` CG expansion map
+#' \dontrun{
+#'
+#' create_cg_expansion_map(
+#' polio.data = get_all_polio_data(),
+#' cg = sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds")
+#' )
+#'
+#' }
 #' @export
 create_cg_expansion_map <- function(polio.data, cg){
 
