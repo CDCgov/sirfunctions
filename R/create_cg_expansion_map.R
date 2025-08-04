@@ -160,13 +160,19 @@ flag_cg_positives <- function(cg_super_regions, pos, start.year = 2016){
 #' @export
 create_cg_expansion_map <- function(polio.data, cg){
 
+  cli::cli_process_start("Extracting spatial files")
   ctry <- polio.data$global.ctry
   prov <- polio.data$global.prov
   dist <- polio.data$global.dist
+  cli::cli_process_done()
 
+  cli::cli_process_start("Creating super regions")
   cg_super_regions <- create_cg_super_regions(cg = cg, ctry = ctry, prov = prov, dist = dist)
+  cli::cli_process_done()
 
+  cli::cli_process_start("Flagging detections inside and outside CGs")
   pos_cg_dets <- flag_cg_positives(cg_super_regions = cg_super_regions, pos = polio.data$pos)
+  cli::cli_process_done()
 
   bbox <- sf::st_bbox(pos_cg_dets)
 
@@ -178,6 +184,7 @@ create_cg_expansion_map <- function(polio.data, cg){
   pos_cg_dets2 <- pos_cg_dets |>
     dplyr::mutate(in_cg = ifelse(in_cg, "In CG", "Out of CG"))
 
+  cli::cli_process_start("Building map")
   plot <- ggplot2::ggplot() +
     ggplot2::geom_sf(data = ctry |> dplyr::filter(yr.end == 9999), fill = NA) +
     ggplot2::geom_sf(data = pos_cg_dets2, aes(color = cg_label, alpha = in_cg), size = 0.5) +
@@ -192,6 +199,7 @@ create_cg_expansion_map <- function(polio.data, cg){
                    legend.box.background = element_rect(color = "black")) +
     ggplot2::guides(alpha = ggplot2::guide_legend(nrow=2,byrow=T),
                     color = ggplot2::guide_legend(nrow=3,byrow=T))
+  cli::cli_process_done()
 
   return(plot)
 
