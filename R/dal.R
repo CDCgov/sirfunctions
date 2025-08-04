@@ -1246,6 +1246,7 @@ if (!force.new.run) {
                       NULL,
                       file.path(rappdirs::user_data_dir("sirfunctions"),
                                 paste0("spatial_timestamp", output_format)),
+                      obj = spatial_processed_tag,
                       edav = FALSE)
     }
   }
