@@ -139,4 +139,6 @@ flag_cg_positives <- function(cg_super_regions, pos){
   }) |>
     dplyr::bind_rows()
 
+  sf::st_crs(pos_cg_dets) <- sf::st_crs(cg_super_regions)
+
 }
