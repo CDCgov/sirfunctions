@@ -149,13 +149,24 @@ flag_cg_positives <- function(cg_super_regions, pos, start.year = 2016){
 
 #' Function to create the consequential geography expansion map
 #'
-#' @param cg_super_regions `sp` spatial file of all the joined CG super regions
-#' @param pos_cg_dets `sp` spatial point file of all the positive detections
+#'
+#' @param polio.data `list` SIR polio data rds
+#' @param cg `tibble` table containing data about existing CGs, the dataset
+#' is expected to contain the following headers: `type`, `label`, `ctry`, `prov`,
+#' `dist`, `adm_level`. You can download an example dataset using:
+#' sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds")
 #' originating from this CG super region
-#' @param ctry `sp` spatial file of global countries
 #' @returns `ggplot` CG expansion map
 #' @export
-create_cg_expansion_map <- function(cg_super_regions, pos_cg_dets, ctry){
+create_cg_expansion_map <- function(polio.data, cg){
+
+  ctry <- polio.data$global.ctry
+  prov <- polio.data$global.prov
+  dist <- polio.data$global.dist
+
+  cg_super_regions <- create_cg_super_regions(cg = cg, ctry = ctry, prov = prov, dist = dist)
+
+  pos_cg_dets <- flag_cg_positives(cg_super_regions = cg_super_regions, pos = polio.data$pos)
 
   bbox <- sf::st_bbox(pos_cg_dets)
 
