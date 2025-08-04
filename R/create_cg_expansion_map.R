@@ -69,4 +69,74 @@ create_cg_super_regions <- function(cg, ctry, prov, dist){
   return(cg_super_regions)
 }
 
+#' Function to flag positives data from identified consequential geographies
+#'
+#' @param cg_super_regions `sp` spatial object of all CG super regions and a
+#' flag for all their specific GUIDs
+#' @param pos `tibble` the positives file from `polio.data`
+#' @returns `sp` all cg related positives flagged and ready for mapping
+#' @examples
+#' \dontrun{
+#' flag_cg_positives(cg_super_regions, pos)
+#' }
+flag_cg_positives <- function(cg_super_regions, pos){
 
+  earliest_emergences <- pos |>
+    dplyr::filter(!is.na(emergencegroup)) |>
+    dplyr::select(dateonset, adm1guid, admin2guid, emergencegroup) |>
+    dplyr::group_by(emergencegroup) |>
+    dplyr::filter(dateonset == min(dateonset)) |>
+    dplyr::ungroup()
+
+  pos_dets <- lapply(1:nrow(cg_super_regions), function(x){
+
+    current_region <- cg_super_regions |>
+      dplyr::slice(x)
+
+
+    guids <- current_region |>
+      dplyr::pull(GUIDs) |>
+      str_split(", ") |>
+      unlist()
+
+    adm_level <- current_region |>
+      dplyr::pull(adm_level)
+
+    if(adm_level == "adm1"){
+
+      emergences <- earliest_emergences |>
+        dplyr::filter(adm1guid %in% guids) |>
+        dplyr::pull(emergencegroup) |>
+        unique()
+
+      return(pos |>
+               dplyr::filter(emergencegroup %in% emergences) |>
+               dplyr::select(latitude, longitude, adm1guid) |>
+               tidyr::drop_na() |>
+               dplyr::mutate(in_cg = adm1guid %in% guids,
+                             cg_label = current_region$name) |>
+               sf::st_as_sf(coords = c(x = "longitude", y = "latitude")))
+
+    }
+
+    if(adm_level == "adm2"){
+
+      emergences <- earliest_emergences |>
+        dplyr::filter(admin2guid %in% guids) |>
+        dplyr::pull(emergencegroup) |>
+        unique()
+
+      return(pos |>
+               dplyr::filter(emergencegroup %in% emergences) |>
+               dplyr::select(latitude, longitude, admin2guid) |>
+               tidyr::drop_na() |>
+               dplyr::mutate(in_cg = admin2guid %in% guids,
+                             cg_label = current_region$name) |>
+               sf::st_as_sf(coords = c(x = "longitude", y = "latitude")))
+
+    }
+
+  }) |>
+    dplyr::bind_rows()
+
+}
