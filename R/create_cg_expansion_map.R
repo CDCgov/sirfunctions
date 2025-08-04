@@ -74,19 +74,21 @@ create_cg_super_regions <- function(cg, ctry, prov, dist){
 #' @param cg_super_regions `sp` spatial object of all CG super regions and a
 #' flag for all their specific GUIDs
 #' @param pos `tibble` the positives file from `polio.data`
+#' @param start.year `int` the the earliest year for analysis, defaults to 2016
 #' @returns `sp` all cg related positives flagged and ready for mapping
 #' @examples
 #' \dontrun{
 #' flag_cg_positives(cg_super_regions, pos)
 #' }
-flag_cg_positives <- function(cg_super_regions, pos){
+flag_cg_positives <- function(cg_super_regions, pos, start.year = 2016){
 
   earliest_emergences <- pos |>
     dplyr::filter(!is.na(emergencegroup)) |>
-    dplyr::select(dateonset, adm1guid, admin2guid, emergencegroup) |>
+    dplyr::select(dateonset, adm1guid, admin2guid, emergencegroup, yronset) |>
     dplyr::group_by(emergencegroup) |>
     dplyr::filter(dateonset == min(dateonset)) |>
-    dplyr::ungroup()
+    dplyr::ungroup() |>
+    dplyr::filter(yronset >= start.year)
 
   pos_dets <- lapply(1:nrow(cg_super_regions), function(x){
 
@@ -139,6 +141,47 @@ flag_cg_positives <- function(cg_super_regions, pos){
   }) |>
     dplyr::bind_rows()
 
-  sf::st_crs(pos_cg_dets) <- sf::st_crs(cg_super_regions)
+  sf::st_crs(pos_dets) <- sf::st_crs(cg_super_regions)
+
+  return(pos_dets)
+
+}
+
+#' Function to create the consequential geography expansion map
+#'
+#' @param cg_super_regions `sp` spatial file of all the joined CG super regions
+#' @param pos_cg_dets `sp` spatial point file of all the positive detections
+#' originating from this CG super region
+#' @param ctry `sp` spatial file of global countries
+#' @returns `ggplot` CG expansion map
+#' @export
+create_cg_expansion_map <- function(cg_super_regions, pos_cg_dets, ctry){
+
+  bbox <- sf::st_bbox(pos_cg_dets)
+
+  bbox["xmin"] <- bbox["xmin"] - (100000 / 6370000) * (180 / pi) / cos(bbox["xmin"] * pi / 180)
+  bbox["xmax"] <- bbox["xmax"] + (100000 / 6370000) * (180 / pi) / cos(bbox["xmax"] * pi / 180)
+  bbox["ymin"] <- bbox["ymin"] - (100000 / 6370000) * (180 / pi)
+  bbox["ymax"] <- bbox["ymax"] + (100000 / 6370000) * (180 / pi)
+
+  pos_cg_dets2 <- pos_cg_dets |>
+    dplyr::mutate(in_cg = ifelse(in_cg, "In CG", "Out of CG"))
+
+  plot <- ggplot2::ggplot() +
+    ggplot2::geom_sf(data = ctry |> dplyr::filter(yr.end == 9999), fill = NA) +
+    ggplot2::geom_sf(data = pos_cg_dets2, aes(color = cg_label, alpha = in_cg), size = 0.5) +
+    ggplot2::geom_sf(data = cg_super_regions, aes(color = name), linewidth = 0.5, fill = NA) +
+    ggplot2::coord_sf(xlim = bbox[c("xmin", "xmax")], ylim = bbox[c("ymin", "ymax")]) +
+    ggplot2::scale_alpha_manual(values = c(1, 0.3)) +
+    ggplot2::scale_color_brewer(palette = "Dark2", direction = -1) +
+    ggplot2::theme_void() +
+    ggplot2::labs(color = "Consequential Geography", alpha = "Location",
+                  title = "Consequential geographies and the global footprint of emergences from those regions") +
+    ggplot2::theme(legend.position = "bottom",
+                   legend.box.background = element_rect(color = "black")) +
+    ggplot2::guides(alpha = ggplot2::guide_legend(nrow=2,byrow=T),
+                    color = ggplot2::guide_legend(nrow=3,byrow=T))
+
+  return(plot)
 
 }
