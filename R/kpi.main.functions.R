@@ -207,13 +207,16 @@ get_ctry_abbrev <- function(afp_data) {
     )
 
   ctry_abbrev <- ctry_abbrev |>
-    dplyr::filter(!(place.admin.0 == "CAMEROON" & ctry.short == "CHA"),
-                  !(place.admin.0 == "CHINA" & ctry.short == "IND"),
-                  !(place.admin.0 == "ETHIOPIA" & ctry.short == "SOM"),
-                  !(place.admin.0 == "GHANA" & ctry.short == "TOG"),
-                  !(place.admin.0 == "INDIA" & ctry.short == "PAK"),
-                  !(place.admin.0 == "PAKISTAN" & ctry.short == "IND"),
-                  !(place.admin.0 == "ZAMBIA" & ctry.short == "TAN")) |>
+    dplyr::filter(
+      !(place.admin.0 == "CAMEROON" & ctry.short == "CHA"),
+      !(place.admin.0 == "CHINA" & ctry.short == "IND"),
+      !(place.admin.0 == "INDIA" & ctry.short == "CHN"),
+      !(place.admin.0 == "ETHIOPIA" & ctry.short == "SOM"),
+      !(place.admin.0 == "GHANA" & ctry.short == "TOG"),
+      !(place.admin.0 == "INDIA" & ctry.short == "PAK"),
+      !(place.admin.0 == "PAKISTAN" & ctry.short == "IND"),
+      !(place.admin.0 == "ZAMBIA" & ctry.short == "TAN")
+    ) |>
     dplyr::mutate(ctry.short = dplyr::case_when(
       ctry.short == "IND" & place.admin.0 == "INDONESIA" ~ "IDN",
       .default = ctry.short
@@ -226,8 +229,12 @@ get_ctry_abbrev <- function(afp_data) {
     dplyr::ungroup()
 
   if (nrow(summarize_ctry_abbrev) > 0) {
-    cli::cli_abort(paste0("Some values in the country lookup table are not unique for the following countries: ",
-                          paste0(summarize_ctry_abbrev$place.admin.0, collapse = ", ")))
+    cli::cli_alert_warning("Some values in the country lookup table are not unique for the following countries: ")
+    non_unique <- ctry_abbrev |>
+      dplyr::filter(place.admin.0 %in% summarize_ctry_abbrev$place.admin.0)
+
+    print(non_unique, n = nrow(non_unique))
+    return(invisible())
   }
 
   return(ctry_abbrev)
