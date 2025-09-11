@@ -731,6 +731,7 @@ generate_case_num_dose_g <- function(ctry.data,
       cdc.classification.all2 == "NPAFP",
       dplyr::between(age.months, 6, 59)
     ) |>
+    dplyr::mutate(year = factor(year)) |>
     dplyr::group_by(dose.cat, year, prov) |>
     dplyr::summarise(freq = dplyr::n())
 
