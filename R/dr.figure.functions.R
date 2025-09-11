@@ -469,8 +469,8 @@ generate_es_site_det <- function(sia.data,
     unique() |>
     dplyr::pull()
 
-  miss_vaccine <- minsy_vaccine_types[!(minsy_vaccine_types %in% names(default_vaccine_type))]
-  miss_dets <- es.data_all_dets[!(es.data_all_dets %in% names(default_detections))]
+  miss_vaccine <- minsy_vaccine_types[!(minsy_vaccine_types %in% names(vaccine_types))]
+  miss_dets <- es.data_all_dets[!(es.data_all_dets %in% names(detection_types))]
 
 
   if (length(miss_vaccine > 0)) {
@@ -492,7 +492,7 @@ generate_es_site_det <- function(sia.data,
     )
 
     cli::cli_alert_warning(warning_message)
-    print(miss_vaccine)
+    print(miss_dets)
   }
 
 
@@ -731,6 +731,7 @@ generate_case_num_dose_g <- function(ctry.data,
       cdc.classification.all2 == "NPAFP",
       dplyr::between(age.months, 6, 59)
     ) |>
+    dplyr::mutate(year = factor(year)) |>
     dplyr::group_by(dose.cat, year, prov) |>
     dplyr::summarise(freq = dplyr::n())
 
