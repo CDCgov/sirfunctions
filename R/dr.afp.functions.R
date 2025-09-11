@@ -920,6 +920,7 @@ generate_60_day_table_data <- function(stool.data, start_date, end_date) {
 
     dplyr::mutate(
       pot.compatible = dplyr::if_else(
+        (adequacy.final2 == "Inadequate") &
         (
           # if there is a follow-up date
           followup.findings %in% c("Residual weakness/paralysis",
@@ -928,9 +929,7 @@ generate_60_day_table_data <- function(stool.data, start_date, end_date) {
             (
               # if no follow-up date make sure that findings are not
               # no resid weakness or no follow-up
-              is.na(followup.date) &
-                !(followup.findings %in% c("No residual weakness/paralysis",
-                                           "No follow-up"))
+              is.na(followup.date) & is.na(followup.findings)
             )
         ) &
           # doses are less than 3 or none
