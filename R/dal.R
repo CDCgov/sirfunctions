@@ -930,13 +930,13 @@ if (use_edav) {
       FALSE
     }
   )
-}
 
-if (!verify_edav) {
-  cli::cli_alert_info("Unable to obtain data from EDAV. Loading from local cache instead.")
-  cli::cli_alert_info("NOTE: Data may be stale. Please review the global polio dataset metadata for information on when the data was last processed.")
-  raw.data <- force_load_polio_data_cache(attach.spatial.data, output_format)
-  return(raw.data)
+  if (!verify_edav) {
+    cli::cli_alert_info("Unable to obtain data from EDAV. Loading from local cache instead.")
+    cli::cli_alert_info("NOTE: Data may be stale. Please review the global polio dataset metadata for information on when the data was last processed.")
+    raw.data <- force_load_polio_data_cache(attach.spatial.data, output_format)
+    return(raw.data)
+  }
 }
 
 # Constant variables

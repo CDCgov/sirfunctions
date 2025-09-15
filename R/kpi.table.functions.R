@@ -1305,13 +1305,13 @@ generate_c2_table <- function(afp_data, pop_data, start_date, end_date,
       dplyr::any_of(group_stool_cond),
       "npafp_cat", "stool_cat",
       "npafp_rate", "per.stool.ad",
-      "prop_good_condition":"timely_wpv_vdpv",
+      "prop_good_condition":"median_ontonothq",
       "consistent_guid"
     )
 
   # Formatting
   results <- results |>
-    dplyr::mutate(dplyr::across("npafp_rate":"timely_wpv_vdpv", \(x) tidyr::replace_na(x, NaN))) |>
+    dplyr::mutate(dplyr::across("npafp_rate":"median_ontonothq", \(x) tidyr::replace_na(x, NaN))) |>
     # NPAFP is only NA if it's missing population
     dplyr::mutate(npafp_rate = dplyr::if_else(npafp_cat != "Missing Pop" & is.nan(npafp_rate), 0, npafp_rate))
 
