@@ -32,7 +32,9 @@
 #' @examples
 #' \dontrun{
 #' raw_data <- get_all_polio_data
-#' generate_incidence_map(raw_data$pos, raw_data$global.ctry, emergence_group = c("YEM-TAI-1", "SOM-BAN-1", "ETH-TIG-1"))
+#' generate_incidence_map(raw_data$pos,
+#' raw_data$global.ctry,
+#' emergence_group = c("YEM-TAI-1", "SOM-BAN-1", "ETH-TIG-1"))
 #' }
 generate_incidence_map <- function(pos_data,
                                    ctry_sf,
