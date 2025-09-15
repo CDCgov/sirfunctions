@@ -2,26 +2,32 @@
 % Please edit documentation in R/create_cg_expansion_map.R
 \name{flag_cg_positives}
 \alias{flag_cg_positives}
-\title{Function to flag positives data from identified consequential geographies}
+\title{Flag positives data from identified consequential geographies}
 \usage{
-flag_cg_positives(cg_super_regions, pos, start.year = 2016)
+flag_cg_positives(cg_super_regions, pos, start_year = 2016)
 }
 \arguments{
-\item{cg_super_regions}{\code{sp} spatial object of all CG super regions and a
-flag for all their specific GUIDs}
+\item{cg_super_regions}{\code{sf} Spatial object of all CG super regions and a
+flag for all their specific GUIDs. This is the output of \code{\link[=create_cg_super_regions]{create_cg_super_regions()}}.}
 
-\item{pos}{\code{tibble} the positives file from \code{polio.data}}
+\item{pos}{\code{tibble} The positives file from the output of \code{\link[=get_all_polio_data]{get_all_polio_data()}}.}
 
-\item{start.year}{\code{int} the the earliest year for analysis, defaults to 2016}
+\item{start_year}{\code{int} The the earliest year for analysis. Defaults to 2016.}
 }
 \value{
-\code{sp} all cg related positives flagged and ready for mapping
+\code{sf} All CG related positives flagged and ready for mapping with a point geography.
 }
 \description{
-Function to flag positives data from identified consequential geographies
+Obtains positive detections and determines whether they are part of the
+consequential geographies or not. If they are, then they are flagged in the column \code{in_cg} as
+\code{TRUE}.
 }
 \examples{
 \dontrun{
-flag_cg_positives(cg_super_regions, pos)
+polio_data <- get_all_polio_data()
+cg <- sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds")
+super_regions <- create_cg_super_regions(cg,
+ctry = polio_data$global.ctry, prov = polio_data$global.prov, dist = polio_data$global.dist)
+cg_positives <- flag_cg_positives(cg_super_regions, polio_data$pos)
 }
 }

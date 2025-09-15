@@ -2,30 +2,43 @@
 % Please edit documentation in R/create_cg_expansion_map.R
 \name{create_cg_expansion_map}
 \alias{create_cg_expansion_map}
-\title{Function to create the consequential geography expansion map}
+\title{Create the consequential geography expansion map}
 \usage{
-create_cg_expansion_map(polio.data, cg)
+create_cg_expansion_map(polio_data, cg)
 }
 \arguments{
-\item{polio.data}{\code{list} SIR polio data rds}
+\item{polio_data}{\code{list} Output of \code{\link[=get_all_polio_data]{get_all_polio_data()}} with \code{attach.spatial.data = TRUE}.}
 
-\item{cg}{\code{tibble} table containing data about existing CGs, the dataset
-is expected to contain the following headers: \code{type}, \code{label}, \code{ctry}, \code{prov},
-\code{dist}, \code{adm_level}. You can download an example dataset using:
-sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds")
-originating from this CG super region}
+\item{cg}{\code{tibble} Table containing data about existing CGs, the dataset
+is expected to contain the following headers of the following datatypes:
+\itemize{
+\item \code{type}: \code{str} Consequential geographies must have a type of \code{"cg"}. All other
+can be \code{NA}.
+\item \code{label}: \code{str} Geographic grouping (i.e., "Lake Chad"). Can be a country or a
+subset of a country (i.e., "Northern Yemen"). This column will be used to group
+the consequential geographies for creating super regions.
+\item \code{ctry}: \code{str} Name of the country.
+\item \code{prov}: \code{str} Name of the province.
+\item \code{dist}: \code{str} Name of the district.
+\item \code{adm_level}: \code{str} Name of the administrative level. Must be one of \code{NA} if
+at the country level, \code{"adm1"} if at the province level, and \verb{"adm2} if at the
+district level.
+}}
 }
 \value{
-\code{ggplot} CG expansion map
-\dontrun{
-
-create_cg_expansion_map(
-polio.data = get_all_polio_data(),
-cg = sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds")
-)
-
-}
+\code{ggplot} CG expansion map.
 }
 \description{
-Function to create the consequential geography expansion map
+Creates a map of consequential geographies.
+}
+\details{
+You can download an example dataset using:
+sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds").
+}
+\examples{
+\dontrun{
+polio_data <- get_all_polio_data()
+cg <- sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds")
+create_cg_expansion_map(polio_data, cg)
+}
 }

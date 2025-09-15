@@ -95,18 +95,27 @@ create_cg_super_regions <- function(cg, ctry, prov, dist){
   return(cg_super_regions)
 }
 
-#' Function to flag positives data from identified consequential geographies
+#' Flag positives data from identified consequential geographies
 #'
-#' @param cg_super_regions `sp` spatial object of all CG super regions and a
-#' flag for all their specific GUIDs
-#' @param pos `tibble` the positives file from `polio.data`
-#' @param start.year `int` the the earliest year for analysis, defaults to 2016
-#' @returns `sp` all cg related positives flagged and ready for mapping
+#' @description
+#' Obtains positive detections and determines whether they are part of the
+#' consequential geographies or not. If they are, then they are flagged in the column `in_cg` as
+#' `TRUE`.
+#'
+#' @param cg_super_regions `sf` Spatial object of all CG super regions and a
+#' flag for all their specific GUIDs. This is the output of [create_cg_super_regions()].
+#' @param pos `tibble` The positives file from the output of [get_all_polio_data()].
+#' @param start_year `int` The the earliest year for analysis. Defaults to 2016.
+#' @returns `sf` All CG related positives flagged and ready for mapping with a point geography.
 #' @examples
 #' \dontrun{
-#' flag_cg_positives(cg_super_regions, pos)
+#' polio_data <- get_all_polio_data()
+#' cg <- sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds")
+#' super_regions <- create_cg_super_regions(cg,
+#' ctry = polio_data$global.ctry, prov = polio_data$global.prov, dist = polio_data$global.dist)
+#' cg_positives <- flag_cg_positives(cg_super_regions, polio_data$pos)
 #' }
-flag_cg_positives <- function(cg_super_regions, pos, start.year = 2016){
+flag_cg_positives <- function(cg_super_regions, pos, start_year = 2016){
 
   earliest_emergences <- pos |>
     dplyr::filter(!is.na(emergencegroup)) |>
@@ -114,7 +123,7 @@ flag_cg_positives <- function(cg_super_regions, pos, start.year = 2016){
     dplyr::group_by(emergencegroup) |>
     dplyr::filter(dateonset == min(dateonset)) |>
     dplyr::ungroup() |>
-    dplyr::filter(yronset >= start.year)
+    dplyr::filter(yronset >= start_year)
 
   pos_dets <- lapply(1:nrow(cg_super_regions), function(x){
 
@@ -173,31 +182,30 @@ flag_cg_positives <- function(cg_super_regions, pos, start.year = 2016){
 
 }
 
-#' Function to create the consequential geography expansion map
+#' Create the consequential geography expansion map
 #'
+#' @description
+#' Creates a map of consequential geographies.
 #'
-#' @param polio.data `list` SIR polio data rds
-#' @param cg `tibble` table containing data about existing CGs, the dataset
-#' is expected to contain the following headers: `type`, `label`, `ctry`, `prov`,
-#' `dist`, `adm_level`. You can download an example dataset using:
-#' sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds")
-#' originating from this CG super region
-#' @returns `ggplot` CG expansion map
+#' @param polio_data `list` Output of [get_all_polio_data()] with `attach.spatial.data = TRUE`.
+#' @inheritParams create_cg_super_regions
+#' @details
+#' You can download an example dataset using:
+#' sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds").
+#' @returns `ggplot` CG expansion map.
+#' @examples
 #' \dontrun{
-#'
-#' create_cg_expansion_map(
-#' polio.data = get_all_polio_data(),
-#' cg = sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds")
-#' )
-#'
+#' polio_data <- get_all_polio_data()
+#' cg <- sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds")
+#' create_cg_expansion_map(polio_data, cg)
 #' }
 #' @export
-create_cg_expansion_map <- function(polio.data, cg){
+create_cg_expansion_map <- function(polio_data, cg){
 
   cli::cli_process_start("Extracting spatial files")
-  ctry <- polio.data$global.ctry
-  prov <- polio.data$global.prov
-  dist <- polio.data$global.dist
+  ctry <- polio_data$global.ctry
+  prov <- polio_data$global.prov
+  dist <- polio_data$global.dist
   cli::cli_process_done()
 
   cli::cli_process_start("Creating super regions")
@@ -205,7 +213,7 @@ create_cg_expansion_map <- function(polio.data, cg){
   cli::cli_process_done()
 
   cli::cli_process_start("Flagging detections inside and outside CGs")
-  pos_cg_dets <- flag_cg_positives(cg_super_regions = cg_super_regions, pos = polio.data$pos)
+  pos_cg_dets <- flag_cg_positives(cg_super_regions = cg_super_regions, pos = polio_data$pos)
   cli::cli_process_done()
 
   bbox <- sf::st_bbox(pos_cg_dets)
