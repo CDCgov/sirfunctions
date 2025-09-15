@@ -14,7 +14,6 @@
 #'
 #' @export
 extract_country_data <- function(.country, .raw.data = raw.data) {
-
   # Format .country
   .country <- stringr::str_to_upper(stringr::str_trim(.country))
   # Check to make sure that all country passed in .country exists
@@ -26,18 +25,22 @@ extract_country_data <- function(.country, .raw.data = raw.data) {
     cli::cli_abort("Please pass only valid country names and try again.")
   }
 
-  results <- purrr::map(.country,
-                        \(c) {
-                          ctry_data <- extract_country_data_single(c, .raw.data)
-                          ctry_data_tibble <- dplyr::tibble(names = names(ctry_data),
-                                                            values = NA) |>
-                            tidyr::pivot_wider(names_from = names, values_from = values)
-                          for (i in names(ctry_data)) {
-                            ctry_data_tibble[[i]] = list(ctry_data[[i]])
-                          }
+  results <- purrr::map(
+    .country,
+    \(c) {
+      ctry_data <- extract_country_data_single(c, .raw.data)
+      ctry_data_tibble <- dplyr::tibble(
+        names = names(ctry_data),
+        values = NA
+      ) |>
+        tidyr::pivot_wider(names_from = names, values_from = values)
+      for (i in names(ctry_data)) {
+        ctry_data_tibble[[i]] <- list(ctry_data[[i]])
+      }
 
-                          return(ctry_data_tibble)
-                          })
+      return(ctry_data_tibble)
+    }
+  )
 
   # Make the lists into tibbles
   results_binded <- dplyr::bind_rows(results)
@@ -47,14 +50,16 @@ extract_country_data <- function(.country, .raw.data = raw.data) {
     dplyr::select(-c("vis.name", "name", "ctry.code", "metadata"))
 
   # Combine each dataframes/lists into one
-  results_binded_02 <-  results_binded |>
-    dplyr::summarize(dplyr::across(dplyr::everything(),
-                                   \(x) list(dplyr::bind_rows(x))))
+  results_binded_02 <- results_binded |>
+    dplyr::summarize(dplyr::across(
+      dplyr::everything(),
+      \(x) list(dplyr::bind_rows(x))
+    ))
 
   # Create a big list
   data_list <- list()
   for (i in names(results_binded_02)) {
-    data_list[i] = results_binded_02[[i]]
+    data_list[i] <- results_binded_02[[i]]
   }
 
   # Add metadata
@@ -67,7 +72,8 @@ extract_country_data <- function(.country, .raw.data = raw.data) {
       list()
     data_list["vis.name"] <- data_list$ctry.pop$ctry |>
       unique() |>
-      stringr::str_to_title() |> list()
+      stringr::str_to_title() |>
+      list()
     data_list["ctry.code"] <- data_list$ctry$WHO_CODE |>
       unique() |>
       list()
@@ -75,8 +81,6 @@ extract_country_data <- function(.country, .raw.data = raw.data) {
 
   return(data_list)
 }
-
-
 
 #' Extract country specific information from raw polio data
 #'
