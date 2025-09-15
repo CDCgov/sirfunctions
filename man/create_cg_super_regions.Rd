@@ -2,32 +2,51 @@
 % Please edit documentation in R/create_cg_expansion_map.R
 \name{create_cg_super_regions}
 \alias{create_cg_super_regions}
-\title{Function to create super regions from subsets of consequential geographies}
+\title{Create super regions from subsets of consequential geographies}
 \usage{
 create_cg_super_regions(cg, ctry, prov, dist)
 }
 \arguments{
-\item{cg}{\code{tibble} table containing data about existing CGs, the dataset
-is expected to contain the following headers: \code{type}, \code{label}, \code{ctry}, \code{prov},
-\code{dist}, \code{adm_level}. You can download an example dataset using:
-sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds")}
+\item{cg}{\code{tibble} Table containing data about existing CGs, the dataset
+is expected to contain the following headers of the following datatypes:
+\itemize{
+\item \code{type}: \code{str} Consequential geographies must have a type of \code{"cg"}. All other
+can be \code{NA}.
+\item \code{label}: \code{str} Geographic grouping (i.e., "Lake Chad"). Can be a country or a
+subset of a country (i.e., "Northern Yemen"). This column will be used to group
+the consequential geographies for creating super regions.
+\item \code{ctry}: \code{str} Name of the country.
+\item \code{prov}: \code{str} Name of the province.
+\item \code{dist}: \code{str} Name of the district.
+\item \code{adm_level}: \code{str} Name of the administrative level. Must be one of \code{NA} if
+at the country level, \code{"adm1"} if at the province level, and \verb{"adm2} if at the
+district level.
+}}
 
-\item{ctry}{\code{sp} country level spatial objects}
+\item{ctry}{\code{sf} Country level spatial objects. Can be the \code{global.ctry} spatial object attached
+to the output of \code{\link[=get_all_polio_data]{get_all_polio_data()}}.}
 
-\item{prov}{\code{sp} province level spatial objects}
+\item{prov}{\code{sf} Province level spatial objects. Can be the \code{global.prov} spatial object attached
+to the output of \code{\link[=get_all_polio_data]{get_all_polio_data()}}.}
 
-\item{dist}{\code{sp} district level spatial objects}
+\item{dist}{\code{sf} District level spatial objects. Can be the \code{global.dist} spatial object attached
+to the output of \code{\link[=get_all_polio_data]{get_all_polio_data()}}.}
 }
 \value{
-\code{sp} single spatial objects with all consequential geography
-super regions
+\code{sf} Single spatial object with all consequential geography
+super regions.
 }
 \description{
-Function to create super regions from subsets of consequential geographies
+Create a shapefile containing super regions of consequential geographies.
+}
+\details{
+You can download an example dataset using:
+sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds").
 }
 \examples{
 \dontrun{
+polio_data <- get_all_polio_data()
 create_cg_super_regions(cg = sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds"),
-ctry = global.ctry, prov = global.prov, dist = global.dist)
+ctry = polio_data$global.ctry, prov = polio_data$global.prov, dist = polio_data$global.dist)
 }
 }

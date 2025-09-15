@@ -1,19 +1,41 @@
 
-#' Function to create super regions from subsets of consequential geographies
+#' Create super regions from subsets of consequential geographies
 #'
-#' @param cg `tibble` table containing data about existing CGs, the dataset
-#' is expected to contain the following headers: `type`, `label`, `ctry`, `prov`,
-#' `dist`, `adm_level`. You can download an example dataset using:
-#' sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds")
-#' @param ctry `sp` country level spatial objects
-#' @param prov `sp` province level spatial objects
-#' @param dist `sp` district level spatial objects
-#' @returns `sp` single spatial objects with all consequential geography
-#' super regions
+#' @description
+#' Create a shapefile containing super regions of consequential geographies.
+#'
+#'
+#' @param cg `tibble` Table containing data about existing CGs, the dataset
+#' is expected to contain the following headers of the following datatypes:
+#' - `type`: `str` Consequential geographies must have a type of `"cg"`. All other
+#' can be `NA`.
+#' - `label`: `str` Geographic grouping (i.e., "Lake Chad"). Can be a country or a
+#' subset of a country (i.e., "Northern Yemen"). This column will be used to group
+#' the consequential geographies for creating super regions.
+#' - `ctry`: `str` Name of the country.
+#' - `prov`: `str` Name of the province.
+#' - `dist`: `str` Name of the district.
+#' - `adm_level`: `str` Name of the administrative level. Must be one of `NA` if
+#' at the country level, `"adm1"` if at the province level, and `"adm2` if at the
+#' district level.
+#'
+#' @param ctry `sf` Country level spatial objects. Can be the `global.ctry` spatial object attached
+#' to the output of [get_all_polio_data()].
+#' @param prov `sf` Province level spatial objects. Can be the `global.prov` spatial object attached
+#' to the output of [get_all_polio_data()].
+#' @param dist `sf` District level spatial objects. Can be the `global.dist` spatial object attached
+#' to the output of [get_all_polio_data()].
+#' @details
+#' You can download an example dataset using:
+#' sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds").
+#'
+#' @returns `sf` Single spatial object with all consequential geography
+#' super regions.
 #' @examples
 #' \dontrun{
+#' polio_data <- get_all_polio_data()
 #' create_cg_super_regions(cg = sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds"),
-#' ctry = global.ctry, prov = global.prov, dist = global.dist)
+#' ctry = polio_data$global.ctry, prov = polio_data$global.prov, dist = polio_data$global.dist)
 #' }
 create_cg_super_regions <- function(cg, ctry, prov, dist){
 
@@ -32,7 +54,9 @@ create_cg_super_regions <- function(cg, ctry, prov, dist){
     if(level == "adm1"){
       region <- cg |>
         dplyr::filter(label == cg_name) |>
-        dplyr::left_join(prov |> filter(yr.end == 9999) |> dplyr::select(ADM0_NAME, ADM1_NAME, GUID),
+        dplyr::left_join(prov |>
+                           filter(yr.end == 9999) |>
+                           dplyr::select(ADM0_NAME, ADM1_NAME, GUID),
                          by = c("ctry" = "ADM0_NAME",
                                 "prov" = "ADM1_NAME"))
 
@@ -49,7 +73,9 @@ create_cg_super_regions <- function(cg, ctry, prov, dist){
     if(level == "adm2"){
       region <- cg |>
         dplyr::filter(label == cg_name) |>
-        dplyr::left_join(dist |> filter(yr.end == 9999) |> dplyr::select(ADM0_NAME, ADM1_NAME, ADM2_NAME, GUID),
+        dplyr::left_join(dist |>
+                           filter(yr.end == 9999) |>
+                           dplyr::select(ADM0_NAME, ADM1_NAME, ADM2_NAME, GUID),
                          by = c("ctry" = "ADM0_NAME",
                                 "prov" = "ADM1_NAME",
                                 "dist" = "ADM2_NAME"))
