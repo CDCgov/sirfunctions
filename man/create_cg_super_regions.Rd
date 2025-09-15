@@ -46,7 +46,8 @@ sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds").
 \examples{
 \dontrun{
 polio_data <- get_all_polio_data()
-create_cg_super_regions(cg = sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds"),
-ctry = polio_data$global.ctry, prov = polio_data$global.prov, dist = polio_data$global.dist)
+cg <- sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds")
+create_cg_super_regions(cg, ctry = polio_data$global.ctry,
+prov = polio_data$global.prov, dist = polio_data$global.dist)
 }
 }
