@@ -1164,7 +1164,8 @@ generate_c2_table <- function(afp_data, pop_data, start_date, end_date,
 
       timely_opt_field_shipment = sum(.data$is_opt_timely == "yes") / sum(.data$is_opt_timely != "unable to assess") * 100,
       timely_wpv_vdpv = sum(.data$is_timely & .data$is_target & .data$timely_cat != "Missing or bad data", na.rm = TRUE) /
-        sum(.data$is_timely & .data$timely_cat != "Missing or bad data", na.rm = TRUE) * 100
+        sum(.data$is_target & .data$timely_cat != "Missing or bad data", na.rm = TRUE) * 100,
+      timely_wpv_vdpv_denom = sum(.data$is_target & .data$timely_cat != "Missing or bad data", na.rm = TRUE)
     )
 
   # Need to calculate outside because calculation should only be done for VDPV/WPV samples
@@ -1179,12 +1180,24 @@ generate_c2_table <- function(afp_data, pop_data, start_date, end_date,
       is_target = dplyr::if_else(
         stringr::str_detect(.data$cdc.classification.all2, "WILD|VDPV"),
         TRUE, FALSE
-      )) |>
-    dplyr::filter(is_target == TRUE) |>
+      ),
+      timely_cat =
+        dplyr::case_when(seq.capacity == "yes" & ontonothq <= 35 ~ "<=35 days from onset",
+                         seq.capacity == "yes" & ontonothq > 35 ~ ">35 days from onset",
+                         seq.capacity == "no" & ontonothq <= 46 ~ "<=46 days from onset",
+                         seq.capacity == "no" & ontonothq > 46 ~ ">46 days from onset",
+                         is.na(ontonothq) | ontonothq < 0 ~ "Missing or bad data",
+                         .default = "Missing or bad data"
+        )) |>
+    dplyr::filter(is_target == TRUE,
+                  timely_cat != "Missing or bad data"
+                  ) |>
     dplyr::group_by(dplyr::across(dplyr::any_of(group_stool_cond))) |>
     dplyr::summarize(
-      median_ontonothq = median(ontonothq)
-    )
+      median_ontonothq_n = sum(!is.na(ontonothq), na.rm = TRUE),
+      median_ontonothq = median(ontonothq, na.rm = TRUE)
+    ) |>
+    dplyr::ungroup()
 
   timeliness_summary <- timeliness_summary |> dplyr::left_join(median_wpv_vdpv)
 
