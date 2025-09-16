@@ -777,8 +777,6 @@ test_EDAV_connection <- function(
 #' - `"LAB_LOCATIONS"`
 #' - `"DR_TEMPLATE"`
 #' - `"SIRFUNCTIONS_GITHUB_TREE"`
-#' - `"AFRO_LAB_DATA"`
-#' - `"EMRO_LAB_DATA"`
 #' - `"CLEANED_LAB_DATA"`
 #'
 #' @returns `str` A string, typically a file path or a URL.
@@ -793,8 +791,6 @@ get_constant <- function(constant_name = NULL) {
     '"LAB_LOCATIONS"',
     '"DR_TEMPLATE"',
     '"SIRFUNCTIONS_GITHUB_TREE"',
-    '"AFRO_LAB_DATA"',
-    '"EMRO_LAB_DATA"',
     '"CLEANED_LAB_DATA"'
   )
 
@@ -810,11 +806,8 @@ get_constant <- function(constant_name = NULL) {
     "CTRY_RISK_CAT" = "Data/misc/country_prioritization/SG_country_prioritization_GPSAP2025-2026_04Dec2024.csv",
     "LAB_LOCATIONS" = "Data/lab/Routine_lab_testing_locations.csv",
     "DR_TEMPLATE" = "https://raw.githubusercontent.com/nish-kishore/sg-desk-reviews/main/resources/desk_review_template.Rmd",
-    "SIRFUNCTIONS_GITHUB_TREE" = "https://api.github.com/repos/nish-kishore/sirfunctions/git/trees",
-    "AFRO_LAB_DATA" = "Data/lab/2024-09-20 AFRO Lab Extract (AFP only since 2022).csv",
-    "EMRO_LAB_DATA" = "Data/lab/2024-09-20 EMRO Lab Extract (AFP only since 2022).csv",
-    "CLEANED_LAB_DATA" = "Data/lab/emro_afro_cleaned_2016_2024_20240920.csv",
-    "RAW_LAB_DATA" = "Data/lab/afro_emro_20220101_20250401.csv",
+    "SIRFUNCTIONS_GITHUB_TREE" = "https://api.github.com/repos/CDCGov/sirfunctions/git/trees",
+    "CLEANED_LAB_DATA" = "Data/lab/20250829_afro_emro_lab_afp_2022_2025_clean.xlsx",
     cli::cli_abort("Please pass a valid argument.")
   )
 }
