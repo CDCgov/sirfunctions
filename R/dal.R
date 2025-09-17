@@ -1589,17 +1589,17 @@ if (!force.new.run) {
 
 
   cli::cli_process_start("6) Loading coverage data")
-  raw.data$ctry_coverage <- sirfunctions_io("read", NULL,
+  raw.data$ctry.coverage <- sirfunctions_io("read", NULL,
                                             file_loc = dplyr::filter(dl_table, grepl("ctry_cov", file)) |>
                                               dplyr::pull(file), edav = use_edav
   )
 
-  raw.data$prov_coverage <- sirfunctions_io("read", NULL,
+  raw.data$prov.coverage <- sirfunctions_io("read", NULL,
                                             file_loc = dplyr::filter(dl_table, grepl("prov_cov", file)) |>
                                               dplyr::pull(file), edav = use_edav
   )
 
-  raw.data$dist_coverage <- sirfunctions_io("read", NULL,
+  raw.data$dist.coverage <- sirfunctions_io("read", NULL,
                                             file_loc = dplyr::filter(dl_table, grepl("dist_cov", file)) |>
                                               dplyr::pull(file), edav = use_edav
   )
@@ -2910,7 +2910,9 @@ split_concat_raw_data <- function(
 
   current.year <- lubridate::year(Sys.time())
 
-  key.tables <- c("afp", "afp.epi", "para.case", "es", "sia", "pos", "other", "dist.pop", "prov.pop", "ctry.pop", "coverage")
+  key.tables <- c("afp", "afp.epi", "para.case", "es", "sia", "pos", "other",
+                  "dist.pop", "prov.pop", "ctry.pop",
+                  "ctry.coverage", "prov.coverage", "dist.coverage")
 
   static.tables <- c("metadata")
 
@@ -2942,7 +2944,7 @@ split_concat_raw_data <- function(
 
     key.table.vars <- dplyr::tibble(
       "data" = key.tables,
-      "year.var" = c(rep("yronset", 3), "collect.yr", "yr.sia", rep("yronset", 2), rep("year", 4))
+      "year.var" = c(rep("yronset", 3), "collect.yr", "yr.sia", rep("yronset", 2), rep("year", 6))
     )
 
 
