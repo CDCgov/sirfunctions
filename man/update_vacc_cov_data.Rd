@@ -4,15 +4,29 @@
 \alias{update_vacc_cov_data}
 \title{Extract vaccine coverage information from IHME estimates}
 \usage{
-update_vacc_cov_data(tif_folder, edav, output_folder, output_format = ".rds")
+update_vacc_cov_data(
+  tif_folder,
+  ctry,
+  prov,
+  dist,
+  output_folder,
+  edav = TRUE,
+  output_format = ".rds"
+)
 }
 \arguments{
 \item{tif_folder}{\code{str} Absolute folder path to the folder containing all .TIFs of interest.}
 
-\item{edav}{\code{logical} \code{TRUE} or \code{FALSE} depending on if final save location is in Azure.}
+\item{ctry}{\code{sf} Output of \code{\link[=load_clean_ctry_sp]{load_clean_ctry_sp()}}.}
+
+\item{prov}{\code{sf} Output of \code{\link[=load_clean_prov_sp]{load_clean_prov_sp()}}.}
+
+\item{dist}{\code{sf} Output of \code{\link[=load_clean_dist_sp]{load_clean_dist_sp()}}.}
 
 \item{output_folder}{\code{str} Absolute folder path location to save country, province and district coverage
 data. Outputs in RDS by default, but also supports \code{.qs2} format.}
+
+\item{edav}{\code{logical} \code{TRUE} or \code{FALSE} depending on if final save location is in Azure. Defaults to \code{TRUE}.}
 
 \item{output_format}{\code{str} '.rds' or '.qs2'.}
 }
@@ -28,18 +42,24 @@ Enter your email to gain access to the data folder.
 Inside the data folder go to \verb{Geospatial Vaccine Coverage} > \verb{04_Rasters}.
 Download the following geotifs and place them into a single folder in your local machine:
 \itemize{
-\item \code{bcg1_cov_mean_raked_2000_2023.tif}
-\item \code{dpt1_cov_mean_raked_2000_2023.tif}
-\item \code{dpt3_cov_mean_raked_2000_2023.tif}
-\item \code{mcv1_cov_mean_raked_2000_2023.tif}
-\item \code{polio3_cov_mean_raked_2000_2023.tif}
+\item \verb{bcg1_cov_mean_raked_2000_<current year>.tif}
+\item \verb{dpt1_cov_mean_raked_2000_<current year>.tif}
+\item \verb{dpt3_cov_mean_raked_2000_<current year>.tif}
+\item \verb{mcv1_cov_mean_raked_2000_<current year>.tif}
+\item \verb{polio3_cov_mean_raked_2000_<current year>.tif}
 }
+
+\strong{NOTE:} \verb{<current year>} will change as the vaccine coverage data gets updated.
 }
 \examples{
 \dontrun{
+ctry_sf <- load_clean_ctry_sf()
+prov_sf <- load_clean_prov_sf()
+dist_sf <- load_clean_dist_sf()
 update_vacc_cov_data(
-  tif_folder = "C:/Users/abc1/Desktop/tif_folder",
-  edav = FALSE, output_folder = "C:/Users/abc1/Desktop/tif_folder"
+  "C:/Users/abc1/Desktop/tif_folder",
+  ctry_sf, prov_sf, dist_sf,
+  FALSE, "C:/Users/abc1/Desktop/tif_folder"
 )
 }
 
