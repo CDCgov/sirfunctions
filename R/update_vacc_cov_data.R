@@ -28,9 +28,9 @@
 #' @export
 #' @examples
 #' \dontrun{
-#' ctry_sf <- load_clean_ctry_sf()
-#' prov_sf <- load_clean_prov_sf()
-#' dist_sf <- load_clean_dist_sf()
+#' ctry_sf <- load_clean_ctry_sp()
+#' prov_sf <- load_clean_prov_sp()
+#' dist_sf <- load_clean_dist_sp()
 #' update_vacc_cov_data(
 #'   "C:/Users/abc1/Desktop/tif_folder",
 #'   ctry_sf, prov_sf, dist_sf,
@@ -38,7 +38,12 @@
 #' )
 #' }
 #'
-update_vacc_cov_data <- function(tif_folder, ctry, prov, dist, output_folder, edav = TRUE, output_format = ".rds") {
+update_vacc_cov_data <- function(tif_folder,
+                                 ctry = load_clean_ctry_sp(),
+                                 prov = load_clean_prov_sp(),
+                                 dist = load_clean_dist_sp(),
+                                 output_folder = "GID/PEB/SIR/Data/coverage",
+                                 edav = TRUE, output_format = ".rds") {
   if (!output_format %in% c(".rds", ".qs2")) {
     cli::cli_abort("Only 'rds' and 'qs2' outputs are supported at this time.")
   }
@@ -57,7 +62,8 @@ update_vacc_cov_data <- function(tif_folder, ctry, prov, dist, output_folder, ed
   }
 
   # Check if all files are located there
-  tif_files <- sirfunctions_io("list", file_loc = tif_folder, edav = edav, full_names = FALSE)
+  tif_files <- sirfunctions_io("list", NULL, file_loc = tif_folder,
+                               edav = edav, full_names = TRUE)
   target_vaccines <- c("bcg1", "dpt1", "dpt3", "mcv1", "polio3")
   target_files <- paste0(target_vaccines, "_cov_mean_raked_2000_")
   target_files <- purrr::map(target_files, \(x) tif_files |>
@@ -72,9 +78,21 @@ update_vacc_cov_data <- function(tif_folder, ctry, prov, dist, output_folder, ed
   }
 
   cli::cli_process_start("Generating a raster brick from geotifs", "Raster brick generated")
-  tif_files <- list.files(tif_folder, pattern = "\\.tif$", full.names = TRUE)
+  raster_brick <- purrr::map(target_files$name, \(x) {
 
-  raster_brick <- terra::rast(tif_files)
+    raster <- sirfunctions_io("read", NULL, file_loc = x, edav = edav)
+
+    # Have to manually assign name because in Aug 2025 update had non-unique column names
+    layer_names <- terra::names(raster)
+    layer_names <- stringr::str_extract(layer_names, "[0-9]+")
+    source_name <- terra::sources(raster) |> basename()
+    source_name <- stringr::str_extract(source_name, "^[^.]+")
+    layer_names <- paste0(source_name, "_", layer_names)
+    names(raster) <- layer_names
+
+    return(raster)
+  }) |>
+    terra::rast()
   cli::cli_process_done()
 
   cli::cli_process_start("Extracting country level measurements", "Country level measurements extracted")

@@ -6,10 +6,10 @@
 \usage{
 update_vacc_cov_data(
   tif_folder,
-  ctry,
-  prov,
-  dist,
-  output_folder,
+  ctry = load_clean_ctry_sp(),
+  prov = load_clean_prov_sp(),
+  dist = load_clean_dist_sp(),
+  output_folder = "GID/PEB/SIR/Data/coverage",
   edav = TRUE,
   output_format = ".rds"
 )
@@ -53,9 +53,9 @@ Download the following geotifs and place them into a single folder in your local
 }
 \examples{
 \dontrun{
-ctry_sf <- load_clean_ctry_sf()
-prov_sf <- load_clean_prov_sf()
-dist_sf <- load_clean_dist_sf()
+ctry_sf <- load_clean_ctry_sp()
+prov_sf <- load_clean_prov_sp()
+dist_sf <- load_clean_dist_sp()
 update_vacc_cov_data(
   "C:/Users/abc1/Desktop/tif_folder",
   ctry_sf, prov_sf, dist_sf,
