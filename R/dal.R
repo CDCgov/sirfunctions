@@ -2226,6 +2226,19 @@ extract_country_data <- function(
   ctry.data$sia <- .raw.data$sia |>
     dplyr::filter(place.admin.0 == .country)
   cli::cli_process_done()
+  steps <- steps + 1
+  cli::cli_process_start(paste0(steps, ") Attaching coverage data"))
+  ctry.data$ctry_coverage <- .raw.data$ctry.coverage |>
+    dplyr::filter(GUID %in% unique(ctry.data$ctry.pop$adm0guid))
+  ctry.data$prov_coverage <- .raw.data$prov.coverage |>
+    dplyr::filter(GUID %in% unique(ctry.data$prov.pop$adm1guid))
+  ctry.data$dist_coverage <- .raw.data$dist.coverage |>
+    dplyr::filter(GUID %in% unique(ctry.data$dist.pop$adm2guid))
+
+  cli::cli_process_done()
+
+
+
 
   cli::cli_process_start("Attaching metadata from get_all_polio_data()")
   ctry.data$metadata <- .raw.data$metadata
@@ -2377,7 +2390,8 @@ update_polio_data <- function(local_dataset, overwrite = T) {
     if (i %in% c("metadata",
                  "ctry.pop", "prov.pop", "dist.pop",
                  "global.ctry", "global.prov", "global.dist",
-                 "roads", "cities", "afp.epi", "coverage")) {
+                 "roads", "cities", "afp.epi",
+                 "ctry.coverage", "prov.coverage", "dist.coverage")) {
       cli::cli_process_start(paste0("Replacing ", i, " with the most recent data"))
       updated_data[i] <- list(new_data[[i]])
       cli::cli_process_done()
