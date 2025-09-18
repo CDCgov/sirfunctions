@@ -1289,7 +1289,7 @@ clean_lab_data <- function(lab_data, start_date, end_date,
 #'
 #' @param lab_data `tibble` Lab data. Ensure that this lab data is cleaned using
 #' [clean_lab_data()] before running the function.
-#' @param spatial.scale `str` Spatial scale to analyze the data. Valid values are `"ctry", "prov", "dist"`.
+#' @param spatial.scale `str` Spatial scale to analyze the data. Valid values are `"ctry", "prov", "all"`.
 #' @param start_date `str` Start date of analysis.
 #' @param end_date `str` End date of analysis.
 #' @param start.date `str` `r lifecycle::badge("deprecated")` renamed in favor of `start_date`.
@@ -1313,7 +1313,8 @@ generate_lab_timeliness <-
            end.date = lifecycle::deprecated()) {
     spatial_groupby <- switch(spatial.scale,
       "ctry" = c("year", "ctry", "adm0guid"),
-      "prov" = c("year", "ctry", "prov", "adm0guid", "adm1guid")
+      "prov" = c("year", "ctry", "prov", "adm0guid", "adm1guid"),
+      "all" = c("year")
     )
 
     if (lifecycle::is_present(start.date)) {

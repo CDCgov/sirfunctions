@@ -17,7 +17,7 @@ generate_lab_timeliness(
 \item{lab_data}{\code{tibble} Lab data. Ensure that this lab data is cleaned using
 \code{\link[=clean_lab_data]{clean_lab_data()}} before running the function.}
 
-\item{spatial.scale}{\code{str} Spatial scale to analyze the data. Valid values are \verb{"ctry", "prov", "dist"}.}
+\item{spatial.scale}{\code{str} Spatial scale to analyze the data. Valid values are \verb{"ctry", "prov", "all"}.}
 
 \item{start_date}{\code{str} Start date of analysis.}
 
