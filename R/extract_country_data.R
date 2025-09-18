@@ -47,7 +47,7 @@ extract_country_data <- function(.country, .raw.data = raw.data) {
 
   # Drop the names and metadata
   results_binded <- results_binded |>
-    dplyr::select(-c("vis.name", "name", "ctry.code", "metadata"))
+    dplyr::select(-dplyr::any_of(c("vis.name", "name", "ctry.code", "metadata")))
 
   # Combine each dataframes/lists into one
   results_binded_02 <- results_binded |>
@@ -63,7 +63,7 @@ extract_country_data <- function(.country, .raw.data = raw.data) {
   }
 
   # Add metadata
-  data_list["metadata"] <- .raw.data$metadata
+  data_list["metadata"] <- list(.raw.data$metadata)
 
   # Add vis.name, name, and ctry.code (depends if global ctry sf is present)
   if (!is.null(.raw.data$global.ctry)) {
