@@ -20,7 +20,7 @@ generate_afp_by_month_summary(
 
 \item{end_date}{\code{str} End date of analysis.}
 
-\item{by}{\code{str} How to group the data by. Either \code{"prov"}, \code{"dist"}, or \code{"year"}.}
+\item{by}{\code{str} How to group the data by. Either \code{"ctry"}, \code{"prov"}, \code{"dist"}, or \code{"year"}.}
 
 \item{pop_data}{\code{tibble} Population dataset.}
 

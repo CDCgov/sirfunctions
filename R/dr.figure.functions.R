@@ -271,6 +271,86 @@ generate_afp_epicurve <- function(ctry.data,
   return(afp.epi.curve)
 }
 
+#' AFP cases by ctry and year
+#'
+#' Generates a tile plot for the number of AFP cases per month by province.
+#'
+#' @param afp.by.month.ctry `tibble` Table summarizing AFP cases by month and province. This is the output of
+#' [generate_afp_by_month_summary()].
+#' @param start_date `str` Start date of the analysis.
+#' @param end_date `str` End date of the analysis. By default, it displays the most recent date.
+#' @param output_path `str` Local path to output the figure.
+#' @param .height `int` Change the height of the figure. Defaults to 5.
+#'
+#' @returns `ggplot` A tile plot displaying the number of AFP cases by month and province.
+#' @examples
+#' \dontrun{
+#' ctry.data <- init_dr("algeria")
+#' afp.by.month <- generate_afp_by_month_summary(
+#'   raw.data$afp, "2021-01-01", "2023-12-31", "ctry",
+#'   raw.data$ctry.pop
+#' generate_afp_prov_year(afp.by.month, start_date, end_date)
+#' }
+#'
+#' @export
+generate_afp_ctry_year <- function(afp.by.month.ctry,
+                                   start_date,
+                                   end_date = lubridate::today(),
+                                   output_path = Sys.getenv("DR_FIGURE_PATH"),
+                                   .height = 5) {
+  if (!requireNamespace("forcats", quietly = TRUE)) {
+    stop(
+      'Package "forcats" must be installed to use this function.',
+      call. = FALSE
+    )
+  }
+
+  start_date <- lubridate::as_date(start_date)
+  end_date <- lubridate::as_date(end_date)
+
+  afp.month.ctry.g <- afp.by.month.ctry |>
+    dplyr::filter(dplyr::between(year, lubridate::year(start_date), lubridate::year(end_date)), !is.na(ctry))
+
+  afp.month.ctry.g$case.cat <- factor(afp.month.ctry.g$case.cat, levels = c(c("0", "1", "2-5", "6-9", "10+")))
+
+  if (nrow(afp.month.ctry.g) == 0) {
+    return(output_empty_image(output_path, "afp.dets.ctry.year.png"))
+  }
+
+  # add a point to indicate cVDPV2 detections
+
+  afp.dets.ctry.year <- ggplot2::ggplot(
+    afp.month.ctry.g |>
+      dplyr::arrange(u15pop),
+    ggplot2::aes(
+      x = mon.year,
+      y = forcats::fct_inorder(ctry),
+      fill = case.cat,
+
+    )
+  ) +
+    ggplot2::geom_tile(color = "black") +
+    ggplot2::ggtitle("Number of AFP Cases by Country") +
+    sirfunctions::f.plot.looks("geomtile") +
+    ggplot2::scale_fill_manual(
+      values = sirfunctions::f.color.schemes("afp.prov"),
+      name = "AFP Cases",
+      drop = T
+    ) +
+    geom_text(aes(label=cases)) +
+    ggplot2::theme(plot.caption = ggplot2::element_text(hjust = 0)) +
+    ggplot2::labs(caption = "Countries are ordered by under 15 population, with highest on top")
+
+  ggplot2::ggsave(
+    "afp.dets.ctry.year.png",
+    plot = afp.dets.ctry.year,
+    path = output_path,
+    width = 14,
+    height = .height
+  )
+
+  return(afp.dets.ctry.year)
+}
 
 
 #' AFP cases by province and year

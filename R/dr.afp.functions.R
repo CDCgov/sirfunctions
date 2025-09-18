@@ -308,7 +308,7 @@ add_prov_npafp_table <- function(npafp.output) {
 #' @param pop_data `tibble` Population dataset.
 #' @param start_date `str` Start date of analysis.
 #' @param end_date `str` End date of analysis.
-#' @param by `str` How to group the data by. Either `"prov"`, `"dist"`, or `"year"`.
+#' @param by `str` How to group the data by. Either `"ctry"`, `"prov"`, `"dist"`, or `"year"`.
 #' @param ctry.data `r lifecycle::badge("deprecated")` `ctry.data` is no longer supported;
 #' the function will explicitly ask for the AFP dataset instead of accessing it from a list.
 #' @returns `tibble` Summary table of AFP cases by month and another grouping variable.
