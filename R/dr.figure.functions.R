@@ -663,6 +663,8 @@ generate_es_site_det <- function(sia.data,
 #' @param es_start_date `str` Start date of analysis. By default, this is one year from the end date.
 #' @param es_end_date `str` End date of analysis.
 #' @param output_path `str` Local path for where to save the figure to.
+#' @param add_legend `logical` Whether to add or remove a legend in the figure.
+#' @param .color `str` What column to use as color. Defaults to `site.name`.
 #'
 #' @returns `ggplot` A scatterplot for timeliness of ES samples.
 #' @examples
@@ -675,7 +677,9 @@ generate_es_site_det <- function(sia.data,
 generate_es_timely <- function(es.data,
                                es_start_date = (lubridate::as_date(es_end_date) - lubridate::years(1)),
                                es_end_date = end_date,
-                               output_path = Sys.getenv("DR_FIGURE_PATH")) {
+                               output_path = Sys.getenv("DR_FIGURE_PATH"),
+                               add_legend = TRUE,
+                               .color = "site.name") {
   es_start_date <- lubridate::as_date(es_start_date)
   es_end_date <- lubridate::as_date(es_end_date)
 
@@ -731,7 +735,7 @@ generate_es_timely <- function(es.data,
     ) +
     ggplot2::geom_point(
       data = dplyr::filter(es.data, timely >= 0),
-      ggplot2::aes(x = collect.date, y = timely, color = site.name),
+      ggplot2::aes(x = collect.date, y = timely, color = !!dplyr::sym(.color)),
       alpha = 0.7,
       position = ggplot2::position_jitter(height = .2, width = 0.5),
       size = 3
@@ -751,6 +755,11 @@ generate_es_timely <- function(es.data,
       axis.text = ggplot2::element_text(size = 14),
       plot.caption = ggplot2::element_text(hjust = 0)
     )
+
+  if (!add_legend) {
+    es.timely <- es.timely +
+      ggplot2::theme(legend.position = "none")
+  }
 
   ggplot2::ggsave("es.timely.png",
     plot = es.timely,
