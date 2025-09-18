@@ -1183,6 +1183,11 @@ clean_ctry_data <- function(ctry.data) {
     return(ctry.data)
   }
 
+  # names
+  if (!"dist" %in% names(ctry.data)) {
+    cli::cli_abort("ctry.data must have spatial data attached")
+  }
+
   ctry.data$afp.all.2 <- impute_dist_afp(ctry.data$afp.all.2)
   ctry.data$afp.all.2 <- col_to_datecol(ctry.data$afp.all.2)
   ctry.data$afp.all.2 <- ctry.data$afp.all.2 |>
