@@ -75,7 +75,7 @@ generate_ctry_timeliness_graph <- function(int.data,
     ggplot2::coord_flip() +
     ggplot2::ylab("Median Days") +
     ggplot2::xlab("Year of Paralysis Onset") +
-    ggplot2::scale_x_discrete(labels = labs) +
+    #ggplot2::scale_x_discrete(labels = labs) +
     ggplot2::scale_fill_manual(
       name = "Interval",
       drop = T,
@@ -282,6 +282,7 @@ generate_afp_epicurve <- function(ctry.data,
 #' @param start_date `str` Start date of the analysis.
 #' @param end_date `str` End date of the analysis. By default, it displays the most recent date.
 #' @param output_path `str` Local path to output the figure.
+#' @param .height `int` Change the height of the figure. Defaults to 5.
 #'
 #' @returns `ggplot` A tile plot displaying the number of AFP cases by month and province.
 #' @examples
@@ -299,7 +300,8 @@ generate_afp_epicurve <- function(ctry.data,
 generate_afp_prov_year <- function(afp.by.month.prov,
                                    start_date,
                                    end_date = lubridate::today(),
-                                   output_path = Sys.getenv("DR_FIGURE_PATH")) {
+                                   output_path = Sys.getenv("DR_FIGURE_PATH"),
+                                   .height = 5) {
   if (!requireNamespace("forcats", quietly = TRUE)) {
     stop(
       'Package "forcats" must be installed to use this function.',
@@ -346,7 +348,7 @@ generate_afp_prov_year <- function(afp.by.month.prov,
     plot = afp.dets.prov.year,
     path = output_path,
     width = 14,
-    height = 5
+    height = .height
   )
 
   return(afp.dets.prov.year)
