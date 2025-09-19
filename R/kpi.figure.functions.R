@@ -1614,6 +1614,7 @@ generate_kpi_tile <- function(c_table, priority_category = "HIGH",
     ) |>
     dplyr::select(-dplyr::any_of(c("timely_isolation", "timely_seqship",
                                    "timely_itd", "timely_seqres"))) |>
+    dplyr::select(-dplyr::ends_with("denom")) |>
     tidyr::pivot_longer(
       names_to = "indicator", values_to = "value",
       cols = -dplyr::any_of(c("rolling_period", geo))
