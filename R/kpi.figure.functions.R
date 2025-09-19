@@ -1558,9 +1558,9 @@ generate_kpi_tile <- function(c_table, priority_category = "HIGH",
   c_sub <- c_table %>%
     {
       if ("SG Priority Level" %in% col_names) {
-        dplyr::filter(., `SG Priority Level` == priority_category)
+        dplyr::filter(., `SG Priority Level` %in% priority_category)
       } else if ("sg_priority_level" %in% col_names) {
-        dplyr::filter(., sg_priority_level == priority_category)
+        dplyr::filter(., sg_priority_level %in% priority_category)
       } else {
         .
       }
