@@ -809,9 +809,13 @@ generate_c1_table <- function(raw_data, start_date, end_date,
   cli::cli_progress_update()
 
   combine <- dplyr::full_join(met_npafp, met_stool) |>
-    dplyr::full_join(met_ev) |>
+    dplyr::full_join(met_ev)
+
+  combine <- suppressMessages(add_risk_category(combine, risk_table))
+
+  combine <- combine |>
     dplyr::full_join(timely_det_indicator |>
-      rename("ctry" = "place.admin.0")) |>
+                       rename("ctry" = "place.admin.0")) |>
     dplyr::select(dplyr::any_of(c(
       "year_label", "rolling_period",
       "analysis_year_start", "analysis_year_end",
