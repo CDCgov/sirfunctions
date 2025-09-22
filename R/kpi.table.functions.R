@@ -1432,6 +1432,20 @@ generate_c3_table <- function(es_data, start_date, end_date,
                   is_target = dplyr::if_else(.data$wpv == 1 | .data$vdpv == 1, TRUE, FALSE)
                   )
 
+  wpv_vdpv_summary <- es_data |>
+    dplyr::filter(dplyr::between(analysis_year_end, start_date, max(analysis_year_end)),
+                  is_target == TRUE) |>
+    dplyr::group_by(year_label, rolling_period,
+                    analysis_year_start, analysis_year_end,
+                    ADM0_NAME, site.name, lat, lng) |>
+    dplyr::summarize(
+      median_wpv_vdpv_det = median(coltoresults, na.rm = TRUE),
+      median_wpv_vdpv_samples = list(coltoresults)
+    ) |>
+    dplyr::mutate(
+      median_wpv_vdpv_det = ifelse(is.null(median_wpv_vdpv_det), NA, median_wpv_vdpv_det)
+    )
+
   es_summary <- es_data |>
     dplyr::filter(dplyr::between(analysis_year_end, start_date, max(analysis_year_end))) |>
     dplyr::group_by(year_label, rolling_period,
@@ -1461,6 +1475,8 @@ generate_c3_table <- function(es_data, start_date, end_date,
     dplyr::mutate(ev_det_cat = factor(.data$ev_det_cat,
                                       levels = c("<5 samples collected", "<50%",
                                                  "50% to <80%", "80-100%")))
+  es_summary <- dplyr::left_join(es_summary, wpv_vdpv_summary)
+
 
   es_summary <- add_risk_category(es_summary, risk_table, ctry_col = "ADM0_NAME") |>
     dplyr::mutate(`SG Priority Level` = dplyr::if_else(is.na(`SG Priority Level`),
@@ -1522,6 +1538,7 @@ generate_c3_rollup <- function(c3, include_labels = TRUE, min_sample = 10,
       met_good_samples = sum(prop_good_es >= 80, na.rm = TRUE),
       met_timely_wpv_vdpv_det = sum(prop_timely_det_wpv_vdpv >= timely_wpv_vdpv_target, na.rm = TRUE),
       median_timely_shipment_per_site = median(prop_timely_ship, na.rm = TRUE),
+      median_wpv_vdpv_det = list(median(unlist(median_wpv_vdpv_samples), na.rm = TRUE)),
       es_sites = sum(n_samples_12_mo >= 1, na.rm = TRUE),
       active_sites = sum(n_samples_12_mo >= min_sample & site_age >= 12, na.rm = TRUE),
       prop_met_ev = met_ev / active_sites * 100,
@@ -1531,7 +1548,10 @@ generate_c3_rollup <- function(c3, include_labels = TRUE, min_sample = 10,
       prop_met_ev_label = paste0(met_ev, "/", active_sites),
       prop_met_ev_5_samples_label = paste0(met_ev_5_samples, "/", es_sites),
       prop_met_good_samples_label = paste0(met_good_samples, "/", es_sites),
-      prop_met_timely_wpv_vdpv_det_label = paste0(met_timely_wpv_vdpv_det, "/", es_sites)
+      prop_met_timely_wpv_vdpv_det_label = paste0(met_timely_wpv_vdpv_det, "/", es_sites),
+      median_wpv_vdpv_det_label = paste0(median_wpv_vdpv_det, " (n=",
+                                         sum(wpv_vdpv_detections, na.rm = TRUE),
+                                         ")")
     ) |>
     dplyr::select(-dplyr::starts_with("met_"), "es_sites") |>
     dplyr::ungroup()
