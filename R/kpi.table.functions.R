@@ -1411,6 +1411,8 @@ generate_c3_table <- function(es_data, start_date, end_date,
                                       .data$collect.date, units = "day"),
                   coltoresults = difftime(.data$date.notification.to.hq,
                                           .data$date.received.in.lab, units = "days"),
+                  coltonothq = difftime(.data$date.notification.to.hq,
+                                          .data$collect.date, units = "days"),
                   timely_ship = dplyr::case_when(
                     (is.na(.data$culture.itd.cat) | is.na(.data$coltolab) |
                        .data$coltolab < 0 | .data$coltolab > 365) ~ "unable to assess",
@@ -1439,8 +1441,8 @@ generate_c3_table <- function(es_data, start_date, end_date,
                     analysis_year_start, analysis_year_end,
                     ADM0_NAME, site.name, lat, lng) |>
     dplyr::summarize(
-      median_wpv_vdpv_det = median(coltoresults, na.rm = TRUE),
-      median_wpv_vdpv_samples = list(coltoresults)
+      median_wpv_vdpv_det = median(coltonothq, na.rm = TRUE),
+      median_wpv_vdpv_samples = list(coltonothq)
     ) |>
     dplyr::mutate(
       median_wpv_vdpv_det = ifelse(is.null(median_wpv_vdpv_det), NA, median_wpv_vdpv_det)
