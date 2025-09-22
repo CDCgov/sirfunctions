@@ -205,29 +205,31 @@ generate_wild_vdpv_summary <- function(raw_data, start_date, end_date,
                                        )) {
   pos <- generate_pos_timeliness(raw_data, start_date, end_date,
                                              risk_table, lab_locs)
-  pos_summary <- pos |>
+
+  pos <- pos |>
     dplyr::mutate(
       whoregion = get_region(place.admin.0),
       ontonothq = as.numeric(lubridate::as_date(.data$datenotificationtohq) -
-        .data$dateonset),
+                               .data$dateonset),
       timely_cat =
         case_when(stringr::str_detect(.data$seq.capacity, "[Yy]es") & ontonothq <= 35 ~ "<=35 days from onset",
                   stringr::str_detect(.data$seq.capacity, "[Yy]es") & ontonothq > 35 ~ ">35 days from onset",
-          seq.capacity == "no" & ontonothq <= 46 ~ "<=46 days from onset",
-          seq.capacity == "no" & ontonothq > 46 ~ ">46 days from onset",
-          is.na(ontonothq) | ontonothq < 0 ~ "Missing or bad data",
-          .default = NA
+                  seq.capacity == "no" & ontonothq <= 46 ~ "<=46 days from onset",
+                  seq.capacity == "no" & ontonothq > 46 ~ ">46 days from onset",
+                  is.na(ontonothq) | ontonothq < 0 ~ "Missing or bad data",
+                  .default = "Missing or bad data"
         ),
       is_timely = dplyr::if_else(.data$timely_cat %in%
-        c(
-          "<=35 days from onset",
-          "<=46 days from onset"
-        ), TRUE, FALSE),
+                                   c(
+                                     "<=35 days from onset",
+                                     "<=46 days from onset"
+                                   ), TRUE, FALSE),
       is_target = dplyr::if_else(
         stringr::str_detect(.data$cdc.classification.all2, "WILD|VDPV"),
         TRUE, FALSE
       )
-    ) |>
+    )
+  pos_summary <- pos |>
     dplyr::filter(!is.na(rolling_period)) |>
     dplyr::group_by(dplyr::across(dplyr::all_of(.group_by))) |>
     dplyr::summarise(
@@ -249,6 +251,20 @@ generate_wild_vdpv_summary <- function(raw_data, start_date, end_date,
       prop_timely_wild_vdpv = .data$timely_wild_vdpv_samples / .data$wild_vdpv_samples * 100,
       prop_timely_wild_vdpv_label = paste0(.data$timely_wild_vdpv_samples, "/", .data$wild_vdpv_samples)
     )
+
+  # Need to calculate the medians separately
+  wpv_vdpv_summary <- pos |>
+    dplyr::filter(is_target,
+                  !is.na(rolling_period)) |>
+    dplyr::group_by(dplyr::across(dplyr::all_of(.group_by))) |>
+    dplyr::summarize(
+      median_wild_vdpv_det = median(ontonothq, na.rm = TRUE),
+      median_wild_vdpv_det_n = sum(!is.na(ontonothq))
+    ) |>
+    dplyr::mutate(median_wild_vdpv_det_label = paste0(median_wild_vdpv_det,
+                                                      ", (n=", median_wild_vdpv_det_n, ")"))
+
+  pos_summary <- dplyr::left_join(pos_summary, wpv_vdpv_summary)
 
   pos_summary <- pos_summary |>
     dplyr::mutate(dplyr::across(dplyr::any_of(c(
@@ -827,7 +843,9 @@ generate_c1_table <- function(raw_data, start_date, end_date,
       "prop_timely_wild_vdpv_label",
       # "prop_timely_samples_label",
       "prop_timely_cases_label",
-      "prop_timely_env_label"
+      "prop_timely_env_label",
+      "median_wild_vdpv_det",
+      "median_wild_vdpv_det_label"
     )))
 
   # Clean up
@@ -1821,7 +1839,8 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
                         prop_met_stool = paste0(prop_met_stool, " (", stool_label, ")"),
                         prop_met_ev = paste0(prop_met_ev, " (", ev_label, ")"),
                         prop_timely_wild_vdpv = paste0(prop_timely_wild_vdpv, " (",
-                                                       prop_timely_wild_vdpv_label, ")"))
+                                                       prop_timely_wild_vdpv_label, ")"),
+                        median_wild_vdpv_det = median_wild_vdpv_det_label)
         } else {
           .
         }
@@ -1835,7 +1854,8 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
                        prop_met_npafp = "Non-polio AFP rate \u2013 subnational, %",
                        prop_met_stool = "Stool adequacy \u2013 subnational, %",
                        prop_met_ev = "ES EV detection rate \u2013 national, %",
-                       prop_timely_wild_vdpv = "Timeliness of detection for WPV/VDPV, %"
+                       prop_timely_wild_vdpv = "Timeliness of detection for WPV/VDPV, %",
+                       median_wild_vdpv_det = "Median timeliness of detection for WPV/VDPV"
                       )
   }
 
@@ -2027,7 +2047,8 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
     "C1. Non-polio AFP rate \u2013 subnational, %",
     "C1. Stool adequacy \u2013 subnational, %",
     "C1. ES EV detection rate \u2013 national, %",
-    "C1. Timeliness of detection for WPV/VDPV, %"
+    "C1. Timeliness of detection for WPV/VDPV, %",
+    "C1. Median timeliness of detection for WPV/VDPV"
   )
 
   c1_stool_description <- switch(as.character(sc_targets),
@@ -2038,7 +2059,8 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
     "Proportion of districts with >=100K U15 population meeting regional NPAFP rate targets (AFR, EMR, SEAR: >=2, AMR, EUR, WPR: >=1, Endemics: >=3)",
     c1_stool_description,
     "Proportion of active surveillance sites (sites open >=12 months with >=10 samples collected in the last 12 months) meeting EV detection sensitivity target of >=50%",
-    "Proportion of WPVs and VDPVs with final lab results within 35 days (full laboratory capacity) or 46 days (without full laboratory capacity) of onset for AFP cases or collection date for ES samples"
+    "Proportion of WPVs and VDPVs with final lab results within 35 days (full laboratory capacity) or 46 days (without full laboratory capacity) of onset for AFP cases or collection date for ES samples",
+    "Median days between collection to notifcation date of WPVs and VDPVs"
   )
   c2_indicators <- c(
     "C2. Non-polio AFP rate",
