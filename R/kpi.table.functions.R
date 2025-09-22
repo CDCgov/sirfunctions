@@ -1553,6 +1553,13 @@ generate_c3_rollup <- function(c3, include_labels = TRUE, min_sample = 10,
                                          sum(wpv_vdpv_detections, na.rm = TRUE),
                                          ")")
     ) |>
+    dplyr::mutate(median_wpv_vdpv_det = purrr::map_dbl(median_wpv_vdpv_det,
+                                                   ~ {
+                                                     if (is.null(.x[[1]]))
+                                                       NA_real_
+                                                     else
+                                                       as.numeric(.x[[1]])})) |>
+    dplyr::mutate(median_wpv_vdpv_det_label = stringr::str_replace(median_wpv_vdpv_det_label, "NULL", "NA")) |>
     dplyr::select(-dplyr::starts_with("met_"), "es_sites") |>
     dplyr::ungroup()
 
@@ -1912,7 +1919,8 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
           "es_sites", "active_sites", "prop_met_ev",
           "prop_met_ev_5_samples",
           "prop_met_good_samples", "median_timely_shipment_per_site",
-          "prop_met_timely_wpv_vdpv_det"
+          "prop_met_timely_wpv_vdpv_det",
+          "median_wpv_vdpv_det"
         )
       ), dplyr::ends_with("label"), dplyr::ends_with("cat")) %>%
       {
@@ -1925,7 +1933,8 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
                                                        prop_met_good_samples_label, ")"),
                         prop_met_timely_wpv_vdpv_det = paste0(prop_met_timely_wpv_vdpv_det,
                                                               " (", prop_met_timely_wpv_vdpv_det_label,
-                                                              ")"))
+                                                              ")"),
+                        median_wpv_vdpv_det = median_wpv_vdpv_det_label)
         } else {
           .
         }
@@ -1944,7 +1953,8 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
                          prop_met_ev_5_samples = "ES EV detection rate, % (>= 5 samples)",
                          prop_met_good_samples = "Condition of ES sample, %",
                          median_timely_shipment_per_site = "Median Timeliness of ES sample, %",
-                         prop_met_timely_wpv_vdpv_det = "Timeliness of detection for WPV/VDPV \u2013 ES, %"
+                         prop_met_timely_wpv_vdpv_det = "Timeliness of detection for WPV/VDPV \u2013 ES, %",
+                         median_wpv_vdpv_det = "Median timeliness of detection for WPV/VDPV ES samples"
       )
 
   }
@@ -2072,7 +2082,8 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
       "C3. ES EV detection rate, % (>= 5 samples)",
       "C3. Condition of ES sample, %",
       "C3. Median Timeliness of ES sample, %",
-      "C3. Timeliness of detection for WPV/VDPV \u2013 ES, %"
+      "C3. Timeliness of detection for WPV/VDPV \u2013 ES, %",
+      "C3. Median timeliness of detection for WPV/VDPV \u2013 ES"
     )
 
   es_cond_description <- switch(as.character(sc_targets),
@@ -2089,7 +2100,8 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
     "Proportion of ES sites with >=5 samples collected in the last 12 months that met an EV detection rate of >=50%",
     es_cond_description,
     "Median proportion of samples across ES sites that arrive at a WHO-accredited lab within 3 days (domestic shipment) or 7 days (international) of sample collection",
-    es_vdpv_description
+    es_vdpv_description,
+    "Median days from collection to notification to HQ"
   )
   c4_indicators <- c(
     "C4. Timeliness of virus isolation results",
