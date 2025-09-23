@@ -3383,7 +3383,7 @@ generate_surv_ind_tab <- function(ctry.data,
     dplyr::filter(u15pop >= 100000)
 
   unique.dist.100k <- ctry.data$dist.pop %>%
-    dplyr::filter(ctry == stringr::str_to_upper(country_name) &
+    dplyr::filter(ctry %in% stringr::str_to_upper(country_name) &
       u15pop >= 100000) %>%
     unique() %>%
     dplyr::group_by(year, u15pop, adm2guid) %>%
