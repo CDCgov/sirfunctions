@@ -1064,12 +1064,12 @@ generate_pop_map <- function(ctry.data,
     ggplot2::geom_sf(data = shape.prov.pop, ggplot2::aes(fill = u15pop)) +
     ggplot2::geom_sf(data = sf::st_crop(ctry.data$roads, ctry.data$ctry)) +
     ggplot2::geom_sf(
-      data = dplyr::filter(ctry.data$cities, toupper(CNTRY_NAME) == ctry.data$name),
+      data = dplyr::filter(ctry.data$cities, toupper(CNTRY_NAME) %in% ctry.data$name),
       size = 3,
       color = "blue"
     ) +
     ggrepel::geom_label_repel(
-      data = dplyr::filter(ctry.data$cities, toupper(CNTRY_NAME) == ctry.data$name),
+      data = dplyr::filter(ctry.data$cities, toupper(CNTRY_NAME) %in% ctry.data$name),
       ggplot2::aes(label = CITY_NAME, geometry = geometry),
       stat = "sf_coordinates"
     ) +
