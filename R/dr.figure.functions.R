@@ -591,13 +591,6 @@ generate_es_site_det <- function(sia.data,
   maxy <- max(es.data$collect.date) + 7
 
   es.site.det <- ggplot2::ggplot() +
-    ggplot2::geom_point(
-      data = es.data |>
-        dplyr::arrange(ADM1_NAME),
-      ggplot2::aes(x = collect.date, y = site.name, col = desc(all_dets)),
-      pch = 19,
-      size = 3
-    ) +
     ggplot2::geom_rect(
       data = minsy,
       ggplot2::aes(
