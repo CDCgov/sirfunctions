@@ -6,19 +6,16 @@
 #' @keywords internal
 #'
 copy_dr_template_code <- function(output_path = Sys.getenv("DR_PATH")) {
-  dr_template_name <- "desk_review_template.Rmd"
-  github_raw_url <- "https://raw.githubusercontent.com/nish-kishore/sg-desk-reviews/main/resources/desk_review_template.Rmd"
+  country_name <- Sys.getenv("DR_COUNTRY")
+  dr_template_name <- paste0(tolower(country_name), "_desk_review_template.Rmd")
 
-  # download only if it doesn't already exist
-  data_folder_files <- list.files(output_path)
-  if ((stringr::str_detect(data_folder_files, "_template") |> sum()) == 0) {
-    cli::cli_process_start("Downloading the desk review template.")
-    download.file(github_raw_url, file.path(output_path, dr_template_name))
-    cli::cli_process_done()
-  } else {
-    message("Template file already exists. Skipping download.")
-    return(NULL)
-  }
+  rmarkdown::draft(
+    file = file.path(output_path, dr_template_name),
+    template = "desk-review-template",
+    package = "sirfunctions",
+    create_dir = FALSE,
+    edit = FALSE
+  )
 }
 
 #' Get functions used for the desk review from Github
