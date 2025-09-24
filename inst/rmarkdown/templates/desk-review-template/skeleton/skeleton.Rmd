@@ -1,0 +1,533 @@
+---
+title: "Desk Review Template"
+author: "CDC PEB SIR Team"
+date: "2025-01-28"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Initial Set Up
+
+1.  **Load the following packages**.
+For experimental versions of the desk review code, please use the sub branch called `dev`. Otherwise, "main"
+```{r packages}
+repo <- "nish-kishore/sirfunctions"
+ref <- "main" # alternatively use "dev"
+remotes::install_github(repo, ref) 
+library(sirfunctions)
+library(tidyverse)
+```
+
+
+
+
+
+
+
+
+
+
+
+2.  **Set the desk review parameters**. `local_dr_path` is the folder where you would like to store desk reviews and associated files locally. The `sg_dr_path` is the folder containing the clone of the `sg-desk-reviews` GitHub repository. This must point to a valid git repository. If lab or ISS/eSurv data are unavailable, please assign the path values to `NULL`.
+
+```{r parameters}
+country_name <- ""
+local_dr_path <- file.path("")
+sg_dr_path <- NULL
+iss_data_path <- NULL
+lab_data_path <- NULL
+
+```
+
+
+
+
+
+
+
+
+
+
+
+3.  **Initialize the desk review**. By default, the start date of the desk review is 3 years from the end date on January 1st. The end date is 6 weeks from today. You may modify the default start and end dates. For ES data, the start date is one year from the end date. Within the `param` folder, there will be a parameters file that is created when `init_dr()` is first run. This file saves the start date and end date of the desk review, to ensure consistency in analyzing data across multiple days. You will have the option to modify this parameter file in subsequent runs of `init_dr()`. 
+
+The `branch` parameter allows the flexibility of downloading a specific version of a desk review function. This is useful if a specific branch has a bug fix for a function, or a new function that has not yet been merged to the main package.
+
+The parameter `source = T` will download the desk review functions from `sirfunctions` to the `R` folder in the desk review folder and gets sourced locally. This allows the user to easily modify the various desk review functions. To view the source code of a function, simply use `View()` (ex. `View(clean_ctry_data)`).
+
+```{r init}
+ctry.data <- init_dr(country_name, 
+                     local_dr_folder = local_dr_path,
+                     sg_dr_folder = sg_dr_path,
+                     lab_data_path = lab_data_path,
+                     iss_data_path = iss_data_path,
+                     branch = ref,
+                     source = T)
+```
+
+
+
+
+
+
+
+
+
+
+
+4. **(Optional) Attaching lab data from EDAV.** If lab data is not saved locally, then you may access lab data from EDAV.
+
+```{r edav.lab}
+ctry.data$lab.data <- sirfunctions::edav_io("read", file_loc = get_constant("CLEANED_LAB_DATA")) |> 
+  filter(!is.na(EPID))
+```
+
+
+
+
+
+
+
+
+
+
+
+## Data Cleaning
+
+1.  **Check for errors**. Run the following checks, if applicable. Error logs will be exported to the `errors` folder.
+
+```{r check.errors}
+ctry_data_errors(ctry.data)
+lab_data_errors(ctry.data$lab.data, ctry.data$afp.all.2)
+iss_data_errors(ctry.data$iss.data)
+```
+
+
+
+
+
+
+
+
+
+
+
+2.  **Perform Data Cleaning**. The following will attempt to clean data issues flagged during the error checking process. There are instances where data cleaning, in particular with the lab and ISS data, can fail. This can occur during the imputation of missing data (year, province, district, etc...), which depend on EPIDs. For example, EPIDs from EMRO are separated by `/`, which means that it may be useful to set `delim='/'` in `clean_lab_data()`. 
+
+For ISS/eSURV data, it is advisable to take a look at the data before cleaning, and ensure the default parameters for `clean_iss_data()` are correct.
+
+```{r data.cleaning}
+ctry.data <- clean_ctry_data(ctry.data)
+ctry.data$lab.data <- clean_lab_data(ctry.data$lab.data, start_date, end_date, 
+                                     ctry.data$afp.all.2, Sys.getenv("DR_COUNTRY")
+                                     )
+ctry.data$iss.data <- clean_iss_data(ctry.data$iss.data, start_date, end_date)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+## Analysis
+
+#### Full AFP linelist in the analysis period
+
+```{r afp.linelist}
+afp.by.month.prov <- generate_afp_by_month_summary(ctry.data$afp.all.2,
+                                                   start_date, end_date, "prov",
+                                                   ctry.data$prov.pop)
+afp.by.month.dist <- generate_afp_by_month_summary(ctry.data$afp.all.2, 
+                                                   start_date, end_date, "dist",
+                                                   ctry.data$dist.pop)
+afp.case <- generate_afp_by_month_summary(ctry.data$afp.all.2,
+                                          start_date, end_date, "year")
+```
+
+
+
+
+
+
+
+
+
+
+#### Calculating NPAFP Rates
+These calculate the NPAFP rates at each geographic level. `sp_continuity_validation` is a parameter to indicate whether GUIDs that are not present across the start and end dates should be dropped.
+```{r npafp.rates}
+dist.extract <- f.npafp.rate.01(
+  afp.data = ctry.data$afp.all.2,
+  pop.data = ctry.data$dist.pop,
+  start.date = start_date,
+  end.date = end_date,
+  spatial.scale = "dist",
+  pending = T,
+  rolling = F,
+  sp_continuity_validation = F
+)
+
+prov.extract <- f.npafp.rate.01(
+  afp.data = ctry.data$afp.all.2,
+  pop.data = ctry.data$prov.pop,
+  start.date = start_date,
+  end.date = end_date,
+  spatial.scale = "prov",
+  pending = T,
+  rolling = F,
+  sp_continuity_validation = F
+)
+
+ctry.extract <- f.npafp.rate.01(
+  afp.data = ctry.data$afp.all.2,
+  pop.data = ctry.data$ctry.pop,
+  start.date = start_date,
+  end.date = end_date,
+  spatial.scale = "ctry",
+  pending = T,
+  rolling = F,
+  sp_continuity_validation = F
+)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+#### Generate lab timeliness
+If lab timeliness intervals from the lab data are available, uncomment `lab.timeliness.ctry` and `lab.timeliness.prov`. Otherwise, timeliness intervals are purely calculated from the AFP linelist. The main advantage of attaching lab data is to include the interval between the lab receiving the stool sample to final culture results.
+
+```{r lab.timeliness}
+lab.timeliness.ctry <- generate_lab_timeliness(ctry.data$lab.data, "ctry", start_date, end_date)
+lab.timeliness.prov <- generate_lab_timeliness(ctry.data$lab.data, "prov", start_date, end_date)
+```
+
+
+
+
+
+
+
+
+
+
+
+#### Generate Stool Adequacy Summary Tables
+These calculate the stool adequacy rates at each geographic level. `sp_continuity_validation` is a parameter to indicate whether GUIDs that are not present across the start and end dates should be dropped.
+```{r stool.adequacy}
+dstool <- f.stool.ad.01(
+  afp.data = ctry.data$afp.all.2,
+  pop.data = ctry.data$dist.pop,
+  start.date = start_date,
+  end.date = end_date,
+  spatial.scale = "dist",
+  missing = "good",
+  bad.data = "inadequate",
+  rolling = F,
+  sp_continuity_validation = F
+)
+pstool <- f.stool.ad.01(
+  afp.data = ctry.data$afp.all.2,
+  pop.data = ctry.data$prov.pop,
+  start.date = start_date,
+  end.date = end_date,
+  spatial.scale = "prov",
+  missing = "good",
+  bad.data = "inadequate",
+  rolling = F,
+  sp_continuity_validation = F
+)
+cstool <- f.stool.ad.01(
+  afp.data = ctry.data$afp.all.2,
+  pop.data = ctry.data$ctry.pop,
+  start.date = start_date,
+  end.date = end_date,
+  spatial.scale = "ctry",
+  missing = "good",
+  bad.data = "inadequate",
+  rolling = F,
+  sp_continuity_validation = F
+)
+```
+
+
+
+
+
+
+
+
+
+
+
+#### Set shapefiles
+
+```{r set.recent.shape}
+ctry.shape <- load_clean_ctry_sp(ctry_name = Sys.getenv("DR_COUNTRY"), 
+                                 type = "long"
+                                 )
+prov.shape <- load_clean_prov_sp(ctry_name = Sys.getenv("DR_COUNTRY"), 
+                                 type = "long"
+                                 )
+dist.shape <- load_clean_dist_sp(ctry_name = Sys.getenv("DR_COUNTRY"), 
+                                 type = "long"
+                                 )
+```
+
+
+
+
+
+
+
+
+
+
+
+#### Generating tables necessary for analysis
+If lab timeliness intervals from the lab data are available, uncomment `lab.timeliness.ctry` and `lab.timeliness.prov`. Otherwise, timeliness intervals are purely calculated from the AFP linelist. The main advantage of attaching lab data is to include the interval between the lab receiving the stool sample to final culture results.
+```{r generate.tables}
+stool.data <- generate_stool_data(ctry.data$afp.all.2, start_date, end_date,
+                                  missing = "good", bad.data = "inadequate")
+int.data.ctry <- generate_int_data(ctry.data$afp.all.2, ctry.data$ctry.pop, 
+                                   start_date, end_date, 
+                                   spatial_scale = "ctry", 
+                                   lab.timeliness.ctry
+                                   )
+int.data.prov <- generate_int_data(ctry.data$afp.all.2, ctry.data$prov.pop,
+                                   start_date, end_date, 
+                                   spatial_scale = "prov",
+                                   lab.timeliness.prov
+                                   )
+cases.need60day <- generate_60_day_table_data(stool.data, start_date, end_date)
+pot.c.clust <- generate_potentially_compatibles_cluster(cases.need60day)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+## Figures
+
+```{r figures}
+generate_ctry_timeliness_graph(int.data.ctry)
+generate_prov_timeliness_graph(int.data.prov)
+generate_pop_map(ctry.data, ctry.shape, prov.shape, end_date)
+generate_dist_pop_map(ctry.data, ctry.shape, prov.shape, dist.shape, end_date)
+generate_afp_case_map(ctry.data$afp.all, ctry.shape, prov.shape, start_date) # issues here
+generate_afp_epicurve(ctry.data, start_date)
+generate_afp_prov_year(afp.by.month.prov, start_date, end_date)
+generate_npafp_maps(prov.extract, ctry.shape, prov.shape, start_date, end_date, caption_size = 2.5)
+generate_npafp_maps_dist(dist.extract, ctry.shape, prov.shape, dist.shape, start_date, end_date, caption_size = 2.5)
+generate_stool_ad_maps(ctry.data, pstool, ctry.shape, prov.shape, start_date, end_date, caption_size = 2.5)
+generate_stool_ad_maps_dist(ctry.data, dstool, ctry.shape, prov.shape, dist.shape, start_date, end_date, caption_size = 2.5)
+generate_timeliness_maps(ctry.data, ctry.shape, prov.shape, start_date, end_date, mark_x = F)
+generate_es_site_det(ctry.data$sia, ctry.data$es)
+generate_es_det_map(ctry.data$es, ctry.shape, prov.shape)
+generate_es_timely(ctry.data$es)
+generate_case_num_dose_g(ctry.data, start_date, end_date)
+generate_iss_barplot(ctry.data$iss.data, start_date, end_date)
+generate_iss_map(ctry.data$iss.data, ctry.shape, prov.shape, start_date, end_date)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+## Generate flextables
+
+```{r flextables}
+surv.ind.tab <- generate_surv_ind_tab(ctry.data, ctry.extract, dist.extract, cstool, dstool, afp.case)  
+pop.tab <- generate_pop_tab(prov.extract, pstool, start_date, end_date) 
+inad.tab.flex <- generate_inad_tab(ctry.data, cstool, start_date, end_date) 
+tab.60d <- generate_60_day_tab(cases.need60day)
+es.table <- generate_es_tab(ctry.data$es) 
+```
+
+
+
+
+
+
+
+
+
+
+
+
+## Excel outputs
+
+```{r excel.outputs}
+create_afp_export(stool.data) 
+create_stool_adequacy_export(cstool, pstool, dstool) 
+create_npafp_export(ctry.extract, prov.extract, dist.extract) 
+create_pop_check_export(ctry.data) 
+create_60_day_export(cases.need60day) 
+create_pot_comp_clust_export(pot.c.clust)
+```
+
+
+
+
+
+
+
+
+
+
+
+## Generating PowerPoint Presentation
+```{r powerpoint}
+generate_dr_ppt2(ctry.data, start_date, end_date, 
+                 surv.ind.tab, inad.tab.flex, tab.60d, pop.tab, es.table)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+## Helpful Information
+
+1.  When running `generate_es_site_det()`, it may produce a warning related to a missing vaccine or detection type. In those instances, you may need to pass a named list that includes the additional vaccine/detection type with the desired color schemes to the `vaccine_type` and `detection_type` parameters of `generate_es_site_det()`. The defaults are listed below. Please modify as necessary.
+
+```{r default.es.site.det.colors}
+default_vaccine_type <- c(
+    "nOPV2" = "blue",
+    "bOPV" = "coral1",
+    "mOPV2" = "purple")
+
+default_detections <- c(
+    "No EV isolated" = "#f2f2f2",
+    "NPEV only" = "darkgrey",
+    "VDPV2" = "darkred",
+    "Sabin 1" = scales::brewer_pal(palette = "Set1")(9)[1],
+    "Sabin 2" = scales::brewer_pal(palette = "Set1")(9)[8],
+    "Sabin 1/Sabin 3" = scales::brewer_pal(palette = "Set1")(9)[2],
+    "Sabin 3" = scales::brewer_pal(palette = "Set1")(9)[3],
+    "Sabin 1/Sabin 3/VDPV2" = scales::brewer_pal(palette = "Set1")(9)[4],
+    "Sabin 1/VDPV2" = scales::brewer_pal(palette = "Set1")(9)[5],
+    "Sabin 3/VDPV2" = scales::brewer_pal(palette = "Set1")(9)[6],
+    "Sabin 1 or Sabin 3" = scales::brewer_pal(palette = "Set1")(9)[6],
+    "Sabin 1/3" = scales::brewer_pal(palette = "Set1")(9)[2],
+    "Sabin 1/3 and VDPV2"  = scales::brewer_pal(palette = "Set1")(9)[5]
+  )
+
+```
+
+Gender Code provided by Scarlett
+```{r gender}
+afp.data <- (ctry.data$afp.all.2)
+
+afp.data <- afp.data %>%
+  filter(cdc.classification.all2 == "NPAFP") %>%
+  mutate(year = format(as.Date(investigation.date, format = "%Y-%m-%d"), "%Y")) %>%
+  filter(year %in% c("2021", "2022", "2023", "2024"))
+
+
+sex_percentages <- afp.data %>%
+  mutate(sex = ifelse(is.na(sex), "Unknown", sex)) %>%
+  group_by(year, sex) %>% 
+  summarise(count = n(), .groups = 'drop') %>%
+  group_by(year) %>%
+  mutate(percentage = count / sum(count) * 100)
+
+total_counts <- sex_percentages %>%
+  group_by(year) %>%
+  summarise(total_count = sum(count), .groups = 'drop')
+
+# Combine the total_counts with sex_percentages for easier plotting
+combined_data <- sex_percentages %>%
+  left_join(total_counts, by = "year")
+
+# Create the stacked bar plot with percentage and count labels
+ggplot(combined_data, aes(x = year, y = percentage, fill = sex)) +
+  geom_bar(stat = "identity", position = "stack") +
+  geom_text(aes(label = count), 
+            position = position_stack(vjust = 0.5),  # Center labels in each stacked section
+            color = "black", size = 3) +
+  geom_text(aes(y = 100, label = paste("n =", total_count)), 
+            vjust = -0.5, color = "black", size = 3) +  # Place total count label above the bars
+  labs(title = "NP-AFP Case Sex Distribution by Year",
+       x = "",
+       y = "Percentage") +
+  theme_minimal() +
+  scale_fill_manual(values = c("Male" = "#003f5a", "Female" = "#de6600", "Unknown" = "lightgrey")) +
+  theme(axis.text.x = element_text(angle = 0, hjust = 1))
+#median onset to notification by sex
+ontonot_medians <- afp.data %>%
+  mutate(sex = ifelse(is.na(sex), "Unknown", sex)) %>%
+  filter(!is.na(ontonot)) %>%
+  group_by(year, sex) %>%
+  summarise(median_ontonot = median(ontonot), .groups = 'drop')
+
+ggplot(ontonot_medians, aes(x = year, y = median_ontonot, fill = sex, label = round(median_ontonot, 1))) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  geom_text(aes(y = median_ontonot + max(ontonot_medians$median_ontonot, na.rm = TRUE) * 0.02), 
+            position = position_dodge(width = 0.9),  # Apply the same dodging to labels
+            color = "black", size = 3, vjust = -0.5) +
+  labs(title = "",
+       x = "",
+       y = "Median Onset to Notification") +
+  theme_minimal() +
+  scale_fill_manual(values = c("Male" = "#003f5a", "Female" = "#de6600", "Unknown" = "lightgrey")) +
+  theme(axis.text.x = element_text(angle = 0, hjust = 1))
+
+#median onset to stool 1 by sex
+
+ontostool_medians <- afp.data %>%
+  mutate(sex = ifelse(is.na(sex), "Unknown", sex)) %>%
+  filter(!is.na(ontostool1)) %>%
+  group_by(year, sex) %>%
+  summarise(median_ontostool = median(ontostool1), .groups = 'drop')
+
+ggplot(ontostool_medians, aes(x = year, y = median_ontostool, fill = sex, label = round(median_ontostool, 1))) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  geom_text(aes(y = median_ontostool + max(ontostool_medians$median_ontostool, na.rm = TRUE) * 0.01), 
+            position = position_dodge(width = 0.9),  # Apply the same dodging to labels
+            color = "black", size = 3, vjust = -0.5) +
+  labs(title = "",
+       x = "Year",
+       y = "Median Onset to Stool 1 Collection") +
+  theme_minimal() +
+  scale_fill_manual(values = c("Male" = "#003f5a", "Female" = "#de6600", "Unknown" = "lightgrey")) +
+  theme(axis.text.x = element_text(angle = 0, hjust = 1))
+
+```

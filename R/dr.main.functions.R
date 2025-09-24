@@ -2,23 +2,21 @@
 
 #' Downloads the desk review template code
 #'
-#' @param output_path where to download the desk review template code
+#' @param output_path `str` Where to download the desk review template code.
+#' @param country_name `str` Name of the country in the desk review.
 #' @keywords internal
 #'
-copy_dr_template_code <- function(output_path = Sys.getenv("DR_PATH")) {
-  dr_template_name <- "desk_review_template.Rmd"
-  github_raw_url <- "https://raw.githubusercontent.com/nish-kishore/sg-desk-reviews/main/resources/desk_review_template.Rmd"
+copy_dr_template_code <- function(output_path = Sys.getenv("DR_PATH"), country_name = Sys.getenv("DR_COUNTRY")) {
 
-  # download only if it doesn't already exist
-  data_folder_files <- list.files(output_path)
-  if ((stringr::str_detect(data_folder_files, "_template") |> sum()) == 0) {
-    cli::cli_process_start("Downloading the desk review template.")
-    download.file(github_raw_url, file.path(output_path, dr_template_name))
-    cli::cli_process_done()
-  } else {
-    message("Template file already exists. Skipping download.")
-    return(NULL)
-  }
+  dr_template_name <- paste0(paste(tolower(country_name), collapse = "_"), "_desk_review_template.Rmd")
+
+  rmarkdown::draft(
+    file = file.path(output_path, dr_template_name),
+    template = "desk-review-template",
+    package = "sirfunctions",
+    create_dir = FALSE,
+    edit = FALSE
+  )
 }
 
 #' Get functions used for the desk review from Github
@@ -35,9 +33,9 @@ copy_dr_functions <- function(branch = "main", output_folder = Sys.getenv("DR_FU
       call. = FALSE
     )
   }
-  repo <- "nish-kishore/sirfunctions"
+  repo <- "CDCGov/sirfunctions"
   github_raw_url <- "https://raw.githubusercontent.com"
-  github_folder_url <- "https://api.github.com/repos/nish-kishore/sirfunctions/git/trees"
+  github_folder_url <- "https://api.github.com/repos/CDCGov/sirfunctions/git/trees"
   github_folder_url <- file.path(github_folder_url, paste0(branch, "?recursive=1"))
   req <- httr::GET(github_folder_url)
   file_path <- data.frame("paths" = unlist(lapply(httr::content(req)$tree, function(x) x$path)))
