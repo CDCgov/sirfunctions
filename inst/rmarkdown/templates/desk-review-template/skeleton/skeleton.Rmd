@@ -408,12 +408,9 @@ create_pot_comp_clust_export(pot.c.clust)
 
 
 ## Generating PowerPoint Presentation
-Please download the PowerPoint presentation from GitHub [here](https://github.com/nish-kishore/sg-desk-reviews/blob/main/resources/desk_review_template.pptx) and place it to the folder containing the local desk reviews. You will need to modify `ppt_template_path` as necessary.
 ```{r powerpoint}
-ppt_template <- NULL
 generate_dr_ppt2(ctry.data, start_date, end_date, 
-                 surv.ind.tab, inad.tab.flex, tab.60d, pop.tab, es.table, 
-                 ppt_template_path = ppt_template)
+                 surv.ind.tab, inad.tab.flex, tab.60d, pop.tab, es.table)
 ```
 
 
