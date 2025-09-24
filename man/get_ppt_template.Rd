@@ -7,8 +7,8 @@
 get_ppt_template(path = NULL)
 }
 \arguments{
-\item{path}{\code{str} Path to the PowerPoint template. If \code{NULL},
-will prompt user to download from the sg-desk-review GitHub repository}
+\item{path}{\code{str} Path to the PowerPoint template. If \code{NULL}, uses the
+default template inside sirfunctions.}
 }
 \value{
 \code{str} Local path of the PowerPoint template.
