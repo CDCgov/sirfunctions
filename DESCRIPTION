@@ -45,7 +45,8 @@ Imports:
     withr,
     yaml,
     stats,
-    rappdirs
+    rappdirs,
+    rmarkdown
 Suggests:
     arrow,
     qs2,
@@ -67,13 +68,12 @@ Suggests:
     magick,
     openxlsx,
     vctrs,
-    rmarkdown,
     Microsoft365R,
     zoo,
     writexl,
     rvg,
-    testthat (>= 3.0.0), 
-    exactextractr, 
+    testthat (>= 3.0.0),
+    exactextractr,
     terra
 VignetteBuilder:
     knitr
