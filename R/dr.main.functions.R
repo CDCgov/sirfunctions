@@ -2,12 +2,13 @@
 
 #' Downloads the desk review template code
 #'
-#' @param output_path where to download the desk review template code
+#' @param output_path `str` Where to download the desk review template code.
+#' @param country_name `str` Name of the country in the desk review.
 #' @keywords internal
 #'
-copy_dr_template_code <- function(output_path = Sys.getenv("DR_PATH")) {
-  country_name <- Sys.getenv("DR_COUNTRY")
-  dr_template_name <- paste0(tolower(country_name), "_desk_review_template.Rmd")
+copy_dr_template_code <- function(output_path = Sys.getenv("DR_PATH"), country_name = Sys.getenv("DR_COUNTRY")) {
+
+  dr_template_name <- paste0(paste(tolower(country_name), collapse = "_"), "_desk_review_template.Rmd")
 
   rmarkdown::draft(
     file = file.path(output_path, dr_template_name),
