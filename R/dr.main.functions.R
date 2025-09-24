@@ -32,9 +32,9 @@ copy_dr_functions <- function(branch = "main", output_folder = Sys.getenv("DR_FU
       call. = FALSE
     )
   }
-  repo <- "nish-kishore/sirfunctions"
+  repo <- "CDCGov/sirfunctions"
   github_raw_url <- "https://raw.githubusercontent.com"
-  github_folder_url <- "https://api.github.com/repos/nish-kishore/sirfunctions/git/trees"
+  github_folder_url <- "https://api.github.com/repos/CDCGov/sirfunctions/git/trees"
   github_folder_url <- file.path(github_folder_url, paste0(branch, "?recursive=1"))
   req <- httr::GET(github_folder_url)
   file_path <- data.frame("paths" = unlist(lapply(httr::content(req)$tree, function(x) x$path)))
