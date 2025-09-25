@@ -14,8 +14,6 @@ get_constant(constant_name = NULL)
 \item \code{"LAB_LOCATIONS"}
 \item \code{"DR_TEMPLATE"}
 \item \code{"SIRFUNCTIONS_GITHUB_TREE"}
-\item \code{"AFRO_LAB_DATA"}
-\item \code{"EMRO_LAB_DATA"}
 \item \code{"CLEANED_LAB_DATA"}
 }}
 }
