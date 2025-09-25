@@ -4,10 +4,15 @@
 \alias{read_excel_from_edav}
 \title{Reads an Excel file from EDAV to the R environment}
 \usage{
-read_excel_from_edav(src, ...)
+read_excel_from_edav(src, sheet = NULL, ...)
 }
 \arguments{
 \item{src}{\code{str} Path to the Excel file.}
+
+\item{sheet}{\code{int} or \code{str} Sheet to read. Either a string (the name of a sheet),
+or an integer (the position of the sheet).
+Ignored if the sheet is specified via range. If neither argument specifies the sheet,
+defaults to the first sheet.}
 
 \item{...}{Additional parameters of \code{\link[readxl:read_excel]{readxl::read_excel()}}.}
 }

@@ -3368,20 +3368,32 @@ explore_edav <- function(path = get_constant("DEFAULT_EDAV_FOLDER"),
 #'
 #'
 #' @param src `str` Path to the Excel file.
+#' @param sheet `int` or `str` Sheet to read. Either a string (the name of a sheet),
+#' or an integer (the position of the sheet).
+#' Ignored if the sheet is specified via range. If neither argument specifies the sheet,
+#' defaults to the first sheet.
 #' @param ... Additional parameters of [readxl::read_excel()].
 #'
 #' @returns `tibble` or `list` A tibble or a list of tibbles containing data from
 #' the Excel file.
 #' @keywords internal
 #'
-read_excel_from_edav <- function(src, ...) {
-  sheets <- readxl::excel_sheets(src)
-  if (length(sheets) > 1) {
-    output <- purrr::map(sheets, \(x) readxl::read_xlsx(path = src, sheet = x,
-                                                        ...))
-    names(output) <- sheets
+read_excel_from_edav <- function(src, sheet = NULL, ...) {
+
+  if (!is.null(sheet)) {
+    # Read the specified sheet
+    output <- readxl::read_excel(path = src, sheet = sheet, ...)
   } else {
-    output <- readxl::read_excel(src)
+    # Read all sheets
+    sheets <- readxl::excel_sheets(src)
+
+    if (endsWith(src, ".xlsx")) {
+      output <- purrr::map(sheets, \(x) readxl::read_xlsx(path = src, sheet = x, ...))
+    } else if (endsWith(src, ".xls")) {
+      output <- purrr::map(sheets, \(x) readxl::read_xls(path = src, sheet = x, ...))
+    }
+
+    names(output) <- sheets
   }
 
   return(output)
