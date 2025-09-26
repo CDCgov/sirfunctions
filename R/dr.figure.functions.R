@@ -591,13 +591,6 @@ generate_es_site_det <- function(sia.data,
   maxy <- max(es.data$collect.date) + 7
 
   es.site.det <- ggplot2::ggplot() +
-    ggplot2::geom_point(
-      data = es.data |>
-        dplyr::arrange(ADM1_NAME),
-      ggplot2::aes(x = collect.date, y = site.name, col = desc(all_dets)),
-      pch = 19,
-      size = 3
-    ) +
     ggplot2::geom_rect(
       data = minsy,
       ggplot2::aes(
@@ -1071,12 +1064,12 @@ generate_pop_map <- function(ctry.data,
     ggplot2::geom_sf(data = shape.prov.pop, ggplot2::aes(fill = u15pop)) +
     ggplot2::geom_sf(data = sf::st_crop(ctry.data$roads, ctry.data$ctry)) +
     ggplot2::geom_sf(
-      data = dplyr::filter(ctry.data$cities, toupper(CNTRY_NAME) == ctry.data$name),
+      data = dplyr::filter(ctry.data$cities, toupper(CNTRY_NAME) %in% ctry.data$name),
       size = 3,
       color = "blue"
     ) +
     ggrepel::geom_label_repel(
-      data = dplyr::filter(ctry.data$cities, toupper(CNTRY_NAME) == ctry.data$name),
+      data = dplyr::filter(ctry.data$cities, toupper(CNTRY_NAME) %in% ctry.data$name),
       ggplot2::aes(label = CITY_NAME, geometry = geometry),
       stat = "sf_coordinates"
     ) +
@@ -3390,7 +3383,7 @@ generate_surv_ind_tab <- function(ctry.data,
     dplyr::filter(u15pop >= 100000)
 
   unique.dist.100k <- ctry.data$dist.pop %>%
-    dplyr::filter(ctry == stringr::str_to_upper(country_name) &
+    dplyr::filter(ctry %in% stringr::str_to_upper(country_name) &
       u15pop >= 100000) %>%
     unique() %>%
     dplyr::group_by(year, u15pop, adm2guid) %>%
