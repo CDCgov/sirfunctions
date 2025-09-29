@@ -4,10 +4,15 @@
 \alias{copy_dr_template_code}
 \title{Downloads the desk review template code}
 \usage{
-copy_dr_template_code(output_path = Sys.getenv("DR_PATH"))
+copy_dr_template_code(
+  output_path = Sys.getenv("DR_PATH"),
+  country_name = Sys.getenv("DR_COUNTRY")
+)
 }
 \arguments{
-\item{output_path}{where to download the desk review template code}
+\item{output_path}{\code{str} Where to download the desk review template code.}
+
+\item{country_name}{\code{str} Name of the country in the desk review.}
 }
 \description{
 Downloads the desk review template code

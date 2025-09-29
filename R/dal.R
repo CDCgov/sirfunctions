@@ -261,8 +261,8 @@ sirfunctions_io <- function(
         file_loc, azcontainer = azcontainer
       ))
     } else {
-      if (!grepl(".rds$|.rda$|.csv$|.xlsx$|.xls$|.parquet$|.qs2$", file_loc)) {
-        stop("At the moment only 'rds' 'rda' 'csv' 'xlsx' 'xls' 'parquet' and 'qs2' are supported for reading.")
+      if (!grepl(".rds$|.rda$|.csv$|.xlsx$|.xls$|.parquet$|.qs2$|.tif$", file_loc)) {
+        stop("At the moment only 'rds' 'rda' 'csv' 'xlsx' 'xls' 'parquet', 'qs2', and 'tif' are supported for reading.")
       }
 
       if (endsWith(file_loc, ".rds")) {
@@ -277,6 +277,8 @@ sirfunctions_io <- function(
         return(read_excel_from_edav(src = file_loc, ...))
       } else if (endsWith(file_loc, ".parquet")) {
         return(arrow::read_parquet(file_loc))
+      } else if(endsWith(file_loc, ".tif")) {
+        return(terra::rast(file_loc))
       }
     }
   }
@@ -455,8 +457,8 @@ edav_io <- function(
       stop("File does not exist")
     }
 
-    if (!grepl(".rds$|.rda$|.csv$|.xlsx$|.xls$|.parquet$|.qs2$", file_loc)) {
-      stop("At the moment only 'rds' 'rda', 'csv', 'xls', 'xlsx' 'parquet' and 'qs2' are supported for reading.")
+    if (!grepl(".rds$|.rda$|.csv$|.xlsx$|.xls$|.parquet$|.qs2$|.tif$", file_loc)) {
+      stop("At the moment only 'rds' 'rda', 'csv', 'xls', 'xlsx' 'parquet', 'qs2', '.tif' are supported for reading.")
     }
 
     if (endsWith(file_loc, ".rds")) {
@@ -525,6 +527,19 @@ edav_io <- function(
                                       overwrite = TRUE
           )
           output <- qs2::qs_read(file.path(tempdir(), basename(file_loc)))
+        }
+      )
+      return(output)
+    } else if (endsWith(file_loc, ".tif")) {
+      output <- NULL
+      withr::with_tempdir(
+        {
+          AzureStor::storage_download(azcontainer,
+                                      file_loc,
+                                      file.path(tempdir(), basename(file_loc)),
+                                      overwrite = TRUE
+          )
+          output <- terra::rast(file.path(tempdir(), basename(file_loc)))
         }
       )
       return(output)
@@ -1574,34 +1589,20 @@ if (!force.new.run) {
 
 
   cli::cli_process_start("6) Loading coverage data")
-  raw.data$coverage <-
-    sirfunctions_io("read", NULL,
-      file_loc = dplyr::filter(dl_table, grepl("dpt", file)) |>
-        dplyr::pull(file), edav = use_edav
-    ) |>
-    dplyr::select(
-      ctry = adm0_name,
-      prov = adm1_name,
-      dist = adm2_name,
-      year,
-      dpt1,
-      dpt3
-    ) |>
-    dplyr::left_join(
-      sirfunctions_io("read", NULL,
-        file_loc = dplyr::filter(dl_table, grepl("mcv1", file)) |>
-          dplyr::pull(file), edav = use_edav
-      ) |>
-        dplyr::select(
-          ctry = adm0_name,
-          prov = adm1_name,
-          dist = adm2_name,
-          year,
-          mcv1,
-          under5_pop
-        ),
-      by = c("ctry", "prov", "dist", "year")
-    )
+  raw.data$ctry.coverage <- sirfunctions_io("read", NULL,
+                                            file_loc = dplyr::filter(dl_table, grepl("ctry_cov", file)) |>
+                                              dplyr::pull(file), edav = use_edav
+  )
+
+  raw.data$prov.coverage <- sirfunctions_io("read", NULL,
+                                            file_loc = dplyr::filter(dl_table, grepl("prov_cov", file)) |>
+                                              dplyr::pull(file), edav = use_edav
+  )
+
+  raw.data$dist.coverage <- sirfunctions_io("read", NULL,
+                                            file_loc = dplyr::filter(dl_table, grepl("dist_cov", file)) |>
+                                              dplyr::pull(file), edav = use_edav
+  )
 
   cli::cli_process_done()
 
@@ -1962,7 +1963,8 @@ update_polio_data <- function(local_dataset, overwrite = T) {
     if (i %in% c("metadata",
                  "ctry.pop", "prov.pop", "dist.pop",
                  "global.ctry", "global.prov", "global.dist",
-                 "roads", "cities", "afp.epi", "coverage")) {
+                 "roads", "cities", "afp.epi",
+                 "ctry.coverage", "prov.coverage", "dist.coverage")) {
       cli::cli_process_start(paste0("Replacing ", i, " with the most recent data"))
       updated_data[i] <- list(new_data[[i]])
       cli::cli_process_done()
@@ -2495,7 +2497,9 @@ split_concat_raw_data <- function(
 
   current.year <- lubridate::year(Sys.time())
 
-  key.tables <- c("afp", "afp.epi", "para.case", "es", "sia", "pos", "other", "dist.pop", "prov.pop", "ctry.pop", "coverage")
+  key.tables <- c("afp", "afp.epi", "para.case", "es", "sia", "pos", "other",
+                  "dist.pop", "prov.pop", "ctry.pop",
+                  "ctry.coverage", "prov.coverage", "dist.coverage")
 
   static.tables <- c("metadata")
 
@@ -2527,7 +2531,7 @@ split_concat_raw_data <- function(
 
     key.table.vars <- dplyr::tibble(
       "data" = key.tables,
-      "year.var" = c(rep("yronset", 3), "collect.yr", "yr.sia", rep("yronset", 2), rep("year", 4))
+      "year.var" = c(rep("yronset", 3), "collect.yr", "yr.sia", rep("yronset", 2), rep("year", 6))
     )
 
 

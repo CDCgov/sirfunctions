@@ -8,14 +8,19 @@
 #' Enter your email to gain access to the data folder.
 #' Inside the data folder go to `Geospatial Vaccine Coverage` > `04_Rasters`.
 #' Download the following geotifs and place them into a single folder in your local machine:
-#' - `bcg1_cov_mean_raked_2000_2023.tif`
-#' - `dpt1_cov_mean_raked_2000_2023.tif`
-#' - `dpt3_cov_mean_raked_2000_2023.tif`
-#' - `mcv1_cov_mean_raked_2000_2023.tif`
-#' - `polio3_cov_mean_raked_2000_2023.tif`
+#' - `bcg1_cov_mean_raked_2000_<current year>.tif`
+#' - `dpt1_cov_mean_raked_2000_<current year>.tif`
+#' - `dpt3_cov_mean_raked_2000_<current year>.tif`
+#' - `mcv1_cov_mean_raked_2000_<current year>.tif`
+#' - `polio3_cov_mean_raked_2000_<current year>.tif`
+#'
+#' **NOTE:** `<current year>` will change as the vaccine coverage data gets updated.
 #'
 #' @param tif_folder `str` Absolute folder path to the folder containing all .TIFs of interest.
-#' @param edav `logical` `TRUE` or `FALSE` depending on if final save location is in Azure.
+#' @param ctry `sf` Output of [load_clean_ctry_sp()].
+#' @param prov `sf` Output of [load_clean_prov_sp()].
+#' @param dist `sf` Output of [load_clean_dist_sp()].
+#' @param edav `logical` `TRUE` or `FALSE` depending on if final save location is in Azure. Defaults to `TRUE`.
 #' @param output_folder `str` Absolute folder path location to save country, province and district coverage
 #' data. Outputs in RDS by default, but also supports `.qs2` format.
 #' @param output_format `str` '.rds' or '.qs2'.
@@ -23,13 +28,22 @@
 #' @export
 #' @examples
 #' \dontrun{
+#' ctry_sf <- load_clean_ctry_sp()
+#' prov_sf <- load_clean_prov_sp()
+#' dist_sf <- load_clean_dist_sp()
 #' update_vacc_cov_data(
-#'   tif_folder = "C:/Users/abc1/Desktop/tif_folder",
-#'   edav = FALSE, output_folder = "C:/Users/abc1/Desktop/tif_folder"
+#'   "C:/Users/abc1/Desktop/tif_folder",
+#'   ctry_sf, prov_sf, dist_sf,
+#'   FALSE, "C:/Users/abc1/Desktop/tif_folder"
 #' )
 #' }
 #'
-update_vacc_cov_data <- function(tif_folder, edav, output_folder, output_format = ".rds") {
+update_vacc_cov_data <- function(tif_folder,
+                                 ctry = load_clean_ctry_sp(),
+                                 prov = load_clean_prov_sp(),
+                                 dist = load_clean_dist_sp(),
+                                 output_folder = "GID/PEB/SIR/Data/coverage",
+                                 edav = TRUE, output_format = ".rds") {
   if (!output_format %in% c(".rds", ".qs2")) {
     cli::cli_abort("Only 'rds' and 'qs2' outputs are supported at this time.")
   }
@@ -47,19 +61,38 @@ update_vacc_cov_data <- function(tif_folder, edav, output_folder, output_format 
     )
   }
 
-  cli::cli_process_start(
-    "Downloading SIR spatial data",
-    "SIR spatial data downloaded"
-  )
-  ctry <- load_clean_ctry_sp()
-  prov <- load_clean_prov_sp()
-  dist <- load_clean_dist_sp()
-  cli::cli_process_done()
+  # Check if all files are located there
+  tif_files <- sirfunctions_io("list", NULL, file_loc = tif_folder,
+                               edav = edav, full_names = TRUE)
+  target_vaccines <- c("bcg1", "dpt1", "dpt3", "mcv1", "polio3")
+  target_files <- paste0(target_vaccines, "_cov_mean_raked_2000_")
+  target_files <- purrr::map(target_files, \(x) tif_files |>
+                               filter(stringr::str_detect(name, x))) |>
+    dplyr::bind_rows()
+
+  if (nrow(target_files) != 5) {
+    cli::cli_alert_warning("One of the required tif file is missing. Files present: ")
+    cli::cli_li(target_files$name)
+  } else {
+    cli::cli_alert_success("All required files found!")
+  }
 
   cli::cli_process_start("Generating a raster brick from geotifs", "Raster brick generated")
-  tif_files <- list.files(tif_folder, pattern = "\\.tif$", full.names = TRUE)
+  raster_brick <- purrr::map(target_files$name, \(x) {
 
-  raster_brick <- terra::rast(tif_files)
+    raster <- sirfunctions_io("read", NULL, file_loc = x, edav = edav)
+
+    # Have to manually assign name because in Aug 2025 update had non-unique column names
+    layer_names <- terra::names(raster)
+    layer_names <- stringr::str_extract(layer_names, "[0-9]+")
+    source_name <- terra::sources(raster) |> basename()
+    source_name <- stringr::str_extract(source_name, "^[^.]+")
+    layer_names <- paste0(source_name, "_", layer_names)
+    names(raster) <- layer_names
+
+    return(raster)
+  }) |>
+    terra::rast()
   cli::cli_process_done()
 
   cli::cli_process_start("Extracting country level measurements", "Country level measurements extracted")
