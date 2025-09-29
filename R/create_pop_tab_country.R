@@ -1,4 +1,71 @@
-generate_pop_tab_ctry <- function(pnpafp, pstool, start_date, end_date) {
+#' Country-Level Population Surveillance Table (wide, multi-year)
+#'
+#' @description
+#' Builds a formatted table of country-level surveillance indicators across
+#' a span of years. It aggregates inputs to the **country–year** level,
+#' computes year-over-year differences in NP-AFP case counts,
+#' pivots to a wide layout (one row per country; columns per year), and
+#' applies target-based highlighting for **NPAFP rate < 2** and
+#' **stool adequacy < 80%**.
+#'
+#' @param cnpafp A data frame containing country-level NP-AFP case data with
+#'   at least the columns:
+#'   - `ctry` (country identifier),
+#'   - `year` (numeric or integer year),
+#'   - `n_npafp` (NP-AFP case count),
+#'   - `u15pop` (under-15 population),
+#'   - `npafp_rate` (NP-AFP rate per 100,000).
+#'
+#' @param cstool A data frame containing country-level stool adequacy data with
+#'   at least:
+#'   - `ctry` (country identifier),
+#'   - `year` (year),
+#'   - `per.stool.ad` (percent stool adequacy).
+#'
+#' @param start_date,end_date Dates (any format coercible by
+#'   [lubridate::as_date()]) defining the inclusive year range to display.
+#'   All years between `year(start_date)` and `year(end_date)` are included.
+#'
+#' @details
+#' - **Aggregation:** For each `ctry`–`year`, `n_npafp` and `u15pop` are summed.
+#'   `npafp_rate` takes the first non-missing value encountered for that group.
+#'   `per.stool.ad` is averaged across rows within the group.
+#' - **Diff columns:** A year-on-year % difference for `n_npafp` is computed
+#'   per country (`diff_per`), and rounded to 1 decimal.
+#' - **Wide layout:** The result is pivoted to wide columns per year for
+#'   `n_npafp`, `diff_per`, `npafp_rate`, `per.stool.ad`, and the latest year’s
+#'   `u15pop` (older `u15pop_YYYY` columns are dropped).
+#' - **Highlighting:** Cells with `npafp_rate < 2` or `per.stool.ad < 80` are
+#'   colored `#FF9999`; country labels are darkened (`#CC0000`) if the country
+#'   falls below either target in any year.
+#'
+#' @return A `flextable` object suitable for viewing in the RStudio Viewer
+#'   (e.g., with `flextable::save_as_html()` + `rstudioapi::viewer()`), or
+#'   exporting to Word/PowerPoint/HTML via `flextable`.
+#'
+#' @examples
+#' \dontrun{
+#' tab <- generate_pop_tab_ctry(
+#'   cnpafp  = ctry.extract,  # your country NP-AFP dataset
+#'   cstool  = cstool,        # your country stool adequacy dataset
+#'   start_date = "2021-01-01",
+#'   end_date   = "2024-12-31"
+#' )
+#' # View in RStudio
+#' tmp <- tempfile(fileext = ".html")
+#' flextable::save_as_html(tab, path = tmp)
+#' rstudioapi::viewer(tmp)
+#' }
+#'
+#' @importFrom lubridate as_date year
+#' @importFrom dplyr filter group_by summarise mutate across ungroup arrange full_join
+#' @importFrom dplyr select any_of lag
+#' @importFrom tidyr pivot_wider replace_na
+#' @importFrom stringr str_replace
+#' @importFrom flextable flextable theme_booktabs bg color align set_header_df
+#' @importFrom flextable add_header_row vline hline bold fp_border_default
+#' @export
+generate_pop_tab_ctry <- function(cnpafp, cstool, start_date, end_date) {
   if (!requireNamespace("flextable", quietly = TRUE)) {
     stop('Package "flextable" must be installed to use this function.', call. = FALSE)
   }
@@ -9,7 +76,7 @@ generate_pop_tab_ctry <- function(pnpafp, pstool, start_date, end_date) {
   yrs <- seq(lubridate::year(start_date), lubridate::year(end_date), by = 1)
 
   # ---- Country-year aggregations----
-  sub.case.cy <- pnpafp |>
+  sub.case.cy <- cnpafp |>
     dplyr::filter(!is.na(ctry)) |>
     dplyr::group_by(country = ctry, year) |>
     dplyr::summarise(
@@ -20,7 +87,7 @@ generate_pop_tab_ctry <- function(pnpafp, pstool, start_date, end_date) {
     )
 
   # Stool adequacy
-  sub.stool.cy <- pstool |>
+  sub.stool.cy <- cstool |>
     dplyr::filter(!is.na(ctry)) |>
     dplyr::group_by(country = ctry, year) |>
     dplyr::summarise(
@@ -135,3 +202,4 @@ generate_pop_tab_ctry <- function(pnpafp, pstool, start_date, end_date) {
     flextable::bold(bold = TRUE, part = "header") |>
     flextable::align(align = "center", part = "all")
 }
+
