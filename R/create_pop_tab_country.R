@@ -52,7 +52,6 @@ generate_pop_tab_ctry <- function(cnpafp, cstool, start_date, end_date) {
   # Years to include / label
   start_date <- lubridate::as_date(start_date)
   end_date   <- lubridate::as_date(end_date)
-  yrs <- seq(lubridate::year(start_date), lubridate::year(end_date), by = 1)
 
   # ---- Country-year aggregations----
   sub.case.cy <- cnpafp |>
@@ -89,7 +88,7 @@ generate_pop_tab_ctry <- function(cnpafp, cstool, start_date, end_date) {
     dplyr::filter(!is.na(country))
 
   # ---- Long -> Wide with year columns; keep only latest pop column ----
-  date.analysis <- seq(lubridate::year(start_date), lubridate::year(end_date), 1)
+  date.analysis <- unique(c(cstool$year, cnpafp$year))
   pop.date.analysis <- paste0("u15pop_", date.analysis[1:length(date.analysis) - 1])
 
   sub.ctry.join.wide <- tidyr::pivot_wider(
