@@ -3563,7 +3563,7 @@ generate_pop_tab <- function(pnpafp,
     dplyr::mutate(u15pop = round(u15pop, 0)) |>
     dplyr::filter(!is.na(prov))
 
-  date.analysis <- seq(lubridate::year(start_date), lubridate::year(end_date), 1)
+  date.analysis <- unique(c(pstool$year, pnpafp$year))
   pop.date.analysis <- paste0("u15pop_", date.analysis[1:length(date.analysis) - 1])
 
   sub.prov.join.wide <- tidyr::pivot_wider(
