@@ -3723,9 +3723,7 @@ generate_pop_tab <- function(pnpafp,
 #' Issues with stool adequacy at the country level
 #'
 #' Generates a summary table at the country level highlighting issues around stool adequacy.
-#'
-#' @param ctry.data `list` large list containing polio data for a country. This is the output of
-#' [extract_country_data()] or [init_dr()].
+#' @param afp_data `tibble` `afp.all.2` of the output of [extract_country_data()].
 #' @param cstool `tibble` Stool adequacy at the country level. This is the output of [f.stool.ad.01()].
 #' @param start_date `str` Start date of analysis.
 #' @param end_date `str` End date of analysis.
@@ -3751,7 +3749,7 @@ generate_pop_tab <- function(pnpafp,
 #' }
 #'
 #' @export
-generate_inad_tab <- function(ctry.data,
+generate_inad_tab <- function(afp_data,
                               cstool,
                               start_date,
                               end_date) {
@@ -3777,7 +3775,7 @@ generate_inad_tab <- function(ctry.data,
   }
 
   # All AFP cases
-  afps.all <- ctry.data$afp.all.2 %>%
+  afps.all <- afp_data %>%
     dplyr::filter(
       dplyr::between(date, start_date, end_date),
       cdc.classification.all2 != "NOT-AFP"

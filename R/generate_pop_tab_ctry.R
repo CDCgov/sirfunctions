@@ -16,19 +16,6 @@
 #'   [lubridate::as_date()]) defining the inclusive year range to display.
 #'   All years between `year(start_date)` and `year(end_date)` are included.
 #'
-#' @details
-#' - **Aggregation:** For each `ctry`–`year`, `n_npafp` and `u15pop` are summed.
-#'   `npafp_rate` takes the first non-missing value encountered for that group.
-#'   `per.stool.ad` is averaged across rows within the group.
-#' - **Diff columns:** A year-on-year % difference for `n_npafp` is computed
-#'   per country (`diff_per`), and rounded to 1 decimal.
-#' - **Wide layout:** The result is pivoted to wide columns per year for
-#'   `n_npafp`, `diff_per`, `npafp_rate`, `per.stool.ad`, and the latest year’s
-#'   `u15pop` (older `u15pop_YYYY` columns are dropped).
-#' - **Highlighting:** Cells with `npafp_rate < 2` or `per.stool.ad < 80` are
-#'   colored `#FF9999`; country labels are darkened (`#CC0000`) if the country
-#'   falls below either target in any year.
-#'
 #' @return A `flextable` object suitable for viewing in the RStudio Viewer
 #'   (e.g., with `flextable::save_as_html()` + `rstudioapi::viewer()`), or
 #'   exporting to Word/PowerPoint/HTML via `flextable`.

@@ -84,10 +84,6 @@
 #' )
 #' }
 #'
-#' @importFrom dplyr left_join filter mutate select distinct group_by summarise arrange
-#' @importFrom dplyr across any_of if_else rename coalesce count
-#' @importFrom tidyr replace_na
-#' @importFrom flextable flextable theme_booktabs bold colformat_double set_header_labels autofit colformat_int
 #' @export
 generate_surv_reg_tab <- function(
     ctry_data, ctry.extract, dist.extract, cstool, dstool, afp.cases,
