@@ -8,19 +8,9 @@
 #' applies target-based highlighting for **NPAFP rate < 2** and
 #' **stool adequacy < 80%**.
 #'
-#' @param cnpafp A data frame containing country-level NP-AFP case data with
-#'   at least the columns:
-#'   - `ctry` (country identifier),
-#'   - `year` (numeric or integer year),
-#'   - `n_npafp` (NP-AFP case count),
-#'   - `u15pop` (under-15 population),
-#'   - `npafp_rate` (NP-AFP rate per 100,000).
+#' @param cnpafp `tibble` Output of [f.npafp.rate.01()] at the country level.
 #'
-#' @param cstool A data frame containing country-level stool adequacy data with
-#'   at least:
-#'   - `ctry` (country identifier),
-#'   - `year` (year),
-#'   - `per.stool.ad` (percent stool adequacy).
+#' @param cstool `tibble` Output of [f.stool.ad.01()] at the country level.
 #'
 #' @param start_date,end_date Dates (any format coercible by
 #'   [lubridate::as_date()]) defining the inclusive year range to display.
@@ -51,19 +41,8 @@
 #'   start_date = "2021-01-01",
 #'   end_date   = "2024-12-31"
 #' )
-#' # View in RStudio
-#' tmp <- tempfile(fileext = ".html")
-#' flextable::save_as_html(tab, path = tmp)
-#' rstudioapi::viewer(tmp)
 #' }
 #'
-#' @importFrom lubridate as_date year
-#' @importFrom dplyr filter group_by summarise mutate across ungroup arrange full_join
-#' @importFrom dplyr select any_of lag
-#' @importFrom tidyr pivot_wider replace_na
-#' @importFrom stringr str_replace
-#' @importFrom flextable flextable theme_booktabs bg color align set_header_df
-#' @importFrom flextable add_header_row vline hline bold fp_border_default
 #' @export
 generate_pop_tab_ctry <- function(cnpafp, cstool, start_date, end_date) {
   if (!requireNamespace("flextable", quietly = TRUE)) {
