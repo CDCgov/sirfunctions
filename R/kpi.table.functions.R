@@ -374,7 +374,33 @@ adjust_rolling_years <- function(data, end_date, date_col) {
                                    " end date is ", end_date,
                                ". Use caution when interpreting results."))
 
-    return(data)
+
+    # Adjustment made to the latest year in instances of when there are data greater
+    # than the end date
+    data_adj <- data |>
+      dplyr::mutate(year_number = as.integer(stringr::str_extract_all(
+        year_label,
+        "[-+]?\\d+"
+      ))) |>
+      dplyr::filter(!!rlang::sym(date_col) <= end_date,
+                    year_number > 0) |>
+      dplyr::mutate(
+        analysis_year_end = dplyr::if_else(year_label == latest_period$year_label,
+                                           end_date, analysis_year_end
+        ),
+        rolling_period = dplyr::if_else(year_label == latest_period$year_label,
+                                        paste0(
+                                          lubridate::month(.data$analysis_year_start, label = TRUE, abbr = TRUE),
+                                          " ", lubridate::year(.data$analysis_year_start),
+                                          " - ",
+                                          lubridate::month(.data$analysis_year_end, label = TRUE, abbr = TRUE),
+                                          " ", lubridate::year(.data$analysis_year_end)
+                                        ),
+                                        rolling_period
+        )
+      )
+
+    return(data_adj)
   } else if (is.na(max(data[[date_col]], na.rm = TRUE))) {
     cli::cli_alert(paste0("'", date_col, "'", " is an empty vector."))
     return(data)
