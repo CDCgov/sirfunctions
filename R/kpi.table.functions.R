@@ -364,7 +364,7 @@ adjust_rolling_years <- function(data, end_date, date_col) {
     dplyr::distinct() |>
     dplyr::mutate(year_number = as.integer(stringr::str_extract_all(
       year_label,
-      "\\d+"
+      "-?\\d+"
     ))) |>
     dplyr::filter(year_number == max(year_number, na.rm =  TRUE))
 
