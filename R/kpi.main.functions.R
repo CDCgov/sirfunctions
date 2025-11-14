@@ -68,9 +68,7 @@ init_kpi <- function(path = getwd(), name = NULL, edav = TRUE) {
   }
 
   # Set environment variables
-  Sys.setenv(KPI_DATA = file.path(analysis_path, "data"))
-  Sys.setenv(KPI_TABLES = file.path(analysis_path, "tables"))
-  Sys.setenv(KPI_FIGURES = file.path(analysis_path, "figures"))
+  set_kpi_global_env(analysis_path)
 
   # List files
   data_files <- list.files(Sys.getenv("KPI_DATA"))
@@ -340,4 +338,18 @@ generate_kpi_template <- function(output_path, name, edav) {
   )
 
   writeLines(output_string, conn)
+}
+
+#' Sets path to KPI folders
+#'
+#' @param analysis_path `Absolute path to the KPI run folder`
+#'
+#' @returns NULL
+#' @keywords internal
+#'
+set_kpi_global_env <- function(analysis_path) {
+  # Set environment variables
+  Sys.setenv(KPI_DATA = file.path(analysis_path, "data"))
+  Sys.setenv(KPI_TABLES = file.path(analysis_path, "tables"))
+  Sys.setenv(KPI_FIGURES = file.path(analysis_path, "figures"))
 }
