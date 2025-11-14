@@ -103,7 +103,7 @@ add_seq_capacity <- function(df, ctry_col = "ctry", lab_locs = NULL) {
     dplyr::mutate(seq.lab = case_when(
       seq.lab == "CDC-Atlanta" & !!date_col >= as_date("2025-02-01") & culture.itd.lab == "Cameroon" ~ "NICD-South Africa",
       seq.lab == "CDC-Atlanta" & !!date_col >= as_date("2025-02-01") & culture.itd.lab == "ETHIOPIA/ KEMRI-Kenya" ~ "UVRI-Uganda",
-      seq.lab == "CDC-Atlanta" & !!date_col >= as_date("2025-02-01") & culture.itd.lab == "Ibadan-Nigeria, Maiduguri-Nigeria" ~ "Ibadan-Nigeria",
+      seq.lab == "CDC-Atlanta" & !!date_col >= as_date("2025-02-01") & culture.itd.lab %in% c("Ibadan-Nigeria, Maiduguri-Nigeria", "Nigeria") ~ "Ibadan-Nigeria",
       seq.lab == "CDC-Atlanta" & !!date_col >= as_date("2025-02-01") & culture.itd.lab == "KEMRI-Kenya" ~ "UVRI-Uganda",
       !!dplyr::sym(ctry_col) == "UGANDA" & !!date_col >= as_date("2025-02-01") ~ "UVRI-Uganda",
       seq.lab == "CDC-Atlanta" & !!date_col >= as_date("2025-02-01") & culture.itd.lab == "Senegal" ~ "NICD-South Africa",
@@ -111,7 +111,7 @@ add_seq_capacity <- function(df, ctry_col = "ctry", lab_locs = NULL) {
       .default = seq.lab
     )) |>
     mutate(seq.cat = case_when(
-      !!date_col >= as_date("2025-02-01") & culture.itd.lab == "Ibadan-Nigeria, Maiduguri-Nigeria" & seq.lab == "Ibadan-Nigeria" ~ "Not shipped for sequencing",
+      !!date_col >= as_date("2025-02-01") & culture.itd.lab %in% c("Ibadan-Nigeria, Maiduguri-Nigeria", "Nigeria") & seq.lab == "Ibadan-Nigeria" ~ "Not shipped for sequencing",
       !!dplyr::sym(ctry_col) == "UGANDA" & !!date_col >= as_date("2025-02-01") ~ "Not shipped for sequencing",
       .default = seq.cat
     )) |>
