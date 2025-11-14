@@ -1061,10 +1061,10 @@ generate_lab_culture_violin <- function(lab_data, afp_data,
                                   labeller = ggplot2::label_wrap_gen(13),
                                   switch = "y")
   } else {
-    facets <- ggh4x::facet_nested(year~culture.itd.lab, #+ culture.itd.cat,
-                                  scales = "free", space = "free",
-                                  labeller = ggplot2::label_wrap_gen(13),
-                                  switch = "y")
+    facets <- ggplot2::facet_wrap(culture.itd.lab~., #+ culture.itd.cat,
+                                  nrow = 4,
+                                  scales = "free",
+                                  labeller = ggplot2::label_wrap_gen(13))
   }
 
   plot <- generate_kpi_violin(lab_filtered, "ctry.short", "days.lab.culture",
