@@ -857,7 +857,7 @@ generate_c1_table <- function(raw_data, start_date, end_date,
     ) |>
     dplyr::summarise(
       es_sites = sum(n_samples_12_mo >= 10 & site_age >= 12, na.rm = T),
-      met_ev = sum(num.samples >= 10 & site_age >= 12 & ev.rate >= 0.5, na.rm = T),
+      met_ev = sum(n_samples_12_mo >= 10 & site_age >= 12 & ev.rate >= 0.5, na.rm = T),
       prop_met_ev = met_ev / es_sites * 100,
       ev_label = paste0(met_ev, "/", es_sites)
     )
