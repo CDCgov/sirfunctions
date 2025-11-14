@@ -89,6 +89,35 @@ add_seq_capacity <- function(df, ctry_col = "ctry", lab_locs = NULL) {
     dplyr::mutate(seq.capacity = dplyr::if_else(!!dplyr::sym(ctry_col) == "NEPAL", "no",
                                                 seq.capacity))
 
+  # Anchor date based on df type
+  if ("DateStoolCollected" %in% names(df)) {        # For lab data
+    date_col <- dplyr::sym("DateStoolCollected")
+  } else if ("dateonset" %in% names(df)) {          # For AFP data
+    date_col <- dplyr::sym("dateonset")
+  } else if ("collect.date" %in% names(df)) {       # For ES data
+    date_col <- dplyr::syn("collect.date")
+  }
+
+  # Modify due to Feb 2025 change in sequencing lab
+  df <- df |>
+    dplyr::mutate(seq.lab = case_when(
+      seq.lab == "CDC-Atlanta" & !!date_col >= as_date("2025-02-01") & culture.itd.lab == "Cameroon" ~ "NICD-South Africa",
+      seq.lab == "CDC-Atlanta" & !!date_col >= as_date("2025-02-01") & culture.itd.lab == "ETHIOPIA/ KEMRI-Kenya" ~ "UVRI-Uganda",
+      seq.lab == "CDC-Atlanta" & !!date_col >= as_date("2025-02-01") & culture.itd.lab == "Ibadan-Nigeria, Maiduguri-Nigeria" ~ "Ibadan-Nigeria",
+      seq.lab == "CDC-Atlanta" & !!date_col >= as_date("2025-02-01") & culture.itd.lab == "KEMRI-Kenya" ~ "UVRI-Uganda",
+      !!dplyr::sym(ctry_col) == "UGANDA" & !!date_col >= as_date("2025-02-01") ~ "UVRI-Uganda",
+      seq.lab == "CDC-Atlanta" & !!date_col >= as_date("2025-02-01") & culture.itd.lab == "Senegal" ~ "NICD-South Africa",
+      seq.lab == "CDC-Atlanta" & !!date_col >= as_date("2025-02-01") & culture.itd.lab == "Varied (KEMRI-Kenya/ Oman/ Jordan)" ~ "Varied (UVRI/ Oman/ Jordan)",
+      .default = seq.lab
+    )) |>
+    mutate(seq.cat = case_when(
+      !!date_col >= as_date("2025-02-01") & culture.itd.lab == "Ibadan-Nigeria, Maiduguri-Nigeria" & seq.lab == "Ibadan-Nigeria" ~ "Not shipped for sequencing",
+      !!dplyr::sym(ctry_col) == "UGANDA" & !!date_col >= as_date("2025-02-01") ~ "Not shipped for sequencing",
+      .default = seq.cat
+    )) |>
+    mutate(seq.capacity = if_else(!!dplyr::sym(ctry_col) %in% c("NIGERIA", "UGANDA") & !!date_col >= as_date("2025-02-01"), "yes", seq.capacity))
+
+
   cli::cli_process_done()
   return(df)
 }
