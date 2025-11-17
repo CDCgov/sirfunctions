@@ -22,7 +22,7 @@ Description: The sirfunctions package contains key functions used by the
     there are several functions that also facilitate communication,
     visualize trends, and perform data quality checks.
 License: MIT + file LICENSE
-URL: https://github.com/nish-kishore/sirfunctions
+URL: https://github.com/nish-kishore/sirfunctions, https://cdcgov.github.io/sirfunctions/
 Imports:
     AzureAuth,
     AzureStor,
