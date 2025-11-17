@@ -28,7 +28,7 @@ generate_afp_ctry_year(
 \code{ggplot} A tile plot displaying the number of AFP cases by month and province.
 }
 \description{
-Generates a tile plot for the number of AFP cases per month by province.
+Generates a tile plot for the number of AFP cases per month by country.
 }
 \examples{
 \dontrun{

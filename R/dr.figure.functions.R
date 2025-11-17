@@ -273,7 +273,7 @@ generate_afp_epicurve <- function(ctry.data,
 
 #' AFP cases by ctry and year
 #'
-#' Generates a tile plot for the number of AFP cases per month by province.
+#' Generates a tile plot for the number of AFP cases per month by country.
 #'
 #' @param afp.by.month.ctry `tibble` Table summarizing AFP cases by month and province. This is the output of
 #' [generate_afp_by_month_summary()].
