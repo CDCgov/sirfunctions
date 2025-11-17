@@ -660,7 +660,7 @@ init_dr <-
     Sys.setenv(DR_POWERPOINT_PATH = file.path(country_dir_path, "powerpoint"))
     Sys.setenv(DR_FIGURE_PATH = file.path(country_dir_path, "figures"))
     Sys.setenv(DR_FUNC_PATH = file.path(country_dir_path, "R"))
-    Sys.setenv(DR_COUNTRY = country_name)
+    Sys.setenv(DR_COUNTRY = paste(country_name, collapse = ", "))
 
     # Copy functions in R
     copy_dr_functions(branch)

@@ -46,7 +46,8 @@ Imports:
     yaml,
     stats,
     rappdirs,
-    rmarkdown
+    rmarkdown,
+    grDevices
 Suggests:
     arrow,
     qs2,

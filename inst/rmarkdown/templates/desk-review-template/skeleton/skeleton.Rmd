@@ -14,7 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 1.  **Load the following packages**.
 For experimental versions of the desk review code, please use the sub branch called `dev`. Otherwise, "main"
 ```{r packages}
-repo <- "nish-kishore/sirfunctions"
+repo <- "CDCgov/sirfunctions"
 ref <- "main" # alternatively use "dev"
 remotes::install_github(repo, ref) 
 library(sirfunctions)

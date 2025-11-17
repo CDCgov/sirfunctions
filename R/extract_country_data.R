@@ -481,12 +481,27 @@ extract_country_data_single <- function(
   steps <- steps + 1
 
   cli::cli_process_start(paste0(steps, ") Attaching coverage data"))
-  ctry.data$ctry_coverage <- .raw.data$ctry.coverage |>
-    dplyr::filter(GUID %in% unique(ctry.data$ctry.pop$adm0guid))
-  ctry.data$prov_coverage <- .raw.data$prov.coverage |>
-    dplyr::filter(GUID %in% unique(ctry.data$prov.pop$adm1guid))
-  ctry.data$dist_coverage <- .raw.data$dist.coverage |>
-    dplyr::filter(GUID %in% unique(ctry.data$dist.pop$adm2guid))
+  tryCatch({
+    ctry.data$ctry_coverage <- .raw.data$ctry.coverage |>
+      dplyr::filter(GUID %in% unique(ctry.data$ctry.pop$adm0guid))
+    ctry.data$prov_coverage <- .raw.data$prov.coverage |>
+      dplyr::filter(GUID %in% unique(ctry.data$prov.pop$adm1guid))
+    ctry.data$dist_coverage <- .raw.data$dist.coverage |>
+      dplyr::filter(GUID %in% unique(ctry.data$dist.pop$adm2guid))
+  }, error = \(e) {
+    cli::cli_alert_info(paste0("New coverage data failed to load, likely due to",
+                               " using an outdated version of get_all_polio_data()",
+                               " when recreating the static files. ",
+                               "Loading old coverage dataset."))
+  })
+
+  tryCatch({
+    ctry.data$coverage <- .raw.data$coverage |>
+      dplyr::filter(ctry %in% unique(ctry.data$ctry.pop$ctry))
+  }, error = \(e) {
+    cli::cli_alert_warning("Failed to attach coverage data.")
+  })
+
   cli::cli_process_done()
 
   cli::cli_process_start("Attaching metadata from get_all_polio_data()")

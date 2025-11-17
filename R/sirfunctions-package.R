@@ -35,6 +35,7 @@
 #' @importFrom cli cli_progress_done
 #' @importFrom cli cli_progress_step
 #' @importFrom glue glue
+#' @importFrom grDevices rgb
 #' @importFrom httr content
 #' @importFrom httr GET
 #' @importFrom httr status_code
@@ -69,7 +70,10 @@
 #' @importFrom sf st_sample
 #' @importFrom sf st_touches
 #' @importFrom sf st_transform
+#' @importFrom stats end
+#' @importFrom stats runif
 #' @importFrom stats setNames
+#' @importFrom stats start
 #' @importFrom stringr regex
 #' @importFrom stringr str_c
 #' @importFrom stringr str_count
@@ -95,6 +99,7 @@
 #' @importFrom tidyr separate_wider_regex
 #' @importFrom tidyr unite
 #' @importFrom tidyr unnest
+#' @importFrom utils capture.output
 #' @importFrom utils download.file
 #' @importFrom utils globalVariables
 #' @importFrom utils head
@@ -219,6 +224,12 @@ utils::globalVariables(c(
   "stool_label",  "t1",  "t2",  "t3",  "t4",  "t5",  "timely_cat",  "timely_det",  "timely_isolation",
   "timely_itd",  "timely_itdres_seqres",  "timely_seqres",  "timely_seqship",
   "timely_ship",  "timely_wpv_vdpv_detections",  "wgs.lab*",  "who_region",  "whoregion",
-  "wild_vdpv",  "wpv_vdpv_detections",  "y",  "year_label",  "year_num",  "year_number"
+  "wild_vdpv",  "wpv_vdpv_detections",  "y",  "year_label",  "year_num",  "year_number",
+
+  "GUIDs", "adm_level", "cases", "cg_label",
+  "coltonothq","in_cg", "index", "lastModifiedEDAV", "median_wild_vdpv_det",
+  "median_wild_vdpv_det_label", "median_wild_vdpv_det_n", "median_wpv_vdpv_det",
+  "median_wpv_vdpv_det_label", "median_wpv_vdpv_samples", "min_date",
+  "spatial.data", "u15pop.x", "u15pop.y", "updated", "vacc", "values", "x"
 
 ))
