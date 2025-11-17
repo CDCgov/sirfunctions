@@ -4,10 +4,12 @@
 \alias{get_lab_locs}
 \title{Table of information regarding testing labs in each country}
 \usage{
-get_lab_locs(path = NULL)
+get_lab_locs(lab_locs_path = NULL, use_edav = TRUE)
 }
 \arguments{
-\item{path}{\code{str} Path to the lab location file. Defaults to \code{NULL}.}
+\item{lab_locs_path}{\code{str} Location of testing lab locations. Default is \code{NULL}. Will download from EDAV, if necessary.}
+
+\item{use_edav}{\code{logical} Whether to obtain data from EDAV. Defaults to \code{TRUE}.}
 }
 \value{
 \code{tibble} A table containing the test lab location information.

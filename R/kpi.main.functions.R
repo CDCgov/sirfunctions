@@ -122,7 +122,7 @@ init_kpi <- function(path = getwd(), name = NULL, edav = TRUE) {
   # Load lab data
   cli::cli_process_start("Loading lab data")
   if (length(lab_files) == 0 & edav == TRUE) {
-    lab_data <- edav_io("read", file_loc = get_constant("RAW_LAB_DATA"))
+    lab_data <- edav_io("read", file_loc = get_constant("CLEANED_LAB_DATA"))
     lab_data <<- lab_data
     saveRDS(lab_data, file.path(Sys.getenv("KPI_DATA"), paste0("lab_data_", today, ".rds")))
   } else if (length(lab_files) == 0 & edav == FALSE) {

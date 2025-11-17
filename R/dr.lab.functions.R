@@ -401,7 +401,8 @@ clean_lab_data_regional <- function(lab_data,
                                     start_date, end_date,
                                     afp_data = NULL,
                                     ctry_name = NULL,
-                                    lab_locs_path = NULL) {
+                                    lab_locs_path = NULL,
+                                    use_edav = TRUE) {
   # Static vars
   start_date <- lubridate::as_date(start_date)
   end_date <- lubridate::as_date(end_date)
@@ -410,7 +411,7 @@ clean_lab_data_regional <- function(lab_data,
     return(lab_data)
   }
 
-  lab_locs <- get_lab_locs(lab_locs_path)
+  lab_locs <- get_lab_locs(lab_locs_path, use_edav)
 
   lab_data <- dplyr::rename_with(lab_data, recode,
     Name = "country"
@@ -636,7 +637,7 @@ clean_lab_data_regional <- function(lab_data,
 #' or downloaded from EDAV. If no argument is passed, the function will download
 #' the table from EDAV.
 #'
-#' @param path `str` Path to the lab location file. Defaults to `NULL`.
+#' @inheritParams clean_lab_data
 #'
 #' @returns `tibble` A table containing the test lab location information.
 #' @examples
@@ -646,9 +647,9 @@ clean_lab_data_regional <- function(lab_data,
 #'
 #' @export
 
-get_lab_locs <- function(path = NULL) {
+get_lab_locs <- function(lab_locs_path = NULL, use_edav = TRUE) {
   lab.locs <- NULL
-  if (is.null(path)) {
+  if (is.null(lab_locs_path) & use_edav) {
     tryCatch(
       {
         cli::cli_process_start("Downloading lab testing location file from EDAV.")
@@ -663,8 +664,10 @@ get_lab_locs <- function(path = NULL) {
         ))
       }
     )
+  } else if (!is.null(lab_locs_path)) {
+    lab.locs <- readr::read_csv(lab_locs_path)
   } else {
-    lab.locs <- readr::read_csv(path)
+    cli::cli_abort("Please pass the path to the lab locations file in `lab_locs_path`.")
   }
 
   lab.locs <- lab.locs |>
@@ -1231,6 +1234,7 @@ lab_data_errors_who <- function(lab.data, afp.data,
 #' @param afp_data `tibble` AFP linelist. Either `ctry.data$afp.all.2` or `raw.data$afp`.
 #' @param ctry_name `str` or `list` Name or a list of countries. Defaults to `NULL`.
 #' @param lab_locs_path `str` Location of testing lab locations. Default is `NULL`. Will download from EDAV, if necessary.
+#' @param use_edav `logical` Whether to obtain data from EDAV. Defaults to `TRUE`.
 #' @returns `tibble` Cleaned lab data.
 #' @examples
 #' \dontrun{
@@ -1250,7 +1254,8 @@ lab_data_errors_who <- function(lab.data, afp.data,
 #' @export
 clean_lab_data <- function(lab_data, start_date, end_date,
                            afp_data = NULL, ctry_name = NULL,
-                           lab_locs_path = NULL) {
+                           lab_locs_path = NULL,
+                           use_edav = TRUE) {
   # Determine the type of cleaning to do
   lab_data_cols <- names(lab_data)
 
@@ -1275,7 +1280,7 @@ clean_lab_data <- function(lab_data, start_date, end_date,
       return(lab_data)
     }
     lab_data <- clean_lab_data_regional(lab_data, start_date, end_date,
-                                        afp_data, ctry_name, lab_locs_path)
+                                        afp_data, ctry_name, lab_locs_path, use_edav)
     lab_data <- add_rolling_years(lab_data, start_date, end_date, "CaseDate")
   }
 

@@ -793,8 +793,6 @@ test_EDAV_connection <- function(
 #' - `"LAB_LOCATIONS"`
 #' - `"DR_TEMPLATE"`
 #' - `"SIRFUNCTIONS_GITHUB_TREE"`
-#' - `"AFRO_LAB_DATA"`
-#' - `"EMRO_LAB_DATA"`
 #' - `"CLEANED_LAB_DATA"`
 #'
 #' @returns `str` A string, typically a file path or a URL.
@@ -809,8 +807,6 @@ get_constant <- function(constant_name = NULL) {
     '"LAB_LOCATIONS"',
     '"DR_TEMPLATE"',
     '"SIRFUNCTIONS_GITHUB_TREE"',
-    '"AFRO_LAB_DATA"',
-    '"EMRO_LAB_DATA"',
     '"CLEANED_LAB_DATA"'
   )
 
@@ -826,11 +822,8 @@ get_constant <- function(constant_name = NULL) {
     "CTRY_RISK_CAT" = "Data/misc/country_prioritization/SG_country_prioritization_GPSAP2025-2026_04Dec2024.csv",
     "LAB_LOCATIONS" = "Data/lab/Routine_lab_testing_locations.csv",
     "DR_TEMPLATE" = "https://raw.githubusercontent.com/nish-kishore/sg-desk-reviews/main/resources/desk_review_template.Rmd",
-    "SIRFUNCTIONS_GITHUB_TREE" = "https://api.github.com/repos/nish-kishore/sirfunctions/git/trees",
-    "AFRO_LAB_DATA" = "Data/lab/2024-09-20 AFRO Lab Extract (AFP only since 2022).csv",
-    "EMRO_LAB_DATA" = "Data/lab/2024-09-20 EMRO Lab Extract (AFP only since 2022).csv",
-    "CLEANED_LAB_DATA" = "Data/lab/emro_afro_cleaned_2016_2024_20240920.csv",
-    "RAW_LAB_DATA" = "Data/lab/afro_emro_20220101_20250401.csv",
+    "SIRFUNCTIONS_GITHUB_TREE" = "https://api.github.com/repos/CDCGov/sirfunctions/git/trees",
+    "CLEANED_LAB_DATA" = "Data/lab/20250829_afro_emro_lab_afp_2022_2025_clean.xlsx",
     cli::cli_abort("Please pass a valid argument.")
   )
 }
@@ -3222,20 +3215,32 @@ explore_edav <- function(path = get_constant("DEFAULT_EDAV_FOLDER"),
 #'
 #'
 #' @param src `str` Path to the Excel file.
+#' @param sheet `int` or `str` Sheet to read. Either a string (the name of a sheet),
+#' or an integer (the position of the sheet).
+#' Ignored if the sheet is specified via range. If neither argument specifies the sheet,
+#' defaults to the first sheet.
 #' @param ... Additional parameters of [readxl::read_excel()].
 #'
 #' @returns `tibble` or `list` A tibble or a list of tibbles containing data from
 #' the Excel file.
 #' @keywords internal
 #'
-read_excel_from_edav <- function(src, ...) {
-  sheets <- readxl::excel_sheets(src)
-  if (length(sheets) > 1) {
-    output <- purrr::map(sheets, \(x) readxl::read_xlsx(path = src, sheet = x,
-                                                        ...))
-    names(output) <- sheets
+read_excel_from_edav <- function(src, sheet = NULL, ...) {
+
+  if (!is.null(sheet)) {
+    # Read the specified sheet
+    output <- readxl::read_excel(path = src, sheet = sheet, ...)
   } else {
-    output <- readxl::read_excel(src)
+    # Read all sheets
+    sheets <- readxl::excel_sheets(src)
+
+    if (endsWith(src, ".xlsx")) {
+      output <- purrr::map(sheets, \(x) readxl::read_xlsx(path = src, sheet = x, ...))
+    } else if (endsWith(src, ".xls")) {
+      output <- purrr::map(sheets, \(x) readxl::read_xls(path = src, sheet = x, ...))
+    }
+
+    names(output) <- sheets
   }
 
   return(output)
