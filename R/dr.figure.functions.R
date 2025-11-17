@@ -3334,6 +3334,14 @@ generate_surv_ind_tab <- function(ctry.data,
                                   dstool,
                                   afp.case,
                                   country_name = Sys.getenv("DR_COUNTRY")) {
+
+  # Check if multiple countries are used
+  if (length(unlist(stringr::str_split(country_name, ", "))) > 1 |
+      length(unique(ctry.extract$adm0guid)) > 1) {
+    cli::cli_abort(paste0("Only one country is supported by this function.",
+                          " For regional summaries, use `generate_surv_reg_tab()`."))
+  }
+
   if (!requireNamespace("janitor", quietly = TRUE)) {
     stop('Package "janitor" must be installed to use this function.',
       .call = FALSE
