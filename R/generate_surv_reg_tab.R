@@ -4,9 +4,9 @@
 #' Computes **region-level** time series of surveillance indicators by
 #' aggregating across all countries present in your inputs (or implicitly after
 #' the joins). The function:
-#' 1) builds district-level indicators, restricts to districts with **U15 ≥ 100,000**,
-#' 2) derives the **% population in adequate districts** (NPAFP rate ≥ 2 **and**
-#'    stool adequacy ≥ 80%), and counts of adequate vs. total ≥100k districts,
+#' 1) builds district-level indicators, restricts to districts with **U15 \u2265 100,000**,
+#' 2) derives the **% population in adequate districts** (NPAFP rate \u2265 2 **and**
+#'    stool adequacy \u2265 80%), and counts of adequate vs. total \u2265100k districts,
 #' 3) aggregates **country-level** indicators to the region using **simple means**
 #'    for rates and **sums** for AFP cases, and
 #' 4) returns either a tidy tibble or a formatted `flextable`.
@@ -27,11 +27,11 @@
 #'   `npafp_rate`, `per.stool.ad`, those are used; otherwise they may be pulled
 #'   in via joins.
 #'
-#' @param cstool Country-level surveillance “tool” dataset with `year` and
+#' @param cstool Country-level surveillance \u201ctool\u201d dataset with `year` and
 #'   either `adm0guid` or `ctry`, containing `npafp_rate` and `per.stool.ad`
 #'   (or columns that can be renamed to these).
 #'
-#' @param dstool District-level surveillance “tool” dataset with `adm2guid`,
+#' @param dstool District-level surveillance \u201ctool\u201d dataset with `adm2guid`,
 #'   `year`, and indicator columns such as `npafp_rate`, `per.stool.ad`.
 #'
 #' @param afp.cases Either:
@@ -56,8 +56,8 @@
 #'
 #' **Adequacy rule (district level)**:
 #' - Adequate if `npafp_rate >= 2` **and** `per.stool.ad >= 80`.
-#' - The “% population in adequate ≥100k districts” is:
-#'   \eqn{100 * (sum(U15 in adequate ≥100k districts) / sum(U15 in all ≥100k districts))}.
+#' - The \u201c% population in adequate \u2265100k districts\u201d is:
+#'   \eqn{100 * (sum(U15 in adequate \u2265100k districts) / sum(U15 in all \u2265100k districts))}.
 #'
 #' **Aggregation**:
 #' - AFP cases: summed across countries per year.
@@ -93,7 +93,7 @@ generate_surv_reg_tab <- function(
   output <- match.arg(output)
   for (pkg in c("dplyr","tidyr")) if (!requireNamespace(pkg, quietly=TRUE)) stop(sprintf('Need %s', pkg))
 
-  # 1) Map districts → countries
+  # 1) Map districts \u2192 countries
   if (is.null(ctry_data$dist.pop) || !"ctry" %in% names(ctry_data$dist.pop))
     stop("ctry_data$dist.pop with columns ctry, adm2guid is required.")
   dist_map <- ctry_data$dist.pop |>
@@ -161,7 +161,7 @@ generate_surv_reg_tab <- function(
     dplyr::mutate(dplyr::across(dplyr::ends_with("num"), ~ tidyr::replace_na(.x, 0)),
                   prop = paste0(ad.dist.100k.num, "/", dist.100k.num))
 
-  # 5) Country indicators → region summary
+  # 5) Country indicators \u2192 region summary
   ctry.ind <- dplyr::left_join(ctry.extract, cstool, by = c("year","adm0guid"))
   if (!is.null(start_year)) ctry.ind <- dplyr::filter(ctry.ind, year >= start_year)
   if (!is.null(end_year))   ctry.ind <- dplyr::filter(ctry.ind, year <= end_year)
@@ -216,8 +216,8 @@ generate_surv_reg_tab <- function(
       afp.cases = "AFP cases",
       npafp_rate = "NPAFP rate*",
       `per.stool.ad` = "Stool adequacy**",
-      prop.dist.adeq = "% Pop in adequate ≥100k districts",
-      prop = "Districts ≥100k meeting both (met/total)"
+      prop.dist.adeq = "% Pop in adequate \u2265100k districts",
+      prop = "Districts \u2265100k meeting both (met/total)"
     ) |>
     flextable::autofit()
 }
