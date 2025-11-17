@@ -35,11 +35,11 @@ at minimum \code{adm2guid} and \code{year}. If it already contains \code{u15pop}
 \code{npafp_rate}, \code{per.stool.ad}, those are used; otherwise they may be pulled
 in via joins.}
 
-\item{cstool}{Country-level surveillance “tool” dataset with \code{year} and
+\item{cstool}{Country-level surveillance \u201ctool\u201d dataset with \code{year} and
 either \code{adm0guid} or \code{ctry}, containing \code{npafp_rate} and \code{per.stool.ad}
 (or columns that can be renamed to these).}
 
-\item{dstool}{District-level surveillance “tool” dataset with \code{adm2guid},
+\item{dstool}{District-level surveillance \u201ctool\u201d dataset with \code{adm2guid},
 \code{year}, and indicator columns such as \code{npafp_rate}, \code{per.stool.ad}.}
 
 \item{afp.cases}{Either:
@@ -66,9 +66,9 @@ Computes \strong{region-level} time series of surveillance indicators by
 aggregating across all countries present in your inputs (or implicitly after
 the joins). The function:
 \enumerate{
-\item builds district-level indicators, restricts to districts with \strong{U15 ≥ 100,000},
-\item derives the \strong{\% population in adequate districts} (NPAFP rate ≥ 2 \strong{and}
-stool adequacy ≥ 80\%), and counts of adequate vs. total ≥100k districts,
+\item builds district-level indicators, restricts to districts with \strong{U15 \u2265 100,000},
+\item derives the \strong{\% population in adequate districts} (NPAFP rate \u2265 2 \strong{and}
+stool adequacy \u2265 80\%), and counts of adequate vs. total \u2265100k districts,
 \item aggregates \strong{country-level} indicators to the region using \strong{simple means}
 for rates and \strong{sums} for AFP cases, and
 \item returns either a tidy tibble or a formatted \code{flextable}.
@@ -86,10 +86,12 @@ named \code{u15pop} exists in the joined district data by:
 \strong{Adequacy rule (district level)}:
 \itemize{
 \item Adequate if \code{npafp_rate >= 2} \strong{and} \code{per.stool.ad >= 80}.
-\item The “\% population in adequate ≥100k districts” is:
-\eqn{100 * (sum(U15 in adequate ≥100k districts) / sum(U15 in all ≥100k districts))}.
+\item The \u201c\% population in adequate \u2265100k districts\u201d is:
+\eqn{100 * (sum(U15 in adequate \u2265100k districts) / sum(U15 in all \u2265100k districts))}.
+}
 
-*\emph{Aggregation}*:
+\strong{Aggregation}:
+\itemize{
 \item AFP cases: summed across countries per year.
 \item \code{npafp_rate} and \code{per.stool.ad}: \strong{simple means} across countries per year
 (switch to a weighted mean if needed).
