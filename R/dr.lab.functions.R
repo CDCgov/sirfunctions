@@ -347,6 +347,10 @@ clean_lab_data_who <- function(lab_data, start_date, end_date,
 
   if (!is.null(ctry_name)) {
     ctry_name <- stringr::str_to_upper(stringr::str_trim(ctry_name))
+    # Handle when passing just one string comma delimited string
+    ctry_name <- stringr::str_replace_all(ctry_name, ", ", ",") |>
+      stringr::str_split(",") |>
+      unlist()
     cli::cli_process_start("Filtering country-specific lab data")
     cli::cli_alert_warning(paste0(
       "NOTE: Filtering will include rows where ctry is",
@@ -601,6 +605,10 @@ clean_lab_data_regional <- function(lab_data,
   # Filter to only the country of interest
   if (!is.null(ctry_name)) {
     ctry_name <- stringr::str_trim(stringr::str_to_upper(ctry_name))
+    # Handle when passing just one string comma delimited string
+    ctry_name <- stringr::str_replace_all(ctry_name, ", ", ",") |>
+      stringr::str_split(",") |>
+      unlist()
     # Recode for COTE D'IVOIRE
     ctry_name <- dplyr::if_else(stringr::str_detect(ctry_name, "(?i)IVOIRE"),
       "COTE D'IVOIRE", ctry_name
@@ -876,10 +884,15 @@ lab_data_errors <- function(lab.data, afp.data,
   # Determine the type of cleaning to do
   lab.data.cols <- names(lab.data)
 
+  # If already cleaned, make sure to rename EpidNumber back to EPID
+  lab.data <- dplyr::rename_with(lab.data, recode,
+                                 EpidNumber = "EPID"
+  )
+
   if ("MasterKey" %in% lab.data.cols) {
-    lab_data_errors_who(lab.data, afp.data, ctry_name, start.date, end.date)
+    lab_data_errors_who(lab.data, afp.data, start.date, end.date, ctry_name, error_path)
   } else {
-    lab_data_errors_region(lab.data, afp.data, ctry_name, start.date, end.date)
+    lab_data_errors_region(lab.data, afp.data, start.date, end.date, ctry_name, error_path)
   }
 }
 
@@ -936,6 +949,10 @@ lab_data_errors_region <- function(lab.data,
   start.date <- lubridate::as_date(start.date)
   end.date <- lubridate::as_date(end.date)
   ctry_name <- stringr::str_to_upper(ctry_name)
+  # Handle when passing just one string comma delimited string
+  ctry_name <- stringr::str_replace_all(ctry_name, ", ", ",") |>
+    stringr::str_split(",") |>
+    unlist()
 
 
   lab.data <- dplyr::rename_with(lab.data, recode,
@@ -943,14 +960,12 @@ lab_data_errors_region <- function(lab.data,
   )
   # Filter to only the country of interest
   lab.data <- lab.data |>
-    dplyr::filter(country == ctry_name)
+    dplyr::filter(country %in% ctry_name)
 
   # Cleaning for Cote D'Ivoire
-  if (stringr::str_detect(ctry_name, "(?i)IVIORE")) {
-    lab.data <- lab.data |>
+  lab.data <- lab.data |>
       dplyr::mutate(country = dplyr::if_else(stringr::str_detect(country, "(?i)IVOIRE"),
                                              "COTE D'IVIORE", country))
-  }
 
   # Converting character dates to date columns
   lab.data <- lab.data |>
@@ -973,16 +988,13 @@ lab_data_errors_region <- function(lab.data,
     )
 
   # Cleaning for Cote D'Ivoire
-  if (stringr::str_detect(ctry_name, "(?i)IVOIRE")
-  ) {
-    lab.data <- lab.data |>
+  lab.data <- lab.data |>
       dplyr::mutate(country = dplyr::if_else(stringr::str_detect(
         country,
         "(?i)IVOIRE"
       ),
       "COTE D'IVOIRE", country
       ))
-  }
 
   # Filtering to the country of interest
   cli::cli_process_start("Filtering to country of interest")
@@ -1101,7 +1113,7 @@ lab_data_errors_region <- function(lab.data,
   error_log$collection_before_paralysis <- collection_before_paralysis
   error_log$missing_epids <- missing_epids
 
-  writexl::write_xlsx(error_log, path = file.path(error_path, "lab.errors.xlsx"))
+  writexl::write_xlsx(error_log, path = file.path(error_path, paste0("lab_errors_", Sys.Date() ,".xlsx")))
   cli::cli_alert("Run clean_lab_data() to attempt data fixes and perform the check again. Log saved in the errors folder.")
 }
 
@@ -1146,6 +1158,10 @@ lab_data_errors_who <- function(lab.data, afp.data,
   start.date <- lubridate::as_date(start.date)
   end.date <- lubridate::as_date(end.date)
   ctry_name <- stringr::str_to_upper(ctry_name)
+  # Handle when passing just one string comma delimited string
+  ctry_name <- stringr::str_replace_all(ctry_name, ", ", ",") |>
+    stringr::str_split(",") |>
+    unlist()
 
   cli::cli_process_start("Filtering to the country of interest")
   lab.data <- suppressMessages(impute_missing_lab_geo(lab.data, afp.data))
@@ -1219,7 +1235,11 @@ lab_data_errors_who <- function(lab.data, afp.data,
   error_log$missing_years <- missing_years
   error_log$missing_epids <- missing_epids
 
-  writexl::write_xlsx(error_log, path = file.path(error_path, "lab.errors.xlsx"))
+  if (dir.exists(error_path)) {
+    writexl::write_xlsx(error_log, path = file.path(error_path, paste0("lab_errors_", Sys.Date() ,".xlsx")))
+  } else {
+    cli::cli_alert_warning("Directory doesn't exist.")
+  }
   cli::cli_alert("Run clean_lab_data() to attempt data fixes and perform the check again. Log saved in the errors folder.")
 }
 
