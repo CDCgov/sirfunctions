@@ -123,6 +123,7 @@ ctry.data <- clean_ctry_data(ctry.data)
 lab_data <- clean_lab_data(lab_data, start_date, end_date, 
                                      ctry.data$afp.all.2, Sys.getenv("DR_COUNTRY")
                                      )
+# NOTE: if lab data is cleaned, you may need to manually filter to the countries of interest
 ctry.data$iss.data <- clean_iss_data(ctry.data$iss.data, start_date, end_date)
 ```
 
@@ -213,6 +214,8 @@ ctry.extract <- f.npafp.rate.01(
 #### Generate lab timeliness
 If lab timeliness intervals from the lab data are available, uncomment `lab.timeliness.ctry` and `lab.timeliness.prov`. Otherwise, timeliness intervals are purely calculated from the AFP linelist. The main advantage of attaching lab data is to include the interval between the lab receiving the stool sample to final culture results.
 
+NOTE: If calculating for multiple countries as a group, make sure `spatial_scale="all`.
+
 ```{r lab.timeliness}
 lab.timeliness.ctry <- generate_lab_timeliness(lab_data, "ctry", start_date, end_date)
 lab.timeliness.prov <- generate_lab_timeliness(lab_data, "prov", start_date, end_date)
@@ -279,15 +282,21 @@ cstool <- f.stool.ad.01(
 #### Set shapefiles
 
 ```{r set.recent.shape}
-ctry.shape <- load_clean_ctry_sp(ctry_name = Sys.getenv("DR_COUNTRY"), 
-                                 type = "long"
-                                 )
-prov.shape <- load_clean_prov_sp(ctry_name = Sys.getenv("DR_COUNTRY"), 
-                                 type = "long"
-                                 )
-dist.shape <- load_clean_dist_sp(ctry_name = Sys.getenv("DR_COUNTRY"), 
-                                 type = "long"
-                                 )
+ctry.shape <- load_clean_ctry_sp(type = "long") |>
+  dplyr::filter(ADM0_NAME %in% (stringr::str_replace_all(Sys.getenv("DR_COUNTRY"), 
+                                                         ", ", ",") |>
+                                  stringr::str_split(",") |>
+                                  unlist()))
+prov.shape <- load_clean_prov_sp(type = "long") |>
+  dplyr::filter(ADM0_NAME %in% (stringr::str_replace_all(Sys.getenv("DR_COUNTRY"), 
+                                                         ", ", ",") |>
+                                  stringr::str_split(",") |>
+                                  unlist()))
+dist.shape <- load_clean_dist_sp(type = "long") |>
+  dplyr::filter(ADM0_NAME %in% (stringr::str_replace_all(Sys.getenv("DR_COUNTRY"), 
+                                                         ", ", ",") |>
+                                  stringr::str_split(",") |>
+                                  unlist()))
 ```
 
 
@@ -302,6 +311,11 @@ dist.shape <- load_clean_dist_sp(ctry_name = Sys.getenv("DR_COUNTRY"),
 
 #### Generating tables necessary for analysis
 If lab timeliness intervals from the lab data are available, uncomment `lab.timeliness.ctry` and `lab.timeliness.prov`. Otherwise, timeliness intervals are purely calculated from the AFP linelist. The main advantage of attaching lab data is to include the interval between the lab receiving the stool sample to final culture results.
+
+NOTE: `generate_int_data()` is meant to used for one country. However, to create an overall summary,
+please use `spatial_scale="all"` on int.data.ctry. Ensure that if passing `lab.timeliness.ctry`, that it
+is produced with `spatial_scale="all"` as well.
+
 ```{r generate.tables}
 stool.data <- generate_stool_data(ctry.data$afp.all.2, start_date, end_date,
                                   missing = "good", bad.data = "inadequate")
@@ -331,13 +345,14 @@ pot.c.clust <- generate_potentially_compatibles_cluster(cases.need60day)
 
 
 ## Figures
-
+Note: use `generate_afp_ctry_year()` to show AFP detections per month at the country
+level rather than at the province level presented by `generate_afp_prov_year()`.
 ```{r figures}
 generate_ctry_timeliness_graph(int.data.ctry)
 generate_prov_timeliness_graph(int.data.prov)
 generate_pop_map(ctry.data, ctry.shape, prov.shape, end_date)
 generate_dist_pop_map(ctry.data, ctry.shape, prov.shape, dist.shape, end_date)
-generate_afp_case_map(ctry.data$afp.all, ctry.shape, prov.shape, start_date) # issues here
+generate_afp_case_map(ctry.data$afp.all, ctry.shape, prov.shape, start_date)
 generate_afp_epicurve(ctry.data, start_date)
 generate_afp_prov_year(afp.by.month.prov, start_date, end_date)
 generate_npafp_maps(prov.extract, ctry.shape, prov.shape, start_date, end_date, caption_size = 2.5)
@@ -365,7 +380,9 @@ generate_iss_map(ctry.data$iss.data, ctry.shape, prov.shape, start_date, end_dat
 
 
 ## Generate flextables
-
+For analyzing multiple countries, use `generate_pop_tab_ctry()` as opposed to
+`generate_pop_tab()`. In addition, use `generate_surv_reg_tab()` instead of
+`generate_surv_ind_tab()` when calculating indicators.
 ```{r flextables}
 surv.ind.tab <- generate_surv_ind_tab(ctry.data, ctry.extract, dist.extract, cstool, dstool, afp.case)  
 pop.tab <- generate_pop_tab(prov.extract, pstool, start_date, end_date) 
