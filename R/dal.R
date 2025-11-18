@@ -797,7 +797,6 @@ test_EDAV_connection <- function(
 #' - `"DEFAULT_EDAV_FOLDER"`
 #' - `"CTRY_RISK_CAT"`
 #' - `"LAB_LOCATIONS"`
-#' - `"DR_TEMPLATE"`
 #' - `"SIRFUNCTIONS_GITHUB_TREE"`
 #' - `"CLEANED_LAB_DATA"`
 #'
@@ -811,7 +810,6 @@ get_constant <- function(constant_name = NULL) {
     '"DEFAULT_EDAV_FOLDER"',
     '"CTRY_RISK_CAT"',
     '"LAB_LOCATIONS"',
-    '"DR_TEMPLATE"',
     '"SIRFUNCTIONS_GITHUB_TREE"',
     '"CLEANED_LAB_DATA"'
   )
@@ -827,9 +825,8 @@ get_constant <- function(constant_name = NULL) {
     "DEFAULT_EDAV_FOLDER" = "GID/PEB/SIR",
     "CTRY_RISK_CAT" = "Data/misc/country_prioritization/SG_country_prioritization_GPSAP2025-2026_04Dec2024.csv",
     "LAB_LOCATIONS" = "Data/lab/Routine_lab_testing_locations.csv",
-    "DR_TEMPLATE" = "https://raw.githubusercontent.com/nish-kishore/sg-desk-reviews/main/resources/desk_review_template.Rmd",
     "SIRFUNCTIONS_GITHUB_TREE" = "https://api.github.com/repos/CDCGov/sirfunctions/git/trees",
-    "CLEANED_LAB_DATA" = "Data/lab/20250829_afro_emro_lab_afp_2022_2025_clean.xlsx",
+    "CLEANED_LAB_DATA" = "Data/lab/cleaned_lab_data.rda",
     cli::cli_abort("Please pass a valid argument.")
   )
 }
