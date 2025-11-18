@@ -1,7 +1,7 @@
 ---
 title: "Desk Review Template"
 author: "CDC PEB SIR Team"
-date: "2025-01-28"
+date: "2025-11-18"
 output: pdf_document
 ---
 
@@ -31,12 +31,11 @@ library(tidyverse)
 
 
 
-2.  **Set the desk review parameters**. `local_dr_path` is the folder where you would like to store desk reviews and associated files locally. The `sg_dr_path` is the folder containing the clone of the `sg-desk-reviews` GitHub repository. This must point to a valid git repository. If lab or ISS/eSurv data are unavailable, please assign the path values to `NULL`.
+2.  **Set the desk review parameters**. `local_dr_path` is the folder where you would like to store desk reviews and associated files locally. If lab or ISS/eSurv data are unavailable locally, please assign the path values to `NULL`. Otherwise, assign the path to the local files forloading in R.
 
 ```{r parameters}
 country_name <- ""
 local_dr_path <- file.path("")
-sg_dr_path <- NULL
 iss_data_path <- NULL
 lab_data_path <- NULL
 
@@ -59,13 +58,13 @@ The `branch` parameter allows the flexibility of downloading a specific version 
 The parameter `source = T` will download the desk review functions from `sirfunctions` to the `R` folder in the desk review folder and gets sourced locally. This allows the user to easily modify the various desk review functions. To view the source code of a function, simply use `View()` (ex. `View(clean_ctry_data)`).
 
 ```{r init}
-ctry.data <- init_dr(country_name, 
-                     local_dr_folder = local_dr_path,
-                     sg_dr_folder = sg_dr_path,
-                     lab_data_path = lab_data_path,
-                     iss_data_path = iss_data_path,
-                     branch = ref,
-                     source = T)
+init_dr(country_name, 
+        local_dr_folder = local_dr_path,
+        sg_dr_folder = sg_dr_path,
+        lab_data_path = lab_data_path,
+        iss_data_path = iss_data_path,
+        branch = "main",
+        use_edav = TRUE)
 ```
 
 
@@ -81,7 +80,7 @@ ctry.data <- init_dr(country_name,
 4. **(Optional) Attaching lab data from EDAV.** If lab data is not saved locally, then you may access lab data from EDAV.
 
 ```{r edav.lab}
-ctry.data$lab.data <- sirfunctions::edav_io("read", file_loc = get_constant("CLEANED_LAB_DATA")) |> 
+lab_data <- sirfunctions::edav_io("read", file_loc = get_constant("CLEANED_LAB_DATA")) |> 
   filter(!is.na(EPID))
 ```
 
@@ -101,7 +100,7 @@ ctry.data$lab.data <- sirfunctions::edav_io("read", file_loc = get_constant("CLE
 
 ```{r check.errors}
 ctry_data_errors(ctry.data)
-lab_data_errors(ctry.data$lab.data, ctry.data$afp.all.2)
+lab_data_errors(lab_data, ctry.data$afp.all.2)
 iss_data_errors(ctry.data$iss.data)
 ```
 
@@ -121,7 +120,7 @@ For ISS/eSURV data, it is advisable to take a look at the data before cleaning, 
 
 ```{r data.cleaning}
 ctry.data <- clean_ctry_data(ctry.data)
-ctry.data$lab.data <- clean_lab_data(ctry.data$lab.data, start_date, end_date, 
+lab_data <- clean_lab_data(lab_data, start_date, end_date, 
                                      ctry.data$afp.all.2, Sys.getenv("DR_COUNTRY")
                                      )
 ctry.data$iss.data <- clean_iss_data(ctry.data$iss.data, start_date, end_date)
@@ -215,8 +214,8 @@ ctry.extract <- f.npafp.rate.01(
 If lab timeliness intervals from the lab data are available, uncomment `lab.timeliness.ctry` and `lab.timeliness.prov`. Otherwise, timeliness intervals are purely calculated from the AFP linelist. The main advantage of attaching lab data is to include the interval between the lab receiving the stool sample to final culture results.
 
 ```{r lab.timeliness}
-lab.timeliness.ctry <- generate_lab_timeliness(ctry.data$lab.data, "ctry", start_date, end_date)
-lab.timeliness.prov <- generate_lab_timeliness(ctry.data$lab.data, "prov", start_date, end_date)
+lab.timeliness.ctry <- generate_lab_timeliness(lab_data, "ctry", start_date, end_date)
+lab.timeliness.prov <- generate_lab_timeliness(lab_data, "prov", start_date, end_date)
 ```
 
 
