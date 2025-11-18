@@ -268,7 +268,10 @@ sirfunctions_io <- function(
       if (endsWith(file_loc, ".rds")) {
         return(readr::read_rds(file_loc))
       } else if (endsWith(file_loc, ".rda")) {
-        return(load(file_loc))
+        obj_names <- load(file_loc, envir = globalenv())
+        cli::cli_alert_success("RDA object loaded to the global environment:")
+        cli::cli_li(obj_names)
+        return(invisible())
       } else if (endsWith(file_loc, ".csv")) {
         return(readr::read_csv(file_loc))
       } else if (endsWith(file_loc, ".qs2")) {
@@ -487,7 +490,10 @@ edav_io <- function(
     if (endsWith(file_loc, ".csv")) {
       return(suppressWarnings(AzureStor::storage_read_csv(azcontainer, file_loc, ...)))
     } else if (endsWith(file_loc, ".rda")) {
-      return(suppressWarnings(AzureStor::storage_load_rdata(azcontainer, file_loc)))
+      obj_names <- suppressWarnings(AzureStor::storage_load_rdata(azcontainer, file_loc, envir = globalenv()))
+      cli::cli_alert_success("RDA object loaded to the global environment:")
+      cli::cli_li(obj_names)
+      return(invisible())
     } else if (endsWith(file_loc, ".xlsx") | endsWith(file_loc, ".xls")) {
       output <- NULL
       withr::with_tempdir(
