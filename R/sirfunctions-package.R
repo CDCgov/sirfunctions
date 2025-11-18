@@ -230,6 +230,7 @@ utils::globalVariables(c(
   "coltonothq","in_cg", "index", "lastModifiedEDAV", "median_wild_vdpv_det",
   "median_wild_vdpv_det_label", "median_wild_vdpv_det_n", "median_wpv_vdpv_det",
   "median_wpv_vdpv_det_label", "median_wpv_vdpv_samples", "min_date",
-  "spatial.data", "u15pop.x", "u15pop.y", "updated", "vacc", "values", "x"
+  "spatial.data", "u15pop.x", "u15pop.y", "updated", "vacc", "values", "x",
+  "lab_data", "ctry.data"
 
 ))

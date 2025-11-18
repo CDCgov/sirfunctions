@@ -35,11 +35,11 @@ at minimum \code{adm2guid} and \code{year}. If it already contains \code{u15pop}
 \code{npafp_rate}, \code{per.stool.ad}, those are used; otherwise they may be pulled
 in via joins.}
 
-\item{cstool}{Country-level surveillance “tool” dataset with \code{year} and
+\item{cstool}{Country-level surveillance stool adequacy dataset with \code{year} and
 either \code{adm0guid} or \code{ctry}, containing \code{npafp_rate} and \code{per.stool.ad}
 (or columns that can be renamed to these).}
 
-\item{dstool}{District-level surveillance “tool” dataset with \code{adm2guid},
+\item{dstool}{District-level surveillance stool adequacy dataset with \code{adm2guid},
 \code{year}, and indicator columns such as \code{npafp_rate}, \code{per.stool.ad}.}
 
 \item{afp.cases}{Either:
@@ -86,7 +86,7 @@ named \code{u15pop} exists in the joined district data by:
 \strong{Adequacy rule (district level)}:
 \itemize{
 \item Adequate if \code{npafp_rate >= 2} \strong{and} \code{per.stool.ad >= 80}.
-\item The “\% population in adequate ≥100k districts” is:
+\item The \% population in adequate ≥100k districts is:
 \eqn{100 * (sum(U15 in adequate ≥100k districts) / sum(U15 in all ≥100k districts))}.
 
 *\emph{Aggregation}*:

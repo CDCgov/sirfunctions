@@ -268,7 +268,10 @@ sirfunctions_io <- function(
       if (endsWith(file_loc, ".rds")) {
         return(readr::read_rds(file_loc))
       } else if (endsWith(file_loc, ".rda")) {
-        return(load(file_loc))
+        obj_names <- load(file_loc, envir = globalenv())
+        cli::cli_alert_success("RDA object loaded to the global environment:")
+        cli::cli_li(obj_names)
+        return(invisible())
       } else if (endsWith(file_loc, ".csv")) {
         return(readr::read_csv(file_loc))
       } else if (endsWith(file_loc, ".qs2")) {
@@ -487,7 +490,10 @@ edav_io <- function(
     if (endsWith(file_loc, ".csv")) {
       return(suppressWarnings(AzureStor::storage_read_csv(azcontainer, file_loc, ...)))
     } else if (endsWith(file_loc, ".rda")) {
-      return(suppressWarnings(AzureStor::storage_load_rdata(azcontainer, file_loc)))
+      obj_names <- suppressWarnings(AzureStor::storage_load_rdata(azcontainer, file_loc, envir = globalenv()))
+      cli::cli_alert_success("RDA object loaded to the global environment:")
+      cli::cli_li(obj_names)
+      return(invisible())
     } else if (endsWith(file_loc, ".xlsx") | endsWith(file_loc, ".xls")) {
       output <- NULL
       withr::with_tempdir(
@@ -791,7 +797,6 @@ test_EDAV_connection <- function(
 #' - `"DEFAULT_EDAV_FOLDER"`
 #' - `"CTRY_RISK_CAT"`
 #' - `"LAB_LOCATIONS"`
-#' - `"DR_TEMPLATE"`
 #' - `"SIRFUNCTIONS_GITHUB_TREE"`
 #' - `"CLEANED_LAB_DATA"`
 #'
@@ -805,7 +810,6 @@ get_constant <- function(constant_name = NULL) {
     '"DEFAULT_EDAV_FOLDER"',
     '"CTRY_RISK_CAT"',
     '"LAB_LOCATIONS"',
-    '"DR_TEMPLATE"',
     '"SIRFUNCTIONS_GITHUB_TREE"',
     '"CLEANED_LAB_DATA"'
   )
@@ -821,9 +825,8 @@ get_constant <- function(constant_name = NULL) {
     "DEFAULT_EDAV_FOLDER" = "GID/PEB/SIR",
     "CTRY_RISK_CAT" = "Data/misc/country_prioritization/SG_country_prioritization_GPSAP2025-2026_04Dec2024.csv",
     "LAB_LOCATIONS" = "Data/lab/Routine_lab_testing_locations.csv",
-    "DR_TEMPLATE" = "https://raw.githubusercontent.com/nish-kishore/sg-desk-reviews/main/resources/desk_review_template.Rmd",
     "SIRFUNCTIONS_GITHUB_TREE" = "https://api.github.com/repos/CDCGov/sirfunctions/git/trees",
-    "CLEANED_LAB_DATA" = "Data/lab/20250829_afro_emro_lab_afp_2022_2025_clean.xlsx",
+    "CLEANED_LAB_DATA" = "Data/lab/cleaned_lab_data.rda",
     cli::cli_abort("Please pass a valid argument.")
   )
 }
