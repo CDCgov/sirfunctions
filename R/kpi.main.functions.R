@@ -307,6 +307,8 @@ generate_kpi_template <- function(output_path, name, edav) {
   seqship_violin <- 'generate_lab_seqship_violin(lab_data, raw_data$afp, start_date, end_date)'
   seqres_violin <- 'generate_lab_seqres_violin(lab_data, raw_data$afp, start_date, end_date)'
 
+  kpi_tile <- 'generate_kpi_tile(c1)'
+
   export_table <- "export_kpi_table(c1, c2, c3, c4)"
 
   # Write template
@@ -338,6 +340,8 @@ generate_kpi_template <- function(output_path, name, edav) {
     "# Adjust the y_max as needed via the 'y_max' parameter",
     timely_violin, culture_violin, itd_violin, seqship_violin,
     seqres_violin, "\n",
+    "# Generate C1 KPI tile ----",
+    kpi_tile, "\n",
     "# Export GPSAP tables ----",
     export_table, "\n"
   )
