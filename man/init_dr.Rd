@@ -9,12 +9,11 @@ init_dr(
   start_date = NULL,
   end_date = NULL,
   local_dr_folder = getwd(),
-  sg_dr_folder = NULL,
   lab_data_path = NULL,
   iss_data_path = NULL,
   attach_spatial_data = T,
   branch = "main",
-  source = T,
+  source = F,
   data_folder = "GID/PEB/SIR/Data",
   polis_folder = "GID/PEB/SIR/POLIS",
   use_edav = TRUE
@@ -32,8 +31,6 @@ the function is ran.}
 \item{local_dr_folder}{\code{str} Folder where the desk review code is located.
 Defaults to the current working directory.}
 
-\item{sg_dr_folder}{\code{str} Folder where the local git repository is located. Defaults to \code{NULL}.}
-
 \item{lab_data_path}{\code{str} Location of the lab data. Defaults to \code{NULL}.}
 
 \item{iss_data_path}{\code{str} Location of the ISS data. Defaults to \code{NULL}.}
@@ -44,7 +41,7 @@ Defaults to the current working directory.}
 \code{"main"} is the default, which contains the official version of the package. Other branches,
 like \code{"dev"} may contain experimental features not yet available in the \code{"main"} branch.}
 
-\item{source}{\code{logical} Whether to source local functions or use sirfunctions. Defaults to \code{TRUE}.}
+\item{source}{\code{logical} Whether to source local functions or use sirfunctions. Defaults to \code{FALSE}.}
 
 \item{data_folder}{\code{str} Location of the data folder containing pre-processed POLIS data,
 spatial files, coverage data, and population data. Defaults to \code{"GID/PEB/SIR/Data"}.}

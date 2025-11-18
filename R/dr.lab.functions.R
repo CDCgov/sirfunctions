@@ -798,7 +798,7 @@ get_region <- function(country_name = Sys.getenv("DR_COUNTRY")) {
 }
 
 
-#' Function to load the raw lab data
+#' Function to load the raw lab data locally
 #'
 #' This a function to load lab data that are either CSVs or Excel files.
 #'
