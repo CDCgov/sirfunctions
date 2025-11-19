@@ -17,7 +17,7 @@
 ## Citation
 
 Source:
-[`DESCRIPTION`](https://github.com/nish-kishore/sirfunctions/blob/main/DESCRIPTION)
+[`DESCRIPTION`](https://github.com/nish-kishore/sirfunctions/blob/v2.1.0/DESCRIPTION)
 
 Kishore N, Cuadera M, Heaghney N, Krow-Lucal E, Chavan S (2025).
 *sirfunctions: Key Functions to Analyze Global Polio Surveillance Data*.
