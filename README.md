@@ -33,7 +33,7 @@ For example: `?sirfunctions::edav_io`
 
 The quick start guide can be viewed [here](https://cdcgov.github.io/sirfunctions/articles/sirfunctions.html).
 ## Release Schedule
--   Please see the
+Please see the
     [Releases](https://github.com/nish-kishore/sirfunctions/releases)
     page for specifics on previous releases.
 
