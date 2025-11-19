@@ -14,6 +14,7 @@ The sirfunctions package contains key functions used by the Surveillance, Innova
 Useful links:
 \itemize{
   \item \url{https://github.com/nish-kishore/sirfunctions}
+  \item \url{https://cdcgov.github.io/sirfunctions/}
 }
 
 }

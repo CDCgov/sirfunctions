@@ -2,23 +2,21 @@
 
 #' Downloads the desk review template code
 #'
-#' @param output_path where to download the desk review template code
+#' @param output_path `str` Where to download the desk review template code.
+#' @param country_name `str` Name of the country in the desk review.
 #' @keywords internal
 #'
-copy_dr_template_code <- function(output_path = Sys.getenv("DR_PATH")) {
-  dr_template_name <- "desk_review_template.Rmd"
-  github_raw_url <- "https://raw.githubusercontent.com/nish-kishore/sg-desk-reviews/main/resources/desk_review_template.Rmd"
+copy_dr_template_code <- function(output_path = Sys.getenv("DR_PATH"), country_name = Sys.getenv("DR_COUNTRY")) {
 
-  # download only if it doesn't already exist
-  data_folder_files <- list.files(output_path)
-  if ((stringr::str_detect(data_folder_files, "_template") |> sum()) == 0) {
-    cli::cli_process_start("Downloading the desk review template.")
-    download.file(github_raw_url, file.path(output_path, dr_template_name))
-    cli::cli_process_done()
-  } else {
-    message("Template file already exists. Skipping download.")
-    return(NULL)
-  }
+  dr_template_name <- paste0(paste(tolower(country_name), collapse = "_"), "_desk_review_template.Rmd")
+
+  rmarkdown::draft(
+    file = file.path(output_path, dr_template_name),
+    template = "desk-review-template",
+    package = "sirfunctions",
+    create_dir = FALSE,
+    edit = FALSE
+  )
 }
 
 #' Get functions used for the desk review from Github
@@ -35,9 +33,9 @@ copy_dr_functions <- function(branch = "main", output_folder = Sys.getenv("DR_FU
       call. = FALSE
     )
   }
-  repo <- "nish-kishore/sirfunctions"
+  repo <- "CDCGov/sirfunctions"
   github_raw_url <- "https://raw.githubusercontent.com"
-  github_folder_url <- "https://api.github.com/repos/nish-kishore/sirfunctions/git/trees"
+  github_folder_url <- "https://api.github.com/repos/CDCGov/sirfunctions/git/trees"
   github_folder_url <- file.path(github_folder_url, paste0(branch, "?recursive=1"))
   req <- httr::GET(github_folder_url)
   file_path <- data.frame("paths" = unlist(lapply(httr::content(req)$tree, function(x) x$path)))
@@ -239,7 +237,7 @@ update_data <-
            .use_edav) {
     message("Saving a new copy of the dataset.")
     path_to_save <-
-      paste0(paste(dr_data_path, "saved_on", Sys.Date(), sep = "_"), ".Rds")
+      paste0(paste(dr_data_path, "raw_data_saved_on", Sys.Date(), sep = "_"), ".Rds")
 
     # Overwrite the data
     if (file.exists(path_to_save)) {
@@ -253,6 +251,9 @@ update_data <-
                                        polis_folder = .polis_folder,
                                        use_edav = .use_edav
                                        )
+    country_name <- stringr::str_replace_all(country_name, ", ", ",") |>
+      stringr::str_split(",") |>
+      unlist()
     country_data <- sirfunctions::extract_country_data(country_name, raw_data)
     readr::write_rds(country_data, path_to_save)
     message(paste0("Data saved at:\n", dr_data_path))
@@ -276,7 +277,7 @@ load_data <- function(data_dir_path) {
     }
 
     file_names <- list.files(data_dir_path, pattern = "\\.Rds$", ignore.case = T)
-
+    file_names <- file_names[stringr::str_detect(file_names, "saved_on")]
     load_data <- suppressWarnings(as.integer(load_data))
     if (is.na(load_data) | load_data == 0) {
       message("Invalid response. Please try again.")
@@ -334,6 +335,7 @@ generate_data <-
            .polis_folder,
            .use_edav) {
     file_names <- list.files(data_path, pattern = "\\.rds$", ignore.case = T)
+    file_names <- file_names[stringr::str_detect(file_names, "raw_data")]
 
     data_exists <- length(file_names) != 0
     if (data_exists) {
@@ -485,13 +487,12 @@ fetch_dr_data <- function(country, year, local_dr_repo) {
 #' @param local_dr_folder `str` Folder where the desk review code is located.
 #' Defaults to the current working directory.
 #' @param attach_spatial_data `logical` Whether to include spatial data. Defaults to `TRUE`.
-#' @param sg_dr_folder `str` Folder where the local git repository is located. Defaults to `NULL`.
 #' @param lab_data_path `str` Location of the lab data. Defaults to `NULL`.
 #' @param iss_data_path `str` Location of the ISS data. Defaults to `NULL`.
 #' @param branch `str` What branch to download the DR functions from GitHub.
 #' `"main"` is the default, which contains the official version of the package. Other branches,
 #' like `"dev"` may contain experimental features not yet available in the `"main"` branch.
-#' @param source `logical` Whether to source local functions or use sirfunctions. Defaults to `TRUE`.
+#' @param source `logical` Whether to source local functions or use sirfunctions. Defaults to `FALSE`.
 #' @inheritParams get_all_polio_data
 #'
 #' @returns `list` A list containing all dataframe for all polio data.
@@ -507,12 +508,11 @@ init_dr <-
            start_date = NULL,
            end_date = NULL,
            local_dr_folder = getwd(),
-           sg_dr_folder = NULL,
            lab_data_path = NULL,
            iss_data_path = NULL,
            attach_spatial_data = T,
            branch = "main",
-           source = T,
+           source = F,
            data_folder = "GID/PEB/SIR/Data",
            polis_folder = "GID/PEB/SIR/POLIS",
            use_edav = TRUE) {
@@ -619,14 +619,31 @@ init_dr <-
         cli::cli_process_start("Saving a copy of the lab data to the data folder.")
         dr_lab_data_path <- file.path(
           data_path,
-          paste0(country_data$ctry$ISO_3_CODE, "_lab_data_", Sys.Date(), ".Rds")
+          paste0(paste(country_data$ctry$ISO_3_CODE, collapse = "_"), "_lab_data_", Sys.Date(), ".Rds")
         )
         saveRDS(country_data$lab.data, dr_lab_data_path)
         Sys.setenv(DR_LAB_PATH = dr_lab_data_path)
-      } else {
-        Sys.setenv(DR_LAB_PATH = lab_data_path)
-      }
-    }
+        }
+      } else if(is.null(lab_data_path) &
+                use_edav == TRUE &
+                (stringr::str_detect(data_folder_files, "_lab_data_") |> sum() == 0)) {
+          sirfunctions_io("read", file_loc = get_constant("CLEANED_LAB_DATA"), edav = use_edav)
+
+          cli::cli_alert_info("Caching lab data to the desk review folder")
+          dr_lab_data_path <- file.path(
+            data_path,
+            paste0(paste(country_data$ctry$ISO_3_CODE, collapse = "_"), "_lab_data_", Sys.Date(), ".Rds")
+          )
+          Sys.setenv(DR_LAB_PATH = dr_lab_data_path)
+          saveRDS(get("lab_data", envir = globalenv()), dr_lab_data_path)
+        } else if (is.null(lab_data_path) &
+                  (use_edav == TRUE) &
+                  (stringr::str_detect(data_folder_files, "_lab_data_") |> sum() != 0)) {
+          cli::cli_alert_info("Loading cached lab data")
+          lab_files <- data_folder_files[stringr::str_detect(data_folder_files, "lab_data")]
+          lab_data <<- readRDS(file.path(data_path, lab_files[1]))
+          Sys.setenv(DR_LAB_PATH = file.path(data_path, lab_files[1]))
+          }
 
     # Attaching ISS data if available and creating a copy to data folder
     if (!is.null(iss_data_path)) {
@@ -662,13 +679,16 @@ init_dr <-
     Sys.setenv(DR_POWERPOINT_PATH = file.path(country_dir_path, "powerpoint"))
     Sys.setenv(DR_FIGURE_PATH = file.path(country_dir_path, "figures"))
     Sys.setenv(DR_FUNC_PATH = file.path(country_dir_path, "R"))
-    Sys.setenv(DR_COUNTRY = country_name)
+    Sys.setenv(DR_COUNTRY = paste(country_name, collapse = ", "))
 
     # Copy functions in R
     copy_dr_functions(branch)
 
     # Copy desk review template
-    copy_dr_template_code()
+    dr_template_name <- paste0(paste(tolower(country_name), collapse = "_"), "_desk_review_template.Rmd")
+    if (!file.exists(file.path(Sys.getenv("DR_PATH"), dr_template_name))) {
+      copy_dr_template_code()
+    }
 
     # Source the functions used in the Desk Review
     if (source) {
@@ -680,5 +700,10 @@ init_dr <-
       cli::cli_process_done()
     }
 
-    return(country_data)
+    ctry.data <<- country_data
+    cli::cli_alert_success("ctry.data loaded to the global environment")
+    cli::cli_alert_success("Desk review analysis set up complete.")
+    cli::cli_text(paste0("Click here to access the template file: ",
+                         "{.file ", file.path(Sys.getenv("DR_PATH"), dr_template_name), "}"))
+    return(invisible(country_data))
   }

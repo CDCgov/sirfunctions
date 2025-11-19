@@ -12,7 +12,6 @@ get_constant(constant_name = NULL)
 \item \code{"DEFAULT_EDAV_FOLDER"}
 \item \code{"CTRY_RISK_CAT"}
 \item \code{"LAB_LOCATIONS"}
-\item \code{"DR_TEMPLATE"}
 \item \code{"SIRFUNCTIONS_GITHUB_TREE"}
 \item \code{"CLEANED_LAB_DATA"}
 }}

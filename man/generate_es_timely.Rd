@@ -8,7 +8,9 @@ generate_es_timely(
   es.data,
   es_start_date = (lubridate::as_date(es_end_date) - lubridate::years(1)),
   es_end_date = end_date,
-  output_path = Sys.getenv("DR_FIGURE_PATH")
+  output_path = Sys.getenv("DR_FIGURE_PATH"),
+  add_legend = TRUE,
+  .color = "site.name"
 )
 }
 \arguments{
@@ -19,6 +21,10 @@ generate_es_timely(
 \item{es_end_date}{\code{str} End date of analysis.}
 
 \item{output_path}{\code{str} Local path for where to save the figure to.}
+
+\item{add_legend}{\code{logical} Whether to add or remove a legend in the figure.}
+
+\item{.color}{\code{str} What column to use as color. Defaults to \code{site.name}.}
 }
 \value{
 \code{ggplot} A scatterplot for timeliness of ES samples.

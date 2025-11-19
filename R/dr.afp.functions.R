@@ -308,7 +308,7 @@ add_prov_npafp_table <- function(npafp.output) {
 #' @param pop_data `tibble` Population dataset.
 #' @param start_date `str` Start date of analysis.
 #' @param end_date `str` End date of analysis.
-#' @param by `str` How to group the data by. Either `"prov"`, `"dist"`, or `"year"`.
+#' @param by `str` How to group the data by. Either `"ctry"`, `"prov"`, `"dist"`, or `"year"`.
 #' @param ctry.data `r lifecycle::badge("deprecated")` `ctry.data` is no longer supported;
 #' the function will explicitly ask for the AFP dataset instead of accessing it from a list.
 #' @returns `tibble` Summary table of AFP cases by month and another grouping variable.
@@ -478,7 +478,7 @@ generate_afp_by_month_summary <- function(afp_data, start_date, end_date, by,
 #' @param pop_data `tibble` Population dataset that matches the spatial scale.
 #' @param start_date `str` Start date of analysis.
 #' @param end_date `str` End date of analysis.
-#' @param spatial_scale `str` Scale to summarize to. Valid values are: `"ctry" or "prov"`. `"dist"` not available currently.
+#' @param spatial_scale `str` Scale to summarize to. Valid values are: `"ctry", "prov"`, or `"all"`. `"dist"` not available currently.
 #' @param lab_data_summary `tibble` Summarized lab data, if available. This parameter will calculate timeliness intervals in the lab. Otherwise,
 #' only the field component will be presented. This is the output of [generate_lab_timeliness()].
 #' @param ctry.data `list` `r lifecycle::badge("deprecated") `
@@ -528,8 +528,8 @@ generate_int_data <- function(afp_data, pop_data, start_date, end_date,
       "generate_int_data(spatial_scale)"
     )
     spatial_scale <- spatial.scale
-    if (!spatial_scale %in% c("ctry", "prov")) {
-      cli::cli_abort('Only "ctry" and "prov" spatial scales are supported at this time.')
+    if (!spatial_scale %in% c("ctry", "prov", "all")) {
+      cli::cli_abort('Only "ctry", "prov", "all" spatial scales are supported at this time.')
     }
   }
 
@@ -545,7 +545,8 @@ generate_int_data <- function(afp_data, pop_data, start_date, end_date,
     afp_data <- ctry.data$afp.all.2
     pop_data <- switch(spatial_scale,
       "ctry" = ctry.data$ctry.pop,
-      "prov" = ctry.data$prov.pop
+      "prov" = ctry.data$prov.pop,
+      "all" = ctry.data$ctry.pop
     )
     check_spatial_scale(pop_data, spatial_scale)
   }
@@ -609,6 +610,12 @@ generate_int_data <- function(afp_data, pop_data, start_date, end_date,
         "stool1tostool2", stool_to_lab_name, "year",
         "adm0guid", "adm1guid", "ctry", "prov"
       )
+    },
+    "all" = {
+      c(
+        "epid", "ontonot", "nottoinvest", "investtostool1",
+        "stool1tostool2", stool_to_lab_name, "year"
+      )
     }
   )
   as_num_conversion <- c(stool_to_lab_name, "ontonot", "nottoinvest", "investtostool1", "stool1tostool2")
@@ -627,6 +634,15 @@ generate_int_data <- function(afp_data, pop_data, start_date, end_date,
       int.data <- afp_data |>
         dplyr::mutate(year = lubridate::year(date)) |>
         dplyr::group_by(adm1guid, year) |>
+        dplyr::select(dplyr::any_of(select_criteria)) |>
+        dplyr::mutate(dplyr::across(
+          dplyr::any_of(as_num_conversion), \(x) as.numeric(x)
+        ))
+    },
+    "all" = {
+      int.data <- afp_data |>
+        dplyr::mutate(year = lubridate::year(date)) |>
+        dplyr::group_by(year) |>
         dplyr::select(dplyr::any_of(select_criteria)) |>
         dplyr::mutate(dplyr::across(
           dplyr::any_of(as_num_conversion), \(x) as.numeric(x)
@@ -664,6 +680,15 @@ generate_int_data <- function(afp_data, pop_data, start_date, end_date,
         ) |>
         dplyr::left_join(pop_data |>
                            dplyr::select(ctry, prov, adm0guid, adm1guid, year)) |>
+        dplyr::ungroup()
+    },
+    "all" = {
+      int.data <- int.data |>
+        dplyr::group_by(year, type) |>
+        dplyr::summarize(
+          medi = median(value, na.rm = TRUE),
+          freq = sum(!is.na(value))
+        ) |>
         dplyr::ungroup()
     }
   )
@@ -804,18 +829,41 @@ generate_int_data <- function(afp_data, pop_data, start_date, end_date,
           year,
           " (N=", n, ")"
         ))
+    },
+    "all" = {
+      afp_data |>
+        dplyr::filter(
+          dplyr::between(date, start_date, end_date),
+          cdc.classification.all2 != "NOT-AFP"
+        ) |>
+        dplyr::count(year) |>
+        dplyr::mutate(labs = paste0(
+          year,
+          " (N=", n, ")"
+        ))
     }
   )
 
   int.data <- suppressMessages(dplyr::left_join(int.data, labs))
-  int.data <- int.data |> filter(
-    !is.na(type), !is.na(ctry),
-    dplyr::between(
-      year,
-      lubridate::year(start_date),
-      lubridate::year(end_date)
+  if (spatial_scale != "all") {
+    int.data <- int.data |> filter(
+      !is.na(type), !is.na(ctry),
+      dplyr::between(
+        year,
+        lubridate::year(start_date),
+        lubridate::year(end_date)
+      )
     )
-  )
+  } else if (spatial_scale == "all") {
+    int.data <- int.data |> filter(
+      !is.na(type),
+      dplyr::between(
+        year,
+        lubridate::year(start_date),
+        lubridate::year(end_date)
+      )
+    )
+  }
 
   return(int.data)
 }
@@ -1181,6 +1229,11 @@ clean_ctry_data <- function(ctry.data) {
     "all_dets" %in% names(ctry.data$es)) {
     cli::cli_alert_warning("ctry.data already cleaned.")
     return(ctry.data)
+  }
+
+  # names
+  if (!"dist" %in% names(ctry.data)) {
+    cli::cli_abort("ctry.data must have spatial data attached")
   }
 
   ctry.data$afp.all.2 <- impute_dist_afp(ctry.data$afp.all.2)
