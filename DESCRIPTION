@@ -1,6 +1,6 @@
 Package: sirfunctions
 Title: Key Functions to Analyze Global Polio Surveillance Data
-Version: 2.0.4
+Version: 2.1.0
 Authors@R: c(
     person("Nishant", "Kishore", , "ynm2@cdc.gov", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0003-0408-2747")),
@@ -22,7 +22,7 @@ Description: The sirfunctions package contains key functions used by the
     there are several functions that also facilitate communication,
     visualize trends, and perform data quality checks.
 License: MIT + file LICENSE
-URL: https://github.com/nish-kishore/sirfunctions
+URL: https://github.com/nish-kishore/sirfunctions, https://cdcgov.github.io/sirfunctions/
 Imports:
     AzureAuth,
     AzureStor,
@@ -44,7 +44,10 @@ Imports:
     purrr,
     withr,
     yaml,
-    stats
+    stats,
+    rappdirs,
+    rmarkdown,
+    grDevices
 Suggests:
     arrow,
     qs2,
@@ -57,6 +60,7 @@ Suggests:
     ggpubr,
     ggrepel,
     prettyunits,
+    rnaturalearth,
     janitor,
     readxl,
     tibble,
@@ -65,15 +69,16 @@ Suggests:
     magick,
     openxlsx,
     vctrs,
-    rmarkdown,
     Microsoft365R,
     zoo,
     writexl,
     rvg,
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    exactextractr,
+    terra
 VignetteBuilder:
     knitr
 Config/testthat/edition: 3
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3

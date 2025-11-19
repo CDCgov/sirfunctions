@@ -74,7 +74,7 @@ init_kpi <- function(path = getwd(), name = NULL, edav = TRUE) {
 
   # List files
   data_files <- list.files(Sys.getenv("KPI_DATA"))
-  global_files <- data_files[stringr::str_detect(data_files, "raw_data")]
+  global_files <- data_files[stringr::str_detect(data_files, "polio_data")]
   lab_files <- data_files[stringr::str_detect(data_files, "lab_data")]
 
   # Load global polio data
@@ -82,13 +82,15 @@ init_kpi <- function(path = getwd(), name = NULL, edav = TRUE) {
   if (length(global_files) == 0 & edav == TRUE) {
     raw_data <- get_all_polio_data()
     raw_data <<- raw_data
-    saveRDS(raw_data, file.path(Sys.getenv("KPI_DATA"), paste0("raw_data_", today, ".rds")))
+    saveRDS(raw_data, file.path(Sys.getenv("KPI_DATA"), paste0("polio_data_", today, ".rds")))
   } else if (length(global_files) == 0 & edav == FALSE) {
     cli::cli_alert_info(paste0("Please run get_all_polio_data() locally to build raw_data.",
                                " You may save the raw_data Rds to: ", Sys.getenv("KPI_DATA"),
                                ".\nEnsure this file begins with 'raw_data' so it can be detected in the next init."))
 
   } else if (length(global_files) == 1) {
+    cli::cli_alert_info("Loading cached global polio data: ")
+    cli::cli_li(global_files[1])
     raw_data <- readRDS(file.path(Sys.getenv("KPI_DATA"), global_files[1]))
     raw_data <<- raw_data
   } else {
@@ -122,15 +124,16 @@ init_kpi <- function(path = getwd(), name = NULL, edav = TRUE) {
   # Load lab data
   cli::cli_process_start("Loading lab data")
   if (length(lab_files) == 0 & edav == TRUE) {
-    lab_data <- edav_io("read", file_loc = get_constant("CLEANED_LAB_DATA"))
-    lab_data <<- lab_data
-    saveRDS(lab_data, file.path(Sys.getenv("KPI_DATA"), paste0("lab_data_", today, ".rds")))
+    edav_io("read", file_loc = get_constant("CLEANED_LAB_DATA"))
+    saveRDS(get("lab_data", envir = globalenv()), file.path(Sys.getenv("KPI_DATA"), paste0("lab_data_", today, ".rds")))
   } else if (length(lab_files) == 0 & edav == FALSE) {
     cli::cli_alert_info(paste0("Please load the lab data manually into the environment. ",
                                " You may save the lab_data Rds to: ", Sys.getenv("KPI_DATA"),
                                ".\nEnsure this file begins with 'lab_data' so it can be detected in the next init."))
 
   } else if (length(lab_files) == 1) {
+    cli::cli_alert_info("Loading cached lab data")
+    cli::cli_li(lab_files[1])
     lab_data <- readRDS(file.path(Sys.getenv("KPI_DATA"), lab_files[1]))
     lab_data <<- lab_data
   } else {
@@ -304,6 +307,8 @@ generate_kpi_template <- function(output_path, name, edav) {
   seqship_violin <- 'generate_lab_seqship_violin(lab_data, raw_data$afp, start_date, end_date)'
   seqres_violin <- 'generate_lab_seqres_violin(lab_data, raw_data$afp, start_date, end_date)'
 
+  kpi_tile <- 'generate_kpi_tile(c1)'
+
   export_table <- "export_kpi_table(c1, c2, c3, c4)"
 
   # Write template
@@ -335,6 +340,8 @@ generate_kpi_template <- function(output_path, name, edav) {
     "# Adjust the y_max as needed via the 'y_max' parameter",
     timely_violin, culture_violin, itd_violin, seqship_violin,
     seqres_violin, "\n",
+    "# Generate C1 KPI tile ----",
+    kpi_tile, "\n",
     "# Export GPSAP tables ----",
     export_table, "\n"
   )

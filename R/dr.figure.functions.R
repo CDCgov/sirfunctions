@@ -75,7 +75,7 @@ generate_ctry_timeliness_graph <- function(int.data,
     ggplot2::coord_flip() +
     ggplot2::ylab("Median Days") +
     ggplot2::xlab("Year of Paralysis Onset") +
-    ggplot2::scale_x_discrete(labels = labs) +
+    #ggplot2::scale_x_discrete(labels = labs) +
     ggplot2::scale_fill_manual(
       name = "Interval",
       drop = T,
@@ -271,6 +271,86 @@ generate_afp_epicurve <- function(ctry.data,
   return(afp.epi.curve)
 }
 
+#' AFP cases by ctry and year
+#'
+#' Generates a tile plot for the number of AFP cases per month by country.
+#'
+#' @param afp.by.month.ctry `tibble` Table summarizing AFP cases by month and province. This is the output of
+#' [generate_afp_by_month_summary()].
+#' @param start_date `str` Start date of the analysis.
+#' @param end_date `str` End date of the analysis. By default, it displays the most recent date.
+#' @param output_path `str` Local path to output the figure.
+#' @param .height `int` Change the height of the figure. Defaults to 5.
+#'
+#' @returns `ggplot` A tile plot displaying the number of AFP cases by month and province.
+#' @examples
+#' \dontrun{
+#' ctry.data <- init_dr("algeria")
+#' afp.by.month <- generate_afp_by_month_summary(
+#'   raw.data$afp, "2021-01-01", "2023-12-31", "ctry",
+#'   raw.data$ctry.pop
+#' generate_afp_prov_year(afp.by.month, start_date, end_date)
+#' }
+#'
+#' @export
+generate_afp_ctry_year <- function(afp.by.month.ctry,
+                                   start_date,
+                                   end_date = lubridate::today(),
+                                   output_path = Sys.getenv("DR_FIGURE_PATH"),
+                                   .height = 5) {
+  if (!requireNamespace("forcats", quietly = TRUE)) {
+    stop(
+      'Package "forcats" must be installed to use this function.',
+      call. = FALSE
+    )
+  }
+
+  start_date <- lubridate::as_date(start_date)
+  end_date <- lubridate::as_date(end_date)
+
+  afp.month.ctry.g <- afp.by.month.ctry |>
+    dplyr::filter(dplyr::between(year, lubridate::year(start_date), lubridate::year(end_date)), !is.na(ctry))
+
+  afp.month.ctry.g$case.cat <- factor(afp.month.ctry.g$case.cat, levels = c(c("0", "1", "2-5", "6-9", "10+")))
+
+  if (nrow(afp.month.ctry.g) == 0) {
+    return(output_empty_image(output_path, "afp.dets.ctry.year.png"))
+  }
+
+  # add a point to indicate cVDPV2 detections
+
+  afp.dets.ctry.year <- ggplot2::ggplot(
+    afp.month.ctry.g |>
+      dplyr::arrange(u15pop),
+    ggplot2::aes(
+      x = mon.year,
+      y = forcats::fct_inorder(ctry),
+      fill = case.cat,
+
+    )
+  ) +
+    ggplot2::geom_tile(color = "black") +
+    ggplot2::ggtitle("Number of AFP Cases by Country") +
+    sirfunctions::f.plot.looks("geomtile") +
+    ggplot2::scale_fill_manual(
+      values = sirfunctions::f.color.schemes("afp.prov"),
+      name = "AFP Cases",
+      drop = T
+    ) +
+    geom_text(aes(label=cases)) +
+    ggplot2::theme(plot.caption = ggplot2::element_text(hjust = 0)) +
+    ggplot2::labs(caption = "Countries are ordered by under 15 population, with highest on top")
+
+  ggplot2::ggsave(
+    "afp.dets.ctry.year.png",
+    plot = afp.dets.ctry.year,
+    path = output_path,
+    width = 14,
+    height = .height
+  )
+
+  return(afp.dets.ctry.year)
+}
 
 
 #' AFP cases by province and year
@@ -282,6 +362,7 @@ generate_afp_epicurve <- function(ctry.data,
 #' @param start_date `str` Start date of the analysis.
 #' @param end_date `str` End date of the analysis. By default, it displays the most recent date.
 #' @param output_path `str` Local path to output the figure.
+#' @param .height `int` Change the height of the figure. Defaults to 5.
 #'
 #' @returns `ggplot` A tile plot displaying the number of AFP cases by month and province.
 #' @examples
@@ -299,7 +380,8 @@ generate_afp_epicurve <- function(ctry.data,
 generate_afp_prov_year <- function(afp.by.month.prov,
                                    start_date,
                                    end_date = lubridate::today(),
-                                   output_path = Sys.getenv("DR_FIGURE_PATH")) {
+                                   output_path = Sys.getenv("DR_FIGURE_PATH"),
+                                   .height = 5) {
   if (!requireNamespace("forcats", quietly = TRUE)) {
     stop(
       'Package "forcats" must be installed to use this function.',
@@ -346,7 +428,7 @@ generate_afp_prov_year <- function(afp.by.month.prov,
     plot = afp.dets.prov.year,
     path = output_path,
     width = 14,
-    height = 5
+    height = .height
   )
 
   return(afp.dets.prov.year)
@@ -509,13 +591,6 @@ generate_es_site_det <- function(sia.data,
   maxy <- max(es.data$collect.date) + 7
 
   es.site.det <- ggplot2::ggplot() +
-    ggplot2::geom_point(
-      data = es.data |>
-        dplyr::arrange(ADM1_NAME),
-      ggplot2::aes(x = collect.date, y = site.name, col = all_dets),
-      pch = 19,
-      size = 3
-    ) +
     ggplot2::geom_rect(
       data = minsy,
       ggplot2::aes(
@@ -581,6 +656,8 @@ generate_es_site_det <- function(sia.data,
 #' @param es_start_date `str` Start date of analysis. By default, this is one year from the end date.
 #' @param es_end_date `str` End date of analysis.
 #' @param output_path `str` Local path for where to save the figure to.
+#' @param add_legend `logical` Whether to add or remove a legend in the figure.
+#' @param .color `str` What column to use as color. Defaults to `site.name`.
 #'
 #' @returns `ggplot` A scatterplot for timeliness of ES samples.
 #' @examples
@@ -593,7 +670,9 @@ generate_es_site_det <- function(sia.data,
 generate_es_timely <- function(es.data,
                                es_start_date = (lubridate::as_date(es_end_date) - lubridate::years(1)),
                                es_end_date = end_date,
-                               output_path = Sys.getenv("DR_FIGURE_PATH")) {
+                               output_path = Sys.getenv("DR_FIGURE_PATH"),
+                               add_legend = TRUE,
+                               .color = "site.name") {
   es_start_date <- lubridate::as_date(es_start_date)
   es_end_date <- lubridate::as_date(es_end_date)
 
@@ -649,7 +728,7 @@ generate_es_timely <- function(es.data,
     ) +
     ggplot2::geom_point(
       data = dplyr::filter(es.data, timely >= 0),
-      ggplot2::aes(x = collect.date, y = timely, color = site.name),
+      ggplot2::aes(x = collect.date, y = timely, color = !!dplyr::sym(.color)),
       alpha = 0.7,
       position = ggplot2::position_jitter(height = .2, width = 0.5),
       size = 3
@@ -669,6 +748,11 @@ generate_es_timely <- function(es.data,
       axis.text = ggplot2::element_text(size = 14),
       plot.caption = ggplot2::element_text(hjust = 0)
     )
+
+  if (!add_legend) {
+    es.timely <- es.timely +
+      ggplot2::theme(legend.position = "none")
+  }
 
   ggplot2::ggsave("es.timely.png",
     plot = es.timely,
@@ -980,12 +1064,12 @@ generate_pop_map <- function(ctry.data,
     ggplot2::geom_sf(data = shape.prov.pop, ggplot2::aes(fill = u15pop)) +
     ggplot2::geom_sf(data = sf::st_crop(ctry.data$roads, ctry.data$ctry)) +
     ggplot2::geom_sf(
-      data = dplyr::filter(ctry.data$cities, toupper(CNTRY_NAME) == ctry.data$name),
+      data = dplyr::filter(ctry.data$cities, toupper(CNTRY_NAME) %in% ctry.data$name),
       size = 3,
       color = "blue"
     ) +
     ggrepel::geom_label_repel(
-      data = dplyr::filter(ctry.data$cities, toupper(CNTRY_NAME) == ctry.data$name),
+      data = dplyr::filter(ctry.data$cities, toupper(CNTRY_NAME) %in% ctry.data$name),
       ggplot2::aes(label = CITY_NAME, geometry = geometry),
       stat = "sf_coordinates"
     ) +
@@ -3250,6 +3334,14 @@ generate_surv_ind_tab <- function(ctry.data,
                                   dstool,
                                   afp.case,
                                   country_name = Sys.getenv("DR_COUNTRY")) {
+
+  # Check if multiple countries are used
+  if (length(unlist(stringr::str_split(country_name, ", "))) > 1 |
+      length(unique(ctry.extract$adm0guid)) > 1) {
+    cli::cli_abort(paste0("Only one country is supported by this function.",
+                          " For regional summaries, use `generate_surv_reg_tab()`."))
+  }
+
   if (!requireNamespace("janitor", quietly = TRUE)) {
     stop('Package "janitor" must be installed to use this function.',
       .call = FALSE
@@ -3299,7 +3391,7 @@ generate_surv_ind_tab <- function(ctry.data,
     dplyr::filter(u15pop >= 100000)
 
   unique.dist.100k <- ctry.data$dist.pop %>%
-    dplyr::filter(ctry == stringr::str_to_upper(country_name) &
+    dplyr::filter(ctry %in% stringr::str_to_upper(country_name) &
       u15pop >= 100000) %>%
     unique() %>%
     dplyr::group_by(year, u15pop, adm2guid) %>%
@@ -3479,7 +3571,7 @@ generate_pop_tab <- function(pnpafp,
     dplyr::mutate(u15pop = round(u15pop, 0)) |>
     dplyr::filter(!is.na(prov))
 
-  date.analysis <- seq(lubridate::year(start_date), lubridate::year(end_date), 1)
+  date.analysis <- unique(c(pstool$year, pnpafp$year))
   pop.date.analysis <- paste0("u15pop_", date.analysis[1:length(date.analysis) - 1])
 
   sub.prov.join.wide <- tidyr::pivot_wider(
@@ -3639,9 +3731,7 @@ generate_pop_tab <- function(pnpafp,
 #' Issues with stool adequacy at the country level
 #'
 #' Generates a summary table at the country level highlighting issues around stool adequacy.
-#'
-#' @param ctry.data `list` large list containing polio data for a country. This is the output of
-#' [extract_country_data()] or [init_dr()].
+#' @param afp_data `tibble` `afp.all.2` of the output of [extract_country_data()].
 #' @param cstool `tibble` Stool adequacy at the country level. This is the output of [f.stool.ad.01()].
 #' @param start_date `str` Start date of analysis.
 #' @param end_date `str` End date of analysis.
@@ -3667,7 +3757,7 @@ generate_pop_tab <- function(pnpafp,
 #' }
 #'
 #' @export
-generate_inad_tab <- function(ctry.data,
+generate_inad_tab <- function(afp_data,
                               cstool,
                               start_date,
                               end_date) {
@@ -3693,7 +3783,7 @@ generate_inad_tab <- function(ctry.data,
   }
 
   # All AFP cases
-  afps.all <- ctry.data$afp.all.2 %>%
+  afps.all <- afp_data %>%
     dplyr::filter(
       dplyr::between(date, start_date, end_date),
       cdc.classification.all2 != "NOT-AFP"

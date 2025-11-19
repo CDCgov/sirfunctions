@@ -8,7 +8,8 @@ generate_afp_prov_year(
   afp.by.month.prov,
   start_date,
   end_date = lubridate::today(),
-  output_path = Sys.getenv("DR_FIGURE_PATH")
+  output_path = Sys.getenv("DR_FIGURE_PATH"),
+  .height = 5
 )
 }
 \arguments{
@@ -20,6 +21,8 @@ generate_afp_prov_year(
 \item{end_date}{\code{str} End date of the analysis. By default, it displays the most recent date.}
 
 \item{output_path}{\code{str} Local path to output the figure.}
+
+\item{.height}{\code{int} Change the height of the figure. Defaults to 5.}
 }
 \value{
 \code{ggplot} A tile plot displaying the number of AFP cases by month and province.

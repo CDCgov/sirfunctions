@@ -25,7 +25,7 @@ generate_int_data(
 
 \item{end_date}{\code{str} End date of analysis.}
 
-\item{spatial_scale}{\code{str} Scale to summarize to. Valid values are: \verb{"ctry" or "prov"}. \code{"dist"} not available currently.}
+\item{spatial_scale}{\code{str} Scale to summarize to. Valid values are: \verb{"ctry", "prov"}, or \code{"all"}. \code{"dist"} not available currently.}
 
 \item{lab_data_summary}{\code{tibble} Summarized lab data, if available. This parameter will calculate timeliness intervals in the lab. Otherwise,
 only the field component will be presented. This is the output of \code{\link[=generate_lab_timeliness]{generate_lab_timeliness()}}.}
