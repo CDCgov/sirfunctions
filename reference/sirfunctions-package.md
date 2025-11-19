@@ -1,0 +1,37 @@
+# sirfunctions: Key Functions to Analyze Global Polio Surveillance Data
+
+The sirfunctions package contains key functions used by the
+Surveillance, Innovation, and Research (SIR) team within the Polio
+Eradication Branch (PEB) at the Centers for Disease Control and
+Prevention (CDC). It includes functions to download cleaned global polio
+data from the World Health Organization (WHO) Polio Information System
+(POLIS) and geographic files. In addition, the package contains
+functions to visualize important epidemiological trends and perform key
+performance indicators such as NPAFP rates, EV rates, and stool
+adequacy. Apart from getting data and calculating key indicators, there
+are several functions that also facilitate communication, visualize
+trends, and perform data quality checks.
+
+## See also
+
+Useful links:
+
+- <https://github.com/nish-kishore/sirfunctions>
+
+- <https://cdcgov.github.io/sirfunctions/>
+
+## Author
+
+**Maintainer**: Nishant Kishore <ynm2@cdc.gov>
+([ORCID](https://orcid.org/0000-0003-0408-2747))
+
+Authors:
+
+- Mervin Keith Cuadera <xrg9@cdc.gov>
+  ([ORCID](https://orcid.org/0000-0003-4898-2659))
+
+- Nicholas Heaghney <uic3@cdc.gov>
+
+- Elizabeth Krow-Lucal <yxn9@cdc.gov>
+
+- Smita Chavan <wsy2@cdc.gov>

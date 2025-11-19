@@ -1,0 +1,11 @@
+pandoc: 3.1.11
+pkgdown: 2.2.0
+pkgdown_sha: ~
+articles:
+  generate-polio-data: generate-polio-data.html
+  kpi-analysis: kpi-analysis.html
+  sirfunctions: sirfunctions.html
+last_built: 2025-11-19T14:31Z
+urls:
+  reference: https://cdcgov.github.io/sirfunctions/reference
+  article: https://cdcgov.github.io/sirfunctions/articles

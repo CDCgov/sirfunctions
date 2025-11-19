@@ -1,0 +1,5 @@
+# sirfunctions
+
+``` r
+library(sirfunctions)
+```
