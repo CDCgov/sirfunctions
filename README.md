@@ -32,6 +32,7 @@ You can find the documentation for any function by running: `?sirfunctions::{fun
 For example: `?sirfunctions::edav_io`
 
 The quick start guide can be viewed [here](https://cdcgov.github.io/sirfunctions/articles/sirfunctions.html).
+
 ## Release Schedule
 Please see the
     [Releases](https://github.com/nish-kishore/sirfunctions/releases)
