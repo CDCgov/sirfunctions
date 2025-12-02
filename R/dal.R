@@ -2580,7 +2580,7 @@ split_concat_raw_data <- function(
 
     key.table.vars <- dplyr::tibble(
       "data" = key.tables,
-      "year.var" = c(rep("yronset", 3), "collect.yr", "yr.sia", rep("yronset", 2), rep("year", 4))
+      "year.var" = c(rep("yronset", 3), "collect.yr", "yr.sia", rep("yronset", 2), rep("year", 6))
     )
 
     for (i in key.table.vars$data) {
