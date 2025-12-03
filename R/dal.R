@@ -1001,7 +1001,7 @@ if (nrow(prev_table) > 0) {
     dplyr::filter(!is.na(file))
 }
 
-if (recreate.static.files) {
+if (recreate.static.files | force.new.run) {
   force.new.run <- T
   create.cache <- T
 }
