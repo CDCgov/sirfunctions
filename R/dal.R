@@ -1001,21 +1001,6 @@ if (nrow(prev_table) > 0) {
     dplyr::filter(!is.na(file))
 }
 
-# if there is previous dataset then
-if (nrow(prev_table) > 0) {
-  # check to see if it was created in the last 7 days and set parameters
-  if (difftime(Sys.time(), prev_table$ctime, units = "days") > 7) {
-    force.new.run <- T
-    create.cache <- T
-  } else {
-    force.new.run <- F
-    create.cache <- F
-  }
-} else {
-  force.new.run <- T
-  create.cache <- T
-}
-
 if (recreate.static.files) {
   force.new.run <- T
   create.cache <- T
