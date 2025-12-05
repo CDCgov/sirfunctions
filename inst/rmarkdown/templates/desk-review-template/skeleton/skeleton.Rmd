@@ -31,7 +31,7 @@ library(tidyverse)
 
 
 
-2.  **Set the desk review parameters**. `local_dr_path` is the folder where you would like to store desk reviews and associated files locally. If lab or ISS/eSurv data are unavailable locally, please assign the path values to `NULL`. Otherwise, assign the path to the local files forloading in R.
+2.  **Set the desk review parameters**. `local_dr_path` is the folder where you would like to store desk reviews and associated files locally. If lab or ISS/eSurv data are unavailable locally, please assign the path values to `NULL`. Otherwise, assign the path to the local files for loading in R. For multiple countries, pass as a string vector, i.e. `c("djibouti", "somalia", "yemen")`.
 
 ```{r parameters}
 country_name <- ""
@@ -60,7 +60,6 @@ The parameter `source = T` will download the desk review functions from `sirfunc
 ```{r init}
 init_dr(country_name, 
         local_dr_folder = local_dr_path,
-        sg_dr_folder = sg_dr_path,
         lab_data_path = lab_data_path,
         iss_data_path = iss_data_path,
         branch = "main",
@@ -217,8 +216,8 @@ If lab timeliness intervals from the lab data are available, uncomment `lab.time
 NOTE: If calculating for multiple countries as a group, make sure `spatial_scale="all`.
 
 ```{r lab.timeliness}
-lab.timeliness.ctry <- generate_lab_timeliness(lab_data, "ctry", start_date, end_date)
-lab.timeliness.prov <- generate_lab_timeliness(lab_data, "prov", start_date, end_date)
+lab.timeliness.ctry <- generate_lab_timeliness(lab_data |> dplyr::filter(ctry %in% Sys.getenv("DR_COUNTRY")), "ctry", start_date, end_date)
+lab.timeliness.prov <- generate_lab_timeliness(lab_data |> dplyr::filter(ctry %in% Sys.getenv("DR_COUNTRY")), "prov", start_date, end_date)
 ```
 
 
@@ -386,7 +385,7 @@ For analyzing multiple countries, use `generate_pop_tab_ctry()` as opposed to
 ```{r flextables}
 surv.ind.tab <- generate_surv_ind_tab(ctry.data, ctry.extract, dist.extract, cstool, dstool, afp.case)  
 pop.tab <- generate_pop_tab(prov.extract, pstool, start_date, end_date) 
-inad.tab.flex <- generate_inad_tab(ctry.data, cstool, start_date, end_date) 
+inad.tab.flex <- generate_inad_tab(ctry.data$afp.all.2, cstool, start_date, end_date) 
 tab.60d <- generate_60_day_tab(cases.need60day)
 es.table <- generate_es_tab(ctry.data$es) 
 ```
