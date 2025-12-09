@@ -17,12 +17,12 @@
 
 Kishore N, Cuadera M, Heaghney N, Krow-Lucal E, Chavan S (2025).
 *sirfunctions: Key Functions to Analyze Global Polio Surveillance Data*.
-R package version 2.1.1, <https://cdcgov.github.io/sirfunctions/>.
+R package version 2.1.2, <https://cdcgov.github.io/sirfunctions/>.
 
     @Manual{,
       title = {sirfunctions: Key Functions to Analyze Global Polio Surveillance Data},
       author = {Nishant Kishore and Mervin Keith Cuadera and Nicholas Heaghney and Elizabeth Krow-Lucal and Smita Chavan},
       year = {2025},
-      note = {R package version 2.1.1},
+      note = {R package version 2.1.2},
       url = {https://cdcgov.github.io/sirfunctions/},
     }
