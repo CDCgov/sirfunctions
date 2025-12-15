@@ -47,7 +47,8 @@ Imports:
     stats,
     rappdirs,
     rmarkdown,
-    grDevices
+    grDevices,
+    pins
 Suggests:
     arrow,
     qs2,
