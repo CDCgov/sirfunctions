@@ -13,17 +13,16 @@ The sirfunctions package contains key functions used by the Surveillance, Innova
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://github.com/nish-kishore/sirfunctions}
   \item \url{https://cdcgov.github.io/sirfunctions/}
 }
 
 }
 \author{
-\strong{Maintainer}: Nishant Kishore \email{ynm2@cdc.gov} (\href{https://orcid.org/0000-0003-0408-2747}{ORCID})
+\strong{Maintainer}: Mervin Keith Cuadera \email{xrg9@cdc.gov} (\href{https://orcid.org/0000-0003-4898-2659}{ORCID})
 
 Authors:
 \itemize{
-  \item Mervin Keith Cuadera \email{xrg9@cdc.gov} (\href{https://orcid.org/0000-0003-4898-2659}{ORCID})
+  \item Nishant Kishore \email{ynm2@cdc.gov} (\href{https://orcid.org/0000-0003-0408-2747}{ORCID})
   \item Nicholas Heaghney \email{uic3@cdc.gov}
   \item Elizabeth Krow-Lucal \email{yxn9@cdc.gov}
   \item Smita Chavan \email{wsy2@cdc.gov}
