@@ -81,7 +81,7 @@ init_kpi <- function(path = getwd(), name = NULL, edav = TRUE) {
   cli::cli_process_start("Loading global polio dataset")
   if (length(global_files) == 0 & edav == TRUE) {
     raw_data <- get_all_polio_data()
-    raw_data <<- raw_data
+    assign("raw_data", raw_data, envir = .GlobalEnv)
     saveRDS(raw_data, file.path(Sys.getenv("KPI_DATA"), paste0("polio_data_", today, ".rds")))
   } else if (length(global_files) == 0 & edav == FALSE) {
     cli::cli_alert_info(paste0("Please run get_all_polio_data() locally to build raw_data.",
@@ -92,7 +92,7 @@ init_kpi <- function(path = getwd(), name = NULL, edav = TRUE) {
     cli::cli_alert_info("Loading cached global polio data: ")
     cli::cli_li(global_files[1])
     raw_data <- readRDS(file.path(Sys.getenv("KPI_DATA"), global_files[1]))
-    raw_data <<- raw_data
+    assign("raw_data", raw_data, envir = .GlobalEnv)
   } else {
     for (i in 1:length(global_files)) {
       print(paste0(i, ". ", global_files[i]))
@@ -109,7 +109,7 @@ init_kpi <- function(path = getwd(), name = NULL, edav = TRUE) {
             next
           } else {
             raw_data <- readRDS(file.path(Sys.getenv("KPI_DATA"), global_files[response]))
-            raw_data <<- raw_data
+            assign("raw_data", raw_data, envir = .GlobalEnv)
             break
           }
         },
@@ -135,7 +135,7 @@ init_kpi <- function(path = getwd(), name = NULL, edav = TRUE) {
     cli::cli_alert_info("Loading cached lab data")
     cli::cli_li(lab_files[1])
     lab_data <- readRDS(file.path(Sys.getenv("KPI_DATA"), lab_files[1]))
-    lab_data <<- lab_data
+    assign("lab_data", lab_data, envir = .GlobalEnv)
   } else {
     for (i in 1:length(lab_files)) {
       print(paste0(i, ". ", lab_files[i]))
@@ -152,7 +152,7 @@ init_kpi <- function(path = getwd(), name = NULL, edav = TRUE) {
             next
           } else {
             raw_data <- readRDS(file.path(Sys.getenv("KPI_DATA"), lab_files[response]))
-            raw_data <<- raw_data
+            assign("raw_data", raw_data, envir = .GlobalEnv)
             break
           }
         },
