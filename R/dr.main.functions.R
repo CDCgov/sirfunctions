@@ -251,9 +251,14 @@ update_data <-
                                        polis_folder = .polis_folder,
                                        use_edav = .use_edav
                                        )
-    country_name <- stringr::str_replace_all(country_name, ", ", ",") |>
-      stringr::str_split(",") |>
-      unlist()
+    country_name <- stringr::str_squish(country_name)
+
+    if (length(country_name) == 1) {
+
+      if (stringr::str_detect(country_name, "\\|")) {
+        country_name <- stringr::str_split(country_name, "\\s*\\|\\s*") |> unlist()
+      }
+    }
     country_data <- sirfunctions::extract_country_data(country_name, raw_data)
     readr::write_rds(country_data, path_to_save)
     message(paste0("Data saved at:\n", dr_data_path))
@@ -521,19 +526,19 @@ init_dr <-
 
     if (is.null(end_date)) {
       end_date <- Sys.Date() - lubridate::weeks(6)
-      assign("end_date", end_date, envir = .GlobalEnv)
+      end_date <<- end_date
     } else {
       end_date <- lubridate::as_date(end_date)
-      assign("end_date", end_date, envir = .GlobalEnv)
+      end_date <<- end_date
     }
 
     if (is.null(start_date)) {
       start_date <- (end_date - lubridate::years(3)) |>
         lubridate::floor_date("year")
-      assign("start_date", start_date, envir = .GlobalEnv)
+      start_date <<- start_date
     } else {
       start_date <- lubridate::as_date(start_date)
-      assign("start_date", start_date, envir = .GlobalEnv)
+      start_date <<- start_date
     }
 
     year <- lubridate::year(end_date)
@@ -641,8 +646,7 @@ init_dr <-
                   (stringr::str_detect(data_folder_files, "_lab_data_") |> sum() != 0)) {
           cli::cli_alert_info("Loading cached lab data")
           lab_files <- data_folder_files[stringr::str_detect(data_folder_files, "lab_data")]
-          lab_data <- readRDS(file.path(data_path, lab_files[1]))
-          assign("lab_data", lab_data, envir = .GlobalEnv)
+          lab_data <<- readRDS(file.path(data_path, lab_files[1]))
           Sys.setenv(DR_LAB_PATH = file.path(data_path, lab_files[1]))
           }
 
@@ -670,12 +674,8 @@ init_dr <-
       start_date, end_date, country_name
     )
 
-    end_date <- lubridate::as_date(end_date)
-    assign("end_date", end_date, envir = .GlobalEnv)
-
-    start_date <- lubridate::as_date(start_date)
-    assign("start_date", start_date, envir = .GlobalEnv)
-
+    end_date <<- lubridate::as_date(end_date)
+    start_date <<- lubridate::as_date(start_date)
     # Setting environmental variables
     Sys.setenv(DR_PATH = file.path(country_dir_path))
     Sys.setenv(DR_DATA_PATH = file.path(country_dir_path, "data"))
@@ -705,7 +705,7 @@ init_dr <-
       cli::cli_process_done()
     }
 
-    assign("ctry.data", country_data, envir = .GlobalEnv)
+    ctry.data <<- country_data
     cli::cli_alert_success("ctry.data loaded to the global environment")
     cli::cli_alert_success("Desk review analysis set up complete.")
     cli::cli_text(paste0("Click here to access the template file: ",
