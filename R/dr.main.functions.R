@@ -484,7 +484,7 @@ fetch_dr_data <- function(country, year, local_dr_repo) {
 #' environmental variables (i.e., [Sys.getenv()], where values for `x` related to
 #' the desk review is prefixed with `"DR"`) . The function only supports running one country at a time.
 #'
-#' @param country_name `str` Name of the country.
+#' @param country_name `str` Name of the country. You may pass multiple countries as a vector of strings.
 #' @param start_date `str` Start date of the desk review. If `NULL`, defaults to four years
 #' from when the function was ran on January 1st.
 #' @param end_date `str` End date of the desk review. If `NULL`, defaults to six weeks from when
@@ -505,6 +505,7 @@ fetch_dr_data <- function(country, year, local_dr_repo) {
 #' \dontrun{
 #' ctry.data <- init_dr("algeria", source = F) # Sets up folder in the current working directory
 #' ctry.data <- init_dr("algeria", branch = "dev") # Use functions from the dev branch
+#' ctry.data <- init_dr(c("algeria", "nigeria"), source = F) # Multiple countries.
 #' }
 #'
 #' @export
