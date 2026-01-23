@@ -226,11 +226,18 @@ generate_afp_epicurve <- function(ctry.data,
   start_date <- lubridate::as_date(start_date)
   end_date <- lubridate::as_date(end_date)
 
-  afp.epi.date.filter <- ctry.data$afp.epi %>%
+  afp.epi.date.filter <- ctry.data$afp.all.2 %>%
     dplyr::filter(
-      dplyr::between(yronset, as.numeric(lubridate::year(start_date)), as.numeric(lubridate::year(end_date))),
+      dplyr::between(date, start_date, end_date),
       cdc.classification.all2 != "NOT-AFP"
-    )
+    ) |>
+    dplyr::mutate(epi.week = epiweek(date),
+                  epiweek.year = paste0(year, "-", epi.week)) |>
+    dplyr::select(place.admin.0 = ctry, epi.week,
+                  yronset = year, cdc.classification.all2, epiweek.year) |>
+    dplyr::group_by(place.admin.0, epi.week, yronset,
+                    cdc.classification.all2, epiweek.year) |>
+    dplyr::summarize(afp.cases = dplyr::n())
 
   case.num.labs <- dplyr::reframe(
     dplyr::group_by(afp.epi.date.filter, yronset),
