@@ -521,19 +521,19 @@ init_dr <-
 
     if (is.null(end_date)) {
       end_date <- Sys.Date() - lubridate::weeks(6)
-      end_date <<- end_date
+      assign("end_date", end_date, envir = .GlobalEnv)
     } else {
       end_date <- lubridate::as_date(end_date)
-      end_date <<- end_date
+      assign("end_date", end_date, envir = .GlobalEnv)
     }
 
     if (is.null(start_date)) {
       start_date <- (end_date - lubridate::years(3)) |>
         lubridate::floor_date("year")
-      start_date <<- start_date
+      assign("start_date", start_date, envir = .GlobalEnv)
     } else {
       start_date <- lubridate::as_date(start_date)
-      start_date <<- start_date
+      assign("start_date", start_date, envir = .GlobalEnv)
     }
 
     year <- lubridate::year(end_date)
@@ -641,7 +641,8 @@ init_dr <-
                   (stringr::str_detect(data_folder_files, "_lab_data_") |> sum() != 0)) {
           cli::cli_alert_info("Loading cached lab data")
           lab_files <- data_folder_files[stringr::str_detect(data_folder_files, "lab_data")]
-          lab_data <<- readRDS(file.path(data_path, lab_files[1]))
+          lab_data <- readRDS(file.path(data_path, lab_files[1]))
+          assign("lab_data", lab_data, envir = .GlobalEnv)
           Sys.setenv(DR_LAB_PATH = file.path(data_path, lab_files[1]))
           }
 
@@ -669,8 +670,12 @@ init_dr <-
       start_date, end_date, country_name
     )
 
-    end_date <<- lubridate::as_date(end_date)
-    start_date <<- lubridate::as_date(start_date)
+    end_date <- lubridate::as_date(end_date)
+    assign("end_date", end_date, envir = .GlobalEnv)
+
+    start_date <- lubridate::as_date(start_date)
+    assign("start_date", start_date, envir = .GlobalEnv)
+
     # Setting environmental variables
     Sys.setenv(DR_PATH = file.path(country_dir_path))
     Sys.setenv(DR_DATA_PATH = file.path(country_dir_path, "data"))
@@ -700,7 +705,7 @@ init_dr <-
       cli::cli_process_done()
     }
 
-    ctry.data <<- country_data
+    assign("ctry.data", country_data, envir = .GlobalEnv)
     cli::cli_alert_success("ctry.data loaded to the global environment")
     cli::cli_alert_success("Desk review analysis set up complete.")
     cli::cli_text(paste0("Click here to access the template file: ",
