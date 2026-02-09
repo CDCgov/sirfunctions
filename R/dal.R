@@ -628,13 +628,19 @@ edav_io <- function(
     }
 
     if ("gg" %in% class(obj)) {
-      temp <- tempfile()
-      ggplot2::ggsave(filename = paste0(temp, "/", sub(".*\\/", "", file_loc)), plot = obj)
-      AzureStor::storage_upload(
-        container = azcontainer, dest = file_loc,
-        src = paste0(temp, "/", sub(".*\\/", "", file_loc))
-      )
-      unlink(temp)
+
+      withr::with_tempfile("gg_file", fileext = paste0(".", tools::file_ext(file_loc)), {
+        ggplot2::ggsave(filename = gg_file, plot = obj)
+
+        AzureStor::storage_upload(
+          container = azcontainer,
+          src       = local_file,
+          dest      = file_loc,
+          overwrite = TRUE
+        )
+
+      })
+
     }
 
     if ("flextable" %in% class(obj)) {
