@@ -629,7 +629,7 @@ edav_io <- function(
 
     if ("gg" %in% class(obj)) {
 
-      withr::with_tempfile("gg_file", fileext = paste0(".", tools::file_ext(file_loc)), {
+      withr::with_tempfile("gg_file", {
         ggplot2::ggsave(filename = gg_file, plot = obj)
 
         AzureStor::storage_upload(
@@ -639,23 +639,31 @@ edav_io <- function(
           overwrite = TRUE
         )
 
-      })
+      }, fileext = paste0(".", tools::file_ext(file_loc)))
 
     }
 
     if ("flextable" %in% class(obj)) {
+
       if (!requireNamespace("flextable", quietly = TRUE)) {
         stop('Package "flextable" must be installed to write flextable objects.',
              .call = FALSE
         )
       }
-      temp <- tempfile()
-      flextable::save_as_image(obj, path = paste0(temp, "/", sub(".*\\/", "", file_loc)))
-      AzureStor::storage_upload(
-        container = azcontainer, dest = file_loc,
-        src = paste0(temp, "/", sub(".*\\/", "", file_loc))
-      )
-      unlink(temp)
+
+      withr::with_tempfile("ft_file", {
+
+        flextable::save_as_image(obj, path = ft_file)
+
+        # Upload the temp file to Azure Blob
+        AzureStor::storage_upload(
+          container = azcontainer,
+          src       = ft_file,
+          dest      = file_loc,
+          overwrite = TRUE
+        )
+      }, fileext = paste0(".", tools::file_ext(basename(file_loc))))
+
     }
 
   }
