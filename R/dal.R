@@ -532,18 +532,19 @@ edav_io <- function(
       )
 
     } else if (endsWith(file_loc, ".qs2")) {
-      output <- NULL
-      withr::with_tempdir(
-        {
+
+      return(
+        withr::with_tempfile("qs2_file", {
           AzureStor::storage_download(azcontainer,
                                       file_loc,
-                                      file.path(tempdir(), basename(file_loc)),
+                                      qs2_file,
                                       overwrite = TRUE
           )
-          output <- qs2::qs_read(file.path(tempdir(), basename(file_loc)))
+          output <- qs2::qs_read(qs2_file)
         }
+        )
       )
-      return(output)
+
     } else if (endsWith(file_loc, ".tif")) {
       output <- NULL
       withr::with_tempdir(
