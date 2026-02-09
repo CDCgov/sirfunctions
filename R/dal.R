@@ -581,35 +581,37 @@ edav_io <- function(
 
     if (endsWith(file_loc, ".xlsx") | endsWith(file_loc, ".xls")) {
 
-      return(
-        withr::with_tempfile("excel_file", {
-          writexl::write_xlsx(obj,
-                              path = excel_file)
+      file_ext <- NA_character_
+      if (endsWith(file_loc, ".xlsx")) {
+        file_ext <- ".xlsx"
+      } else {
+        file_ext <- ".xls"
+      }
 
-          AzureStor::storage_upload(
-            container = azcontainer, dest = file_loc,
-            src = excel_file
-          )
+      withr::with_tempfile("excel_file", {
+        writexl::write_xlsx(obj,
+                            path = excel_file)
 
-        })
-      )
+        AzureStor::storage_upload(
+          container = azcontainer, dest = file_loc,
+          src = excel_file
+        )
+
+      }, fileext = file_ext)
 
     }
 
     if (endsWith(file_loc, ".parquet")) {
-      withr::with_tempdir(
-        {
-          gc()
-          arrow::write_parquet(obj,
-                               file.path(tempdir(), basename(file_loc))
-                               )
 
-          AzureStor::storage_upload(
-            container = azcontainer, dest = file_loc,
-            src = file.path(tempdir(), basename(file_loc))
-          )
-        }
+      withr::with_tempfile("parquet_file", {
+        arrow::write_parquet(obj, parquet_file)
+        AzureStor::storage_upload(
+          container = azcontainer, dest = file_loc,
+          src = parquet_file
+        )
+      }, fileext = ".parquet"
       )
+
     }
 
     if (endsWith(file_loc, ".qs2")) {
