@@ -373,7 +373,7 @@ sirfunctions_io <- function(
 #' @param force_delete `logical` Use delete io without verification in the command line.
 #' @param local_path `str` Local file pathway to upload a file to EDAV. Default is `NULL`.
 #' This parameter is only required when passing `"upload"` in the `io` parameter.
-#' @param ... Optional parameters that work with [readr::read_delim()] or [readxl::read_excel()].
+#' @param ... Optional parameters that work with [readr::read_delim()], [readxl::read_excel()], or [ggplot2::ggsave()].
 #' @returns Output dependent on argument passed in the `io` parameter.
 #' @examples
 #' \dontrun{
@@ -469,8 +469,10 @@ edav_io <- function(
 
       tryCatch(
         {
+
           return(suppressWarnings(AzureStor::storage_load_rds(azcontainer, file_loc)))
           corrupted.rds <<- FALSE
+
         },
         error = function(e) {
           cli::cli_alert_warning("RDS download from EDAV was corrupted, downloading directly...")
@@ -479,76 +481,83 @@ edav_io <- function(
       )
 
       if (corrupted.rds) {
-        dest <- tempfile()
-        AzureStor::storage_download(container = azcontainer, file_loc, dest)
-        x <- readRDS(dest)
-        unlink(dest)
-        return(x)
+
+        return(
+          withr::with_tempfile("dest", {
+            AzureStor::storage_download(container = azcontainer, file_loc, dest)
+            readRDS(dest)
+            })
+        )
+
       }
+
     }
 
     if (endsWith(file_loc, ".csv")) {
+
       return(suppressWarnings(AzureStor::storage_read_csv(azcontainer, file_loc, ...)))
+
     } else if (endsWith(file_loc, ".rda")) {
+
       obj_names <- suppressWarnings(AzureStor::storage_load_rdata(azcontainer, file_loc, envir = globalenv()))
       cli::cli_alert_success("RDA object loaded to the global environment:")
       cli::cli_li(obj_names)
       return(invisible())
+
     } else if (endsWith(file_loc, ".xlsx") | endsWith(file_loc, ".xls")) {
-      output <- NULL
-      withr::with_tempdir(
-        {
+
+      return(
+        withr::with_tempfile("excel_file", {
           AzureStor::storage_download(azcontainer,
                                       file_loc,
-                                      file.path(tempdir(), basename(file_loc)),
+                                      excel_file,
                                       overwrite = TRUE
           )
-          output <- read_excel_from_edav(src = file.path(tempdir(),
-                                                         basename(file_loc)),
-                                         ...)
+        read_excel_from_edav(src = excel_file, ...)
+        })
+      )
+
+    } else if (endsWith(file_loc, ".parquet")) {
+
+      return(
+        withr::with_tempfile("parquet_file", {
+          AzureStor::storage_download(azcontainer,
+                                      file_loc,
+                                      parquet_file,
+                                      overwrite = TRUE
+          )
+
+          arrow::read_parquet(parquet_file)
+        })
+      )
+
+    } else if (endsWith(file_loc, ".qs2")) {
+
+      return(
+        withr::with_tempfile("qs2_file", {
+          AzureStor::storage_download(azcontainer,
+                                      file_loc,
+                                      qs2_file,
+                                      overwrite = TRUE
+          )
+          qs2::qs_read(qs2_file)
         }
         )
-      return(output)
-    } else if (endsWith(file_loc, ".parquet")) {
-      output <- NULL
-      withr::with_tempdir(
-        {
-          AzureStor::storage_download(azcontainer,
-                                      file_loc,
-                                      file.path(tempdir(), basename(file_loc)),
-                                      overwrite = TRUE
-          )
-          output <- arrow::read_parquet(file.path(tempdir(),
-                                                         basename(file_loc)))
-        }
       )
-      return(output)
-    } else if (endsWith(file_loc, ".qs2")) {
-      output <- NULL
-      withr::with_tempdir(
-        {
-          AzureStor::storage_download(azcontainer,
-                                      file_loc,
-                                      file.path(tempdir(), basename(file_loc)),
-                                      overwrite = TRUE
-          )
-          output <- qs2::qs_read(file.path(tempdir(), basename(file_loc)))
-        }
-      )
-      return(output)
+
     } else if (endsWith(file_loc, ".tif")) {
-      output <- NULL
-      withr::with_tempdir(
-        {
+
+      return(
+        withr::with_tempfile("tif_file", {
           AzureStor::storage_download(azcontainer,
                                       file_loc,
-                                      file.path(tempdir(), basename(file_loc)),
+                                      tif_file,
                                       overwrite = TRUE
           )
-          output <- terra::rast(file.path(tempdir(), basename(file_loc)))
-        }
+          terra::rast(tif_file)
+        })
       )
-      return(output)
+
     }
   }
 
@@ -571,72 +580,95 @@ edav_io <- function(
     }
 
     if (endsWith(file_loc, ".xlsx") | endsWith(file_loc, ".xls")) {
-      withr::with_tempdir(
-        {
-          writexl::write_xlsx(obj,
-                              path = file.path(tempdir(), basename(file_loc)))
 
-          AzureStor::storage_upload(
-            container = azcontainer, dest = file_loc,
-            src = file.path(tempdir(), basename(file_loc))
-          )
-        }
+      file_ext <- NA_character_
+      if (endsWith(file_loc, ".xlsx")) {
+        file_ext <- ".xlsx"
+      } else {
+        file_ext <- ".xls"
+      }
+
+      withr::with_tempfile("excel_file", {
+        writexl::write_xlsx(obj,
+                            path = excel_file)
+
+        AzureStor::storage_upload(
+          container = azcontainer,
+          dest = file_loc,
+          src = excel_file
         )
+
+      }, fileext = file_ext)
+
     }
 
     if (endsWith(file_loc, ".parquet")) {
-      withr::with_tempdir(
-        {
-          gc()
-          arrow::write_parquet(obj,
-                               file.path(tempdir(), basename(file_loc))
-                               )
 
-          AzureStor::storage_upload(
-            container = azcontainer, dest = file_loc,
-            src = file.path(tempdir(), basename(file_loc))
-          )
-        }
+      withr::with_tempfile("parquet_file", {
+
+        arrow::write_parquet(obj, parquet_file)
+
+        AzureStor::storage_upload(
+          container = azcontainer,
+          dest = file_loc,
+          src = parquet_file
+        )
+
+      }, fileext = ".parquet"
       )
+
     }
 
     if (endsWith(file_loc, ".qs2")) {
-      withr::with_tempdir(
-        {
 
-          qs2::qs_save(obj, file.path(tempdir(), basename(file_loc)))
+      withr::with_tempfile("qs2_file", {
+        qs2::qs_save(obj, qs2_file)
 
-          AzureStor::storage_upload(
-            container = azcontainer, dest = file_loc,
-            src = file.path(tempdir(), basename(file_loc))
-          )
-        }
-      )
+        AzureStor::storage_upload(
+          container = azcontainer,
+          dest = file_loc,
+          src = qs2_file
+        )
+      }, fileext = ".qs2")
+
     }
 
     if ("gg" %in% class(obj)) {
-      temp <- tempfile()
-      ggplot2::ggsave(filename = paste0(temp, "/", sub(".*\\/", "", file_loc)), plot = obj)
-      AzureStor::storage_upload(
-        container = azcontainer, dest = file_loc,
-        src = paste0(temp, "/", sub(".*\\/", "", file_loc))
-      )
-      unlink(temp)
+
+      withr::with_tempfile("gg_file", {
+        ggplot2::ggsave(filename = gg_file, plot = obj, ...)
+
+        AzureStor::storage_upload(
+          container = azcontainer,
+          src       = gg_file,
+          dest      = file_loc
+        )
+
+      }, fileext = paste0(".", tools::file_ext(file_loc)))
+
     }
 
     if ("flextable" %in% class(obj)) {
+
       if (!requireNamespace("flextable", quietly = TRUE)) {
         stop('Package "flextable" must be installed to write flextable objects.',
              .call = FALSE
         )
       }
-      temp <- tempfile()
-      flextable::save_as_image(obj, path = paste0(temp, "/", sub(".*\\/", "", file_loc)))
-      AzureStor::storage_upload(
-        container = azcontainer, dest = file_loc,
-        src = paste0(temp, "/", sub(".*\\/", "", file_loc))
-      )
-      unlink(temp)
+
+      withr::with_tempfile("ft_file", {
+
+        flextable::save_as_image(obj, path = ft_file)
+
+        # Upload the temp file to Azure Blob
+        AzureStor::storage_upload(
+          container = azcontainer,
+          src       = ft_file,
+          dest      = file_loc,
+          overwrite = TRUE
+        )
+      }, fileext = paste0(".", tools::file_ext(basename(file_loc))))
+
     }
 
   }
