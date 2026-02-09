@@ -16,19 +16,17 @@ trends, and perform data quality checks.
 
 Useful links:
 
-- <https://github.com/nish-kishore/sirfunctions>
-
 - <https://cdcgov.github.io/sirfunctions/>
 
 ## Author
 
-**Maintainer**: Nishant Kishore <ynm2@cdc.gov>
-([ORCID](https://orcid.org/0000-0003-0408-2747))
+**Maintainer**: Mervin Keith Cuadera <xrg9@cdc.gov>
+([ORCID](https://orcid.org/0000-0003-4898-2659))
 
 Authors:
 
-- Mervin Keith Cuadera <xrg9@cdc.gov>
-  ([ORCID](https://orcid.org/0000-0003-4898-2659))
+- Nishant Kishore <ynm2@cdc.gov>
+  ([ORCID](https://orcid.org/0000-0003-0408-2747))
 
 - Nicholas Heaghney <uic3@cdc.gov>
 

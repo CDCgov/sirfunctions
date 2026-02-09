@@ -82,9 +82,10 @@ edav_io(
 - ...:
 
   Optional parameters that work with
-  [`readr::read_delim()`](https://readr.tidyverse.org/reference/read_delim.html)
+  [`readr::read_delim()`](https://readr.tidyverse.org/reference/read_delim.html),
+  [`readxl::read_excel()`](https://readxl.tidyverse.org/reference/read_excel.html),
   or
-  [`readxl::read_excel()`](https://readxl.tidyverse.org/reference/read_excel.html).
+  [`ggplot2::ggsave()`](https://ggplot2.tidyverse.org/reference/ggsave.html).
 
 ## Value
 
