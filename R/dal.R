@@ -580,17 +580,20 @@ edav_io <- function(
     }
 
     if (endsWith(file_loc, ".xlsx") | endsWith(file_loc, ".xls")) {
-      withr::with_tempdir(
-        {
+
+      return(
+        withr::with_tempfile("excel_file", {
           writexl::write_xlsx(obj,
-                              path = file.path(tempdir(), basename(file_loc)))
+                              path = excel_file)
 
           AzureStor::storage_upload(
             container = azcontainer, dest = file_loc,
-            src = file.path(tempdir(), basename(file_loc))
+            src = excel_file
           )
-        }
-        )
+
+        })
+      )
+
     }
 
     if (endsWith(file_loc, ".parquet")) {
