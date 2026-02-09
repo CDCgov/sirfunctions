@@ -593,7 +593,8 @@ edav_io <- function(
                             path = excel_file)
 
         AzureStor::storage_upload(
-          container = azcontainer, dest = file_loc,
+          container = azcontainer,
+          dest = file_loc,
           src = excel_file
         )
 
@@ -604,11 +605,15 @@ edav_io <- function(
     if (endsWith(file_loc, ".parquet")) {
 
       withr::with_tempfile("parquet_file", {
+
         arrow::write_parquet(obj, parquet_file)
+
         AzureStor::storage_upload(
-          container = azcontainer, dest = file_loc,
+          container = azcontainer,
+          dest = file_loc,
           src = parquet_file
         )
+
       }, fileext = ".parquet"
       )
 
@@ -620,7 +625,8 @@ edav_io <- function(
         qs2::qs_save(obj, qs2_file)
 
         AzureStor::storage_upload(
-          container = azcontainer, dest = file_loc,
+          container = azcontainer,
+          dest = file_loc,
           src = qs2_file
         )
       }, fileext = ".qs2")
@@ -630,13 +636,12 @@ edav_io <- function(
     if ("gg" %in% class(obj)) {
 
       withr::with_tempfile("gg_file", {
-        ggplot2::ggsave(filename = gg_file, plot = obj)
+        ggplot2::ggsave(filename = gg_file, plot = obj, ...)
 
         AzureStor::storage_upload(
           container = azcontainer,
-          src       = local_file,
-          dest      = file_loc,
-          overwrite = TRUE
+          src       = gg_file,
+          dest      = file_loc
         )
 
       }, fileext = paste0(".", tools::file_ext(file_loc)))
