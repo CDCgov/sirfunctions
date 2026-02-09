@@ -495,20 +495,16 @@ edav_io <- function(
       cli::cli_li(obj_names)
       return(invisible())
     } else if (endsWith(file_loc, ".xlsx") | endsWith(file_loc, ".xls")) {
-      output <- NULL
-      withr::with_tempdir(
-        {
-          AzureStor::storage_download(azcontainer,
-                                      file_loc,
-                                      file.path(tempdir(), basename(file_loc)),
-                                      overwrite = TRUE
-          )
-          output <- read_excel_from_edav(src = file.path(tempdir(),
-                                                         basename(file_loc)),
-                                         ...)
-        }
+
+      withr::with_tempfile("excel_file", {
+        AzureStor::storage_download(azcontainer,
+                                    file_loc,
+                                    excel_file,
+                                    overwrite = TRUE
         )
-      return(output)
+        return(read_excel_from_edav(src = excel_file, ...))
+      })
+
     } else if (endsWith(file_loc, ".parquet")) {
       output <- NULL
       withr::with_tempdir(
