@@ -469,8 +469,10 @@ edav_io <- function(
 
       tryCatch(
         {
+
           return(suppressWarnings(AzureStor::storage_load_rds(azcontainer, file_loc)))
           corrupted.rds <<- FALSE
+
         },
         error = function(e) {
           cli::cli_alert_warning("RDS download from EDAV was corrupted, downloading directly...")
@@ -479,46 +481,56 @@ edav_io <- function(
       )
 
       if (corrupted.rds) {
-        withr::with_tempfile("dest", {
-          AzureStor::storage_download(container = azcontainer, file_loc, dest)
-          return(readRDS(dest))
-        }
+
+        return(
+          withr::with_tempfile("dest", {
+            AzureStor::storage_download(container = azcontainer, file_loc, dest)
+            readRDS(dest)
+            })
         )
+
       }
+
     }
 
     if (endsWith(file_loc, ".csv")) {
+
       return(suppressWarnings(AzureStor::storage_read_csv(azcontainer, file_loc, ...)))
+
     } else if (endsWith(file_loc, ".rda")) {
+
       obj_names <- suppressWarnings(AzureStor::storage_load_rdata(azcontainer, file_loc, envir = globalenv()))
       cli::cli_alert_success("RDA object loaded to the global environment:")
       cli::cli_li(obj_names)
       return(invisible())
+
     } else if (endsWith(file_loc, ".xlsx") | endsWith(file_loc, ".xls")) {
 
-      withr::with_tempfile("excel_file", {
-        AzureStor::storage_download(azcontainer,
-                                    file_loc,
-                                    excel_file,
-                                    overwrite = TRUE
-        )
-        return(read_excel_from_edav(src = excel_file, ...))
-      })
-
-    } else if (endsWith(file_loc, ".parquet")) {
-      output <- NULL
-      withr::with_tempdir(
-        {
+      return(
+        withr::with_tempfile("excel_file", {
           AzureStor::storage_download(azcontainer,
                                       file_loc,
-                                      file.path(tempdir(), basename(file_loc)),
+                                      excel_file,
                                       overwrite = TRUE
           )
-          output <- arrow::read_parquet(file.path(tempdir(),
-                                                         basename(file_loc)))
-        }
+        read_excel_from_edav(src = excel_file, ...)
+        })
       )
-      return(output)
+
+    } else if (endsWith(file_loc, ".parquet")) {
+
+      return(
+        withr::with_tempfile("parquet_file", {
+          AzureStor::storage_download(azcontainer,
+                                      file_loc,
+                                      parquet_file,
+                                      overwrite = TRUE
+          )
+
+          arrow::read_parquet(parquet_file)
+        })
+      )
+
     } else if (endsWith(file_loc, ".qs2")) {
       output <- NULL
       withr::with_tempdir(
