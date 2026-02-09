@@ -479,11 +479,11 @@ edav_io <- function(
       )
 
       if (corrupted.rds) {
-        dest <- tempfile()
-        AzureStor::storage_download(container = azcontainer, file_loc, dest)
-        x <- readRDS(dest)
-        unlink(dest)
-        return(x)
+        withr::with_tempfile("dest", {
+          AzureStor::storage_download(container = azcontainer, file_loc, dest)
+          return(readRDS(dest))
+        }
+        )
       }
     }
 
