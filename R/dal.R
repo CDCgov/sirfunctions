@@ -615,17 +615,16 @@ edav_io <- function(
     }
 
     if (endsWith(file_loc, ".qs2")) {
-      withr::with_tempdir(
-        {
 
-          qs2::qs_save(obj, file.path(tempdir(), basename(file_loc)))
+      withr::with_tempfile("qs2_file", {
+        qs2::qs_save(obj, qs2_file)
 
-          AzureStor::storage_upload(
-            container = azcontainer, dest = file_loc,
-            src = file.path(tempdir(), basename(file_loc))
-          )
-        }
-      )
+        AzureStor::storage_upload(
+          container = azcontainer, dest = file_loc,
+          src = qs2_file
+        )
+      }, fileext = ".qs2")
+
     }
 
     if ("gg" %in% class(obj)) {
