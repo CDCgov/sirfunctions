@@ -540,24 +540,24 @@ edav_io <- function(
                                       qs2_file,
                                       overwrite = TRUE
           )
-          output <- qs2::qs_read(qs2_file)
+          qs2::qs_read(qs2_file)
         }
         )
       )
 
     } else if (endsWith(file_loc, ".tif")) {
-      output <- NULL
-      withr::with_tempdir(
-        {
+
+      return(
+        withr::with_tempfile("tif_file", {
           AzureStor::storage_download(azcontainer,
                                       file_loc,
-                                      file.path(tempdir(), basename(file_loc)),
+                                      tif_file,
                                       overwrite = TRUE
           )
-          output <- terra::rast(file.path(tempdir(), basename(file_loc)))
-        }
+          terra::rast(tif_file)
+        })
       )
-      return(output)
+
     }
   }
 
