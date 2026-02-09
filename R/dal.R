@@ -373,7 +373,7 @@ sirfunctions_io <- function(
 #' @param force_delete `logical` Use delete io without verification in the command line.
 #' @param local_path `str` Local file pathway to upload a file to EDAV. Default is `NULL`.
 #' This parameter is only required when passing `"upload"` in the `io` parameter.
-#' @param ... Optional parameters that work with [readr::read_delim()] or [readxl::read_excel()].
+#' @param ... Optional parameters that work with [readr::read_delim()], [readxl::read_excel()], or [ggplot2::ggsave()].
 #' @returns Output dependent on argument passed in the `io` parameter.
 #' @examples
 #' \dontrun{
