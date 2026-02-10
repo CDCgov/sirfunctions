@@ -251,14 +251,8 @@ update_data <-
                                        polis_folder = .polis_folder,
                                        use_edav = .use_edav
                                        )
-    country_name <- stringr::str_squish(country_name)
 
-    if (length(country_name) == 1) {
 
-      if (stringr::str_detect(country_name, "\\|")) {
-        country_name <- stringr::str_split(country_name, "\\s*\\|\\s*") |> unlist()
-      }
-    }
     country_data <- sirfunctions::extract_country_data(country_name, raw_data)
     readr::write_rds(country_data, path_to_save)
     message(paste0("Data saved at:\n", dr_data_path))
@@ -546,13 +540,14 @@ init_dr <-
 
     # Set up local directory for storing for data and metadata
     df_name <-
-      stringr::str_c(stringr::str_to_lower(country_name))
+      stringr::str_c(stringr::str_to_lower(country_name)) |>
+      paste(collapse = ", ")
 
     # Relative path of where data and metadata is stored
     dr_path <-
       file.path(
         local_dr_folder,
-        stringr::str_to_lower(country_name),
+        stringr::str_to_lower(df_name),
         year
       )
 
