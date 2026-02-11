@@ -991,9 +991,13 @@ coverage_folder <- file.path(data_folder, "coverage")
 pop_folder <- file.path(data_folder, "pop")
 
 # Required files
+year_lab <- lubridate::year(Sys.Date())
+small_year <- year_lab - 5
+med_year <- year_lab - 8
+
 raw_data_recent_name <- paste0("raw.data.recent", output_format)
-raw_data_2016_2018_name <- paste0("raw.data.2016.2018", output_format)
-raw_data_2000_name <- paste0("raw.data.2000.2015", output_format)
+raw_data_medium <- paste0("raw.data.", med_year, ".", small_year, output_format)
+raw_data_2000_name <- paste0("raw.data.2000", med_year, output_format)
 spatial_data_name <- paste0("spatial.data", output_format)
 global_ctry_sf_name <- "global.ctry.rds"
 global_prov_sf_name <- "global.prov.rds"
@@ -1111,7 +1115,7 @@ if (!force.new.run) {
 
   if (size == "medium") {
     prev_table <- sirfunctions_io("list", NULL, analytic_folder, edav = use_edav) |>
-      dplyr::filter(grepl(raw_data_2016_2018_name, name)) |>
+      dplyr::filter(grepl(raw_data_medium, name)) |>
       dplyr::select("file" = "name", "size", "ctime" = "lastModified")
 
     if (use_edav) {
@@ -1133,7 +1137,7 @@ if (!force.new.run) {
     prev_table <- sirfunctions_io("list", NULL, analytic_folder,
                                   edav = use_edav, full_names = TRUE
     ) |>
-      dplyr::filter(grepl(raw_data_2016_2018_name, name)) |>
+      dplyr::filter(grepl(raw_data_medium, name)) |>
       dplyr::select("file" = "name", "size", "ctime" = "lastModified")
 
     if (use_edav) {
@@ -1744,7 +1748,11 @@ if (!force.new.run) {
 if (create.cache) {
   cli::cli_process_start("15) Caching processed data")
 
-  out <- split_concat_raw_data(action = "split", split.years = c(2000, 2016, 2019), raw.data.all = raw.data)
+  year_lab <- lubridate::year(Sys.Date())
+  small_year <- year_lab - 5
+  med_year <- year_lab - 8
+
+  out <- split_concat_raw_data(action = "split", split.years = c(2000, med_year, small_year), raw.data.all = raw.data)
 
   current.year <- lubridate::year(Sys.time())
 
