@@ -895,16 +895,16 @@ normalize_format <- function(fmt) {
 #'
 #' @description Download POLIS data from the CDC pre-processed endpoint. By default
 #' this function will return a "small" or recent dataset. This is primarily for data
-#' that is from 2019 onwards. You can specify a "medium" sized dataset for data
-#' that is from 2016 onwards. Finally the "large" sized dataset will provide information
-#' from 2001 onwards. Regular pulls form the data will recreate the "small" dataset
-#' when new information is availble and the Data Management Team can force the
+#' that is from the past six years. You can specify a "medium" sized dataset for data
+#' that is from the past nine years. Finally the "large" sized dataset will provide information
+#' from 2000 onwards. Regular pulls form the data will recreate the "small" dataset
+#' when new information is available and the Data Management Team can force the
 #' creation of the "medium" and "large" static datasets as necessary.
 #'
 #' @param size `str` Size of data to download. Defaults to `"small"`.
-#' - `"small"`: Data from 2019-present.
-#' - `"medium"`: Data from 2016-present.
-#' - `"large"`: Data from 2001-present.
+#' - `"small"`: Data from the last six years.
+#' - `"medium"`: Data from the last nine years.
+#' - `"large"`: Data from 2000-present.
 #' @param data_folder `str` Location of the data folder containing pre-processed POLIS data,
 #' spatial files, coverage data, and population data. Defaults to `"GID/PEB/SIR/Data"`.
 #' @param polis_folder `str` Location of the POLIS folder. Defaults to `"GID/PEB/SIR/POLIS"`.
