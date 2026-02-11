@@ -1107,10 +1107,10 @@ if (!force.new.run) {
     cli::cli_alert_info(paste0("Loading most recent active polio data from ", small_year," onwards"))
   }
 
-  raw.data.post.2019 <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
+  raw.data.small.pull <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
 
   if (size == "small") {
-    raw.data <- raw.data.post.2019
+    raw.data <- raw.data.small.pull
   }
 
   if (size == "medium") {
@@ -1124,12 +1124,12 @@ if (!force.new.run) {
       cli::cli_alert_info(paste0("Loading static polio data from ", med_year, "-", small_year))
     }
 
-    raw.data.2016.2018 <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
+    raw.data.medium.pull <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
 
     raw.data <- split_concat_raw_data(
       action = "concat",
-      raw.data.post.2019 = raw.data.post.2019,
-      raw.data.2016.2019 = raw.data.2016.2018
+      raw.data.small.pull = raw.data.small.pull,
+      raw.data.medium.pull = raw.data.medium.pull
     )
   }
 
@@ -1146,7 +1146,7 @@ if (!force.new.run) {
       cli::cli_alert_info(paste0("Loading static polio data from ", med_year, "-", small_year))
     }
 
-    raw.data.2016.2019 <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
+    raw.data.medium.pull <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
 
     prev_table <- sirfunctions_io("list", NULL, analytic_folder, edav = use_edav) |>
       dplyr::filter(grepl(raw_data_2000_name, name)) |>
@@ -1158,13 +1158,13 @@ if (!force.new.run) {
       cli::cli_alert_info(paste0("Loading static polio data from 2001-", med_year))
     }
 
-    raw.data.2001.2016 <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
+    raw.data.large.pull <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
 
     raw.data <- split_concat_raw_data(
       action = "concat",
-      raw.data.post.2019 = raw.data.post.2019,
-      raw.data.2016.2019 = raw.data.2016.2019,
-      raw.data.2001.2016 = raw.data.2001.2016
+      raw.data.small.pull = raw.data.small.pull,
+      raw.data.medium.pull = raw.data.medium.pull,
+      raw.data.large.pull = raw.data.large.pull
     )
   }
 
@@ -2498,18 +2498,21 @@ f.yrs.01 <- function(df, yrs) {
 #' @param action `str` Can either be to `"concat"` or `"split"`.
 #' @param split.years `array` A numeric array of years by which data should be split.
 #' @param raw.data.all `list` A list of data objects to be split.
-#' @param raw.data.post.2019 `list` A list of data objects to be concatenated.
-#' @param raw.data.2016.2019 `list` A list of data objects to be concatenated.
-#' @param raw.data.2001.2016 `list` A list of data objects to be concatenated.
+#' @param raw.data.small.pull `list` A list of data objects to be concatenated. This is
+#' the 'small' dataset, which consists of data from the past 6 years.
+#' @param raw.data.medium.pull `list` A list of data objects to be concatenated. This is
+#' the 'small' dataset, which consists of data from the past 9 years.
+#' @param raw.data.large.pull `list` A list of data objects to be concatenated. This is
+#' the 'small' dataset, which consists of data since 2000.
 #' @returns `list` A list of lists or a single concatenated list.
 #' @keywords internal
 split_concat_raw_data <- function(
     action,
     split.years = NULL,
     raw.data.all = NULL,
-    raw.data.post.2019 = NULL,
-    raw.data.2016.2019 = NULL,
-    raw.data.2001.2016 = NULL) {
+    raw.data.small.pull = NULL,
+    raw.data.medium.pull = NULL,
+    raw.data.large.pull = NULL) {
   actions <- c("concat", "split")
 
   if (!action %in% actions) {
@@ -2581,22 +2584,22 @@ split_concat_raw_data <- function(
   }
 
   if (action == "concat") {
-    if (sum(is.null(raw.data.post.2019), is.null(raw.data.2016.2019), is.null(raw.data.2001.2016)) > 1) {
+    if (sum(is.null(raw.data.small.pull), is.null(raw.data.medium.pull), is.null(raw.data.large.pull)) > 1) {
       stop("You must include at least two subsets of raw.data files to concatenate")
     }
 
     input <- list()
 
-    if (!is.null(raw.data.post.2019)) {
-      input[["raw.data.post.2019"]] <- raw.data.post.2019
+    if (!is.null(raw.data.small.pull)) {
+      input[["raw.data.small.pull"]] <- raw.data.small.pull
     }
 
-    if (!is.null(raw.data.post.2019)) {
-      input[["raw.data.2016.2019"]] <- raw.data.2016.2019
+    if (!is.null(raw.data.small.pull)) {
+      input[["raw.data.medium.pull"]] <- raw.data.medium.pull
     }
 
-    if (!is.null(raw.data.2001.2016)) {
-      input[["raw.data.2001.2016"]] <- raw.data.2001.2016
+    if (!is.null(raw.data.large.pull)) {
+      input[["raw.data.large.pull"]] <- raw.data.large.pull
     }
 
     to.concat <- names(input)
@@ -2616,7 +2619,7 @@ split_concat_raw_data <- function(
     }
 
     for (i in static.tables) {
-      out[[i]] <- raw.data.post.2019[[i]]
+      out[[i]] <- raw.data.small.pull[[i]]
     }
 
     return(out)
