@@ -996,8 +996,8 @@ small_year <- year_lab - 5
 med_year <- year_lab - 8
 
 raw_data_recent_name <- paste0("raw.data.recent", output_format)
-raw_data_medium <- paste0("raw.data.", med_year, ".", small_year, output_format)
-raw_data_2000_name <- paste0("raw.data.2000", med_year, output_format)
+raw_data_medium <- paste0("raw.data.", med_year, ".", small_year - 1, output_format)
+raw_data_2000_name <- paste0("raw.data.2000", med_year - 1, output_format)
 spatial_data_name <- paste0("spatial.data", output_format)
 global_ctry_sf_name <- "global.ctry.rds"
 global_prov_sf_name <- "global.prov.rds"
@@ -1688,7 +1688,7 @@ if (!force.new.run) {
     file.path(polis_folder, "data", core_ready_folder),
     edav = use_edav
   ) |>
-    dplyr::filter(grepl("positives_2001_01-01", name)) |>
+    dplyr::filter(grepl("positives_2001-01-01", name)) |>
     dplyr::select("ctime" = "lastModified") |>
     dplyr::mutate(ctime = as.Date(ctime)) |>
     dplyr::pull(ctime)
