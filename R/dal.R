@@ -1102,9 +1102,9 @@ if (!force.new.run) {
   }
 
   if (use_edav) {
-    cli::cli_alert_info("Downloading most recent active polio data from 2019 onwards")
+    cli::cli_alert_info(paste0("Downloading most recent active polio data from ", small_year," onwards"))
   } else {
-    cli::cli_alert_info("Loading most recent active polio data from 2019 onwards")
+    cli::cli_alert_info(paste0("Loading most recent active polio data from ", small_year," onwards"))
   }
 
   raw.data.post.2019 <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
@@ -1119,9 +1119,9 @@ if (!force.new.run) {
       dplyr::select("file" = "name", "size", "ctime" = "lastModified")
 
     if (use_edav) {
-      cli::cli_alert_info("Downloading static polio data from 2016-2019")
+      cli::cli_alert_info(paste0("Downloading static polio data from ", med_year, "-", small_year))
     } else {
-      cli::cli_alert_info("Loading static polio data from 2016-2019")
+      cli::cli_alert_info(paste0("Loading static polio data from ", med_year, "-", small_year))
     }
 
     raw.data.2016.2018 <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
@@ -1141,10 +1141,11 @@ if (!force.new.run) {
       dplyr::select("file" = "name", "size", "ctime" = "lastModified")
 
     if (use_edav) {
-      cli::cli_alert_info("Downloading static polio data from 2016-2019")
+      cli::cli_alert_info(paste0("Downloading static polio data from ", med_year, "-", small_year))
     } else {
-      cli::cli_alert_info("Loading static polio data from 2016-2019")
+      cli::cli_alert_info(paste0("Loading static polio data from ", med_year, "-", small_year))
     }
+
     raw.data.2016.2019 <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
 
     prev_table <- sirfunctions_io("list", NULL, analytic_folder, edav = use_edav) |>
@@ -1152,9 +1153,9 @@ if (!force.new.run) {
       dplyr::select("file" = "name", "size", "ctime" = "lastModified")
 
     if (use_edav) {
-      cli::cli_alert_info("Downloading static polio data from 2001-2016")
+      cli::cli_alert_info(paste0("Downloading static polio data from 2001-", med_year))
     } else {
-      cli::cli_alert_info("Loading static polio data from 2001-2016")
+      cli::cli_alert_info(paste0("Loading static polio data from 2001-", med_year))
     }
 
     raw.data.2001.2016 <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
@@ -1687,8 +1688,7 @@ if (!force.new.run) {
     file.path(polis_folder, "data", core_ready_folder),
     edav = use_edav
   ) |>
-    dplyr::filter(grepl("positives", name),
-                  endsWith(name, ".rds")) |>
+    dplyr::filter(grepl("positives_2001_01-01", name)) |>
     dplyr::select("ctime" = "lastModified") |>
     dplyr::mutate(ctime = as.Date(ctime)) |>
     dplyr::pull(ctime)
