@@ -73,8 +73,9 @@ match_afp_guid_to_sf <- function(afp_data, prov_pop, dist_pop) {
 
   # Manually fix NAROK WEST and BURURI
   dist_lookup <- dist_lookup |>
-    filter(!(dist == "BURURI" & year >= 2023)) |>
-    filter(!(dist == "NAROK WEST" & year >= 2024))
+    filter(!(dist == "BURURI" & adm2guid_pop == "{4A72EFCA-4E8C-4439-98B9-84BA7ECBDB7F}" & year >= 2023)) |>
+    filter(!(dist == "BURURI" & adm2guid_pop == "{44AB3985-6B4A-4A97-A3B7-82E03420F9C3}" & year == 2020)) |>
+    filter(!(dist == "NAROK WEST" & adm2guid_pop == "{723D75B4-76BD-4C66-9786-474AD09C72A7}" & year >= 2024))
 
   # Overwrite to reflect what's on the pop files
   afp_data_fixed <- afp_data |>
