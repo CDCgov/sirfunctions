@@ -6,8 +6,7 @@
 #' required when the population/spatial data sets are outdated, and new GUIDs are present in the
 #' AFP linelist.
 #'
-#'
-#' @param afp_data`tibble` AFP linelist.
+#' @param afp_data `tibble` AFP linelist.
 #' @param prov_pop `tibble` Province population file.
 #' @param dist_pop `tibble` District population file.
 #'

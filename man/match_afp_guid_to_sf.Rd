@@ -7,11 +7,11 @@
 match_afp_guid_to_sf(afp_data, prov_pop, dist_pop)
 }
 \arguments{
+\item{afp_data}{\code{tibble} AFP linelist.}
+
 \item{prov_pop}{\code{tibble} Province population file.}
 
 \item{dist_pop}{\code{tibble} District population file.}
-
-\item{afp_data`tibble`}{AFP linelist.}
 }
 \value{
 \code{tibble} AFP linelist with corrected GUIDs
