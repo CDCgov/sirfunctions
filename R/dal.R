@@ -3253,12 +3253,7 @@ read_excel_from_edav <- function(src, sheet = NULL, ...) {
   } else {
     # Read all sheets
     sheets <- readxl::excel_sheets(src)
-
-    if (endsWith(src, ".xlsx")) {
-      output <- purrr::map(sheets, \(x) readxl::read_xlsx(path = src, sheet = x, ...))
-    } else if (endsWith(src, ".xls")) {
-      output <- purrr::map(sheets, \(x) readxl::read_xls(path = src, sheet = x, ...))
-    }
+    output <- purrr::map(sheets, \(x) readxl::read_excel(path = src, sheet = x, ...))
 
     names(output) <- sheets
   }
