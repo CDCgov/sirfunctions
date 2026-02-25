@@ -1815,8 +1815,8 @@ if (create.cache) {
 }
 
 raw_data_cut_size <- switch(size,
-                            "small" = 2019,
-                            "medium" = 2016,
+                            "small" = small_year,
+                            "medium" = med_year,
                             "large" = 2000)
 
 raw.data <- split_concat_raw_data(action = "split",
