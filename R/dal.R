@@ -1754,11 +1754,9 @@ if (create.cache) {
 
   out <- split_concat_raw_data(action = "split", split.years = c(2000, med_year, small_year), raw.data.all = raw.data)
 
-  current.year <- lubridate::year(Sys.time())
-
   out_files <- out$split.years |>
     dplyr::mutate(
-      file_name = ifelse(grepl(current.year, tag), "recent", stringr::str_replace_all(tag, "-", ".")),
+      file_name = ifelse(grepl(year_lab, tag), "recent", stringr::str_replace_all(tag, "-", ".")),
       file_name = paste0("raw.data.", file_name, output_format)
     )
 
