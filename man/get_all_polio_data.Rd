@@ -73,7 +73,7 @@ creation of the "medium" and "large" static datasets as necessary.
 }
 \examples{
 \dontrun{
-raw.data <- get_all_polio_data() # downloads data since 2019, including spatial files
+raw.data <- get_all_polio_data() # downloads data for last 6 years, including spatial files
 raw.data <- get_all_polio_data(size = "small", attach.spatial.data = FALSE) # exclude spatial data
 }
 
