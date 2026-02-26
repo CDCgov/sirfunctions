@@ -990,11 +990,12 @@ spatial_folder <- file.path(data_folder, "spatial")
 coverage_folder <- file.path(data_folder, "coverage")
 pop_folder <- file.path(data_folder, "pop")
 
-# Required files
+# Year cutoffs for the different datasets
 current_year <- lubridate::year(Sys.Date())
 small_year <- current_year - 5
 med_year <- current_year - 8
 
+# Required files
 raw_data_recent_name <- paste0("raw.data.recent", output_format)
 raw_data_medium <- paste0("raw.data.", med_year, ".", small_year - 1, output_format)
 raw_data_2000_name <- paste0("raw.data.2000", med_year - 1, output_format)
