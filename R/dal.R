@@ -991,9 +991,9 @@ coverage_folder <- file.path(data_folder, "coverage")
 pop_folder <- file.path(data_folder, "pop")
 
 # Required files
-year_lab <- lubridate::year(Sys.Date())
-small_year <- year_lab - 5
-med_year <- year_lab - 8
+current_year <- lubridate::year(Sys.Date())
+small_year <- current_year - 5
+med_year <- current_year - 8
 
 raw_data_recent_name <- paste0("raw.data.recent", output_format)
 raw_data_medium <- paste0("raw.data.", med_year, ".", small_year - 1, output_format)
@@ -1748,15 +1748,15 @@ if (!force.new.run) {
 if (create.cache) {
   cli::cli_process_start("15) Caching processed data")
 
-  year_lab <- lubridate::year(Sys.Date())
-  small_year <- year_lab - 5
-  med_year <- year_lab - 8
+  current_year <- lubridate::year(Sys.Date())
+  small_year <- current_year - 5
+  med_year <- current_year - 8
 
   out <- split_concat_raw_data(action = "split", split.years = c(2000, med_year, small_year), raw.data.all = raw.data)
 
   out_files <- out$split.years |>
     dplyr::mutate(
-      file_name = ifelse(grepl(year_lab, tag), "recent", stringr::str_replace_all(tag, "-", ".")),
+      file_name = ifelse(grepl(current_year, tag), "recent", stringr::str_replace_all(tag, "-", ".")),
       file_name = paste0("raw.data.", file_name, output_format)
     )
 
