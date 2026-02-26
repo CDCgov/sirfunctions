@@ -1749,10 +1749,6 @@ if (!force.new.run) {
 if (create.cache) {
   cli::cli_process_start("15) Caching processed data")
 
-  current_year <- lubridate::year(Sys.Date())
-  small_year <- current_year - 5
-  med_year <- current_year - 8
-
   out <- split_concat_raw_data(action = "split", split.years = c(2000, med_year, small_year), raw.data.all = raw.data)
 
   out_files <- out$split.years |>
