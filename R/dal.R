@@ -997,7 +997,7 @@ med_year <- current_year - 8
 
 # Required files
 raw_data_recent_name <- paste0("raw.data.recent", output_format)
-raw_data_medium <- paste0("raw.data.", med_year, ".", small_year - 1, output_format)
+raw_data_medium_name <- paste0("raw.data.", med_year, ".", small_year - 1, output_format)
 raw_data_2000_name <- paste0("raw.data.2000.", med_year - 1, output_format)
 spatial_data_name <- paste0("spatial.data", output_format)
 global_ctry_sf_name <- "global.ctry.rds"
@@ -1116,7 +1116,7 @@ if (!force.new.run) {
 
   if (size == "medium") {
     prev_table <- sirfunctions_io("list", NULL, analytic_folder, edav = use_edav) |>
-      dplyr::filter(grepl(raw_data_medium, name)) |>
+      dplyr::filter(grepl(raw_data_medium_name, name)) |>
       dplyr::select("file" = "name", "size", "ctime" = "lastModified")
 
     if (use_edav) {
@@ -1138,7 +1138,7 @@ if (!force.new.run) {
     prev_table <- sirfunctions_io("list", NULL, analytic_folder,
                                   edav = use_edav, full_names = TRUE
     ) |>
-      dplyr::filter(grepl(raw_data_medium, name)) |>
+      dplyr::filter(grepl(raw_data_medium_name, name)) |>
       dplyr::select("file" = "name", "size", "ctime" = "lastModified")
 
     if (use_edav) {
