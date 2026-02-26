@@ -998,7 +998,7 @@ med_year <- current_year - 8
 # Required files
 raw_data_recent_name <- paste0("raw.data.recent", output_format)
 raw_data_medium <- paste0("raw.data.", med_year, ".", small_year - 1, output_format)
-raw_data_2000_name <- paste0("raw.data.2000", med_year - 1, output_format)
+raw_data_2000_name <- paste0("raw.data.2000.", med_year - 1, output_format)
 spatial_data_name <- paste0("spatial.data", output_format)
 global_ctry_sf_name <- "global.ctry.rds"
 global_prov_sf_name <- "global.prov.rds"
