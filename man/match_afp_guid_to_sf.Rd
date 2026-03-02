@@ -4,14 +4,14 @@
 \alias{match_afp_guid_to_sf}
 \title{Correct GUIDs in the AFP linelist based on the population dataset}
 \usage{
-match_afp_guid_to_sf(afp_data, prov_pop, dist_pop)
+match_afp_guid_to_sf(afp_data, prov_sf_long, dist_sf_long)
 }
 \arguments{
 \item{afp_data}{\code{tibble} AFP linelist.}
 
-\item{prov_pop}{\code{tibble} Province population file.}
+\item{prov_sf_long}{\code{tibble} Province shape file in long format (shapes for each year).}
 
-\item{dist_pop}{\code{tibble} District population file.}
+\item{dist_sf_long}{\code{tibble} District shape file in long format (shapes for each year).}
 }
 \value{
 \code{tibble} AFP linelist with corrected GUIDs
@@ -25,6 +25,8 @@ AFP linelist.
 \examples{
 \dontrun{
 raw_data <- get_all_polio_data()
-afp_fixed <- match_afp_guid_to_sf(raw_data$afp, raw_data$prov.pop, raw_data$dist.pop)
+prov_sf_long <- load_clean_prov_sp(type = "long")
+dist_sf_long <- load_clean_dist_sp(type = "long")
+afp_fixed <- match_afp_guid_to_sf(raw_data$afp, prov_sf_long, dist_sf_long)
 }
 }

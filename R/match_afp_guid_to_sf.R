@@ -16,7 +16,9 @@
 #' @examples
 #' \dontrun{
 #' raw_data <- get_all_polio_data()
-#' afp_fixed <- match_afp_guid_to_sf(raw_data$afp, raw_data$prov.pop, raw_data$dist.pop)
+#' prov_sf_long <- load_clean_prov_sp(type = "long")
+#' dist_sf_long <- load_clean_dist_sp(type = "long")
+#' afp_fixed <- match_afp_guid_to_sf(raw_data$afp, prov_sf_long, dist_sf_long)
 #' }
 match_afp_guid_to_sf <- function(afp_data, prov_sf_long, dist_sf_long) {
 
