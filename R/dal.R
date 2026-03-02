@@ -373,7 +373,7 @@ sirfunctions_io <- function(
 #' @param force_delete `logical` Use delete io without verification in the command line.
 #' @param local_path `str` Local file pathway to upload a file to EDAV. Default is `NULL`.
 #' This parameter is only required when passing `"upload"` in the `io` parameter.
-#' @param ... Optional parameters that work with [readr::read_delim()] or [readxl::read_excel()].
+#' @param ... Optional parameters that work with [readr::read_delim()], [readxl::read_excel()], or [ggplot2::ggsave()].
 #' @returns Output dependent on argument passed in the `io` parameter.
 #' @examples
 #' \dontrun{
@@ -469,8 +469,10 @@ edav_io <- function(
 
       tryCatch(
         {
+
           return(suppressWarnings(AzureStor::storage_load_rds(azcontainer, file_loc)))
           corrupted.rds <<- FALSE
+
         },
         error = function(e) {
           cli::cli_alert_warning("RDS download from EDAV was corrupted, downloading directly...")
@@ -479,76 +481,83 @@ edav_io <- function(
       )
 
       if (corrupted.rds) {
-        dest <- tempfile()
-        AzureStor::storage_download(container = azcontainer, file_loc, dest)
-        x <- readRDS(dest)
-        unlink(dest)
-        return(x)
+
+        return(
+          withr::with_tempfile("dest", {
+            AzureStor::storage_download(container = azcontainer, file_loc, dest)
+            readRDS(dest)
+            })
+        )
+
       }
+
     }
 
     if (endsWith(file_loc, ".csv")) {
+
       return(suppressWarnings(AzureStor::storage_read_csv(azcontainer, file_loc, ...)))
+
     } else if (endsWith(file_loc, ".rda")) {
+
       obj_names <- suppressWarnings(AzureStor::storage_load_rdata(azcontainer, file_loc, envir = globalenv()))
       cli::cli_alert_success("RDA object loaded to the global environment:")
       cli::cli_li(obj_names)
       return(invisible())
+
     } else if (endsWith(file_loc, ".xlsx") | endsWith(file_loc, ".xls")) {
-      output <- NULL
-      withr::with_tempdir(
-        {
+
+      return(
+        withr::with_tempfile("excel_file", {
           AzureStor::storage_download(azcontainer,
                                       file_loc,
-                                      file.path(tempdir(), basename(file_loc)),
+                                      excel_file,
                                       overwrite = TRUE
           )
-          output <- read_excel_from_edav(src = file.path(tempdir(),
-                                                         basename(file_loc)),
-                                         ...)
+        read_excel_from_edav(src = excel_file, ...)
+        })
+      )
+
+    } else if (endsWith(file_loc, ".parquet")) {
+
+      return(
+        withr::with_tempfile("parquet_file", {
+          AzureStor::storage_download(azcontainer,
+                                      file_loc,
+                                      parquet_file,
+                                      overwrite = TRUE
+          )
+
+          arrow::read_parquet(parquet_file)
+        })
+      )
+
+    } else if (endsWith(file_loc, ".qs2")) {
+
+      return(
+        withr::with_tempfile("qs2_file", {
+          AzureStor::storage_download(azcontainer,
+                                      file_loc,
+                                      qs2_file,
+                                      overwrite = TRUE
+          )
+          qs2::qs_read(qs2_file)
         }
         )
-      return(output)
-    } else if (endsWith(file_loc, ".parquet")) {
-      output <- NULL
-      withr::with_tempdir(
-        {
-          AzureStor::storage_download(azcontainer,
-                                      file_loc,
-                                      file.path(tempdir(), basename(file_loc)),
-                                      overwrite = TRUE
-          )
-          output <- arrow::read_parquet(file.path(tempdir(),
-                                                         basename(file_loc)))
-        }
       )
-      return(output)
-    } else if (endsWith(file_loc, ".qs2")) {
-      output <- NULL
-      withr::with_tempdir(
-        {
-          AzureStor::storage_download(azcontainer,
-                                      file_loc,
-                                      file.path(tempdir(), basename(file_loc)),
-                                      overwrite = TRUE
-          )
-          output <- qs2::qs_read(file.path(tempdir(), basename(file_loc)))
-        }
-      )
-      return(output)
+
     } else if (endsWith(file_loc, ".tif")) {
-      output <- NULL
-      withr::with_tempdir(
-        {
+
+      return(
+        withr::with_tempfile("tif_file", {
           AzureStor::storage_download(azcontainer,
                                       file_loc,
-                                      file.path(tempdir(), basename(file_loc)),
+                                      tif_file,
                                       overwrite = TRUE
           )
-          output <- terra::rast(file.path(tempdir(), basename(file_loc)))
-        }
+          terra::rast(tif_file)
+        })
       )
-      return(output)
+
     }
   }
 
@@ -571,72 +580,95 @@ edav_io <- function(
     }
 
     if (endsWith(file_loc, ".xlsx") | endsWith(file_loc, ".xls")) {
-      withr::with_tempdir(
-        {
-          writexl::write_xlsx(obj,
-                              path = file.path(tempdir(), basename(file_loc)))
 
-          AzureStor::storage_upload(
-            container = azcontainer, dest = file_loc,
-            src = file.path(tempdir(), basename(file_loc))
-          )
-        }
+      file_ext <- NA_character_
+      if (endsWith(file_loc, ".xlsx")) {
+        file_ext <- ".xlsx"
+      } else {
+        file_ext <- ".xls"
+      }
+
+      withr::with_tempfile("excel_file", {
+        writexl::write_xlsx(obj,
+                            path = excel_file)
+
+        AzureStor::storage_upload(
+          container = azcontainer,
+          dest = file_loc,
+          src = excel_file
         )
+
+      }, fileext = file_ext)
+
     }
 
     if (endsWith(file_loc, ".parquet")) {
-      withr::with_tempdir(
-        {
-          gc()
-          arrow::write_parquet(obj,
-                               file.path(tempdir(), basename(file_loc))
-                               )
 
-          AzureStor::storage_upload(
-            container = azcontainer, dest = file_loc,
-            src = file.path(tempdir(), basename(file_loc))
-          )
-        }
+      withr::with_tempfile("parquet_file", {
+
+        arrow::write_parquet(obj, parquet_file)
+
+        AzureStor::storage_upload(
+          container = azcontainer,
+          dest = file_loc,
+          src = parquet_file
+        )
+
+      }, fileext = ".parquet"
       )
+
     }
 
     if (endsWith(file_loc, ".qs2")) {
-      withr::with_tempdir(
-        {
 
-          qs2::qs_save(obj, file.path(tempdir(), basename(file_loc)))
+      withr::with_tempfile("qs2_file", {
+        qs2::qs_save(obj, qs2_file)
 
-          AzureStor::storage_upload(
-            container = azcontainer, dest = file_loc,
-            src = file.path(tempdir(), basename(file_loc))
-          )
-        }
-      )
+        AzureStor::storage_upload(
+          container = azcontainer,
+          dest = file_loc,
+          src = qs2_file
+        )
+      }, fileext = ".qs2")
+
     }
 
     if ("gg" %in% class(obj)) {
-      temp <- tempfile()
-      ggplot2::ggsave(filename = paste0(temp, "/", sub(".*\\/", "", file_loc)), plot = obj)
-      AzureStor::storage_upload(
-        container = azcontainer, dest = file_loc,
-        src = paste0(temp, "/", sub(".*\\/", "", file_loc))
-      )
-      unlink(temp)
+
+      withr::with_tempfile("gg_file", {
+        ggplot2::ggsave(filename = gg_file, plot = obj, ...)
+
+        AzureStor::storage_upload(
+          container = azcontainer,
+          src       = gg_file,
+          dest      = file_loc
+        )
+
+      }, fileext = paste0(".", tools::file_ext(file_loc)))
+
     }
 
     if ("flextable" %in% class(obj)) {
+
       if (!requireNamespace("flextable", quietly = TRUE)) {
         stop('Package "flextable" must be installed to write flextable objects.',
              .call = FALSE
         )
       }
-      temp <- tempfile()
-      flextable::save_as_image(obj, path = paste0(temp, "/", sub(".*\\/", "", file_loc)))
-      AzureStor::storage_upload(
-        container = azcontainer, dest = file_loc,
-        src = paste0(temp, "/", sub(".*\\/", "", file_loc))
-      )
-      unlink(temp)
+
+      withr::with_tempfile("ft_file", {
+
+        flextable::save_as_image(obj, path = ft_file)
+
+        # Upload the temp file to Azure Blob
+        AzureStor::storage_upload(
+          container = azcontainer,
+          src       = ft_file,
+          dest      = file_loc,
+          overwrite = TRUE
+        )
+      }, fileext = paste0(".", tools::file_ext(basename(file_loc))))
+
     }
 
   }
@@ -863,16 +895,16 @@ normalize_format <- function(fmt) {
 #'
 #' @description Download POLIS data from the CDC pre-processed endpoint. By default
 #' this function will return a "small" or recent dataset. This is primarily for data
-#' that is from 2019 onwards. You can specify a "medium" sized dataset for data
-#' that is from 2016 onwards. Finally the "large" sized dataset will provide information
-#' from 2001 onwards. Regular pulls form the data will recreate the "small" dataset
-#' when new information is availble and the Data Management Team can force the
+#' that is from the past six years. You can specify a "medium" sized dataset for data
+#' that is from the past nine years. Finally the "large" sized dataset will provide information
+#' from 2000 onwards. Regular pulls form the data will recreate the "small" dataset
+#' when new information is available and the Data Management Team can force the
 #' creation of the "medium" and "large" static datasets as necessary.
 #'
 #' @param size `str` Size of data to download. Defaults to `"small"`.
-#' - `"small"`: Data from 2019-present.
-#' - `"medium"`: Data from 2016-present.
-#' - `"large"`: Data from 2001-present.
+#' - `"small"`: Data from the last six years.
+#' - `"medium"`: Data from the last nine years.
+#' - `"large"`: Data from 2000-present.
 #' @param data_folder `str` Location of the data folder containing pre-processed POLIS data,
 #' spatial files, coverage data, and population data. Defaults to `"GID/PEB/SIR/Data"`.
 #' @param polis_folder `str` Location of the POLIS folder. Defaults to `"GID/PEB/SIR/POLIS"`.
@@ -895,7 +927,7 @@ normalize_format <- function(fmt) {
 #' @returns Named `list` containing polio data that is relevant to CDC.
 #' @examples
 #' \dontrun{
-#' raw.data <- get_all_polio_data() # downloads data since 2019, including spatial files
+#' raw.data <- get_all_polio_data() # downloads data for last 6 years, including spatial files
 #' raw.data <- get_all_polio_data(size = "small", attach.spatial.data = FALSE) # exclude spatial data
 #' }
 #'
@@ -958,10 +990,15 @@ spatial_folder <- file.path(data_folder, "spatial")
 coverage_folder <- file.path(data_folder, "coverage")
 pop_folder <- file.path(data_folder, "pop")
 
+# Year cutoffs for the different datasets
+current_year <- lubridate::year(Sys.Date())
+small_year <- current_year - 5
+med_year <- current_year - 8
+
 # Required files
 raw_data_recent_name <- paste0("raw.data.recent", output_format)
-raw_data_2016_2018_name <- paste0("raw.data.2016.2018", output_format)
-raw_data_2000_name <- paste0("raw.data.2000.2015", output_format)
+raw_data_medium_name <- paste0("raw.data.", med_year, ".", small_year - 1, output_format)
+raw_data_2000_name <- paste0("raw.data.2000.", med_year - 1, output_format)
 spatial_data_name <- paste0("spatial.data", output_format)
 global_ctry_sf_name <- "global.ctry.rds"
 global_prov_sf_name <- "global.prov.rds"
@@ -1066,34 +1103,34 @@ if (!force.new.run) {
   }
 
   if (use_edav) {
-    cli::cli_alert_info("Downloading most recent active polio data from 2019 onwards")
+    cli::cli_alert_info(paste0("Downloading most recent active polio data from ", small_year," onwards"))
   } else {
-    cli::cli_alert_info("Loading most recent active polio data from 2019 onwards")
+    cli::cli_alert_info(paste0("Loading most recent active polio data from ", small_year," onwards"))
   }
 
-  raw.data.post.2019 <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
+  raw.data.small.pull <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
 
   if (size == "small") {
-    raw.data <- raw.data.post.2019
+    raw.data <- raw.data.small.pull
   }
 
   if (size == "medium") {
     prev_table <- sirfunctions_io("list", NULL, analytic_folder, edav = use_edav) |>
-      dplyr::filter(grepl(raw_data_2016_2018_name, name)) |>
+      dplyr::filter(grepl(raw_data_medium_name, name)) |>
       dplyr::select("file" = "name", "size", "ctime" = "lastModified")
 
     if (use_edav) {
-      cli::cli_alert_info("Downloading static polio data from 2016-2019")
+      cli::cli_alert_info(paste0("Downloading static polio data from ", med_year, "-", small_year))
     } else {
-      cli::cli_alert_info("Loading static polio data from 2016-2019")
+      cli::cli_alert_info(paste0("Loading static polio data from ", med_year, "-", small_year))
     }
 
-    raw.data.2016.2018 <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
+    raw.data.medium.pull <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
 
     raw.data <- split_concat_raw_data(
       action = "concat",
-      raw.data.post.2019 = raw.data.post.2019,
-      raw.data.2016.2019 = raw.data.2016.2018
+      raw.data.small.pull = raw.data.small.pull,
+      raw.data.medium.pull = raw.data.medium.pull
     )
   }
 
@@ -1101,33 +1138,34 @@ if (!force.new.run) {
     prev_table <- sirfunctions_io("list", NULL, analytic_folder,
                                   edav = use_edav, full_names = TRUE
     ) |>
-      dplyr::filter(grepl(raw_data_2016_2018_name, name)) |>
+      dplyr::filter(grepl(raw_data_medium_name, name)) |>
       dplyr::select("file" = "name", "size", "ctime" = "lastModified")
 
     if (use_edav) {
-      cli::cli_alert_info("Downloading static polio data from 2016-2019")
+      cli::cli_alert_info(paste0("Downloading static polio data from ", med_year, "-", small_year))
     } else {
-      cli::cli_alert_info("Loading static polio data from 2016-2019")
+      cli::cli_alert_info(paste0("Loading static polio data from ", med_year, "-", small_year))
     }
-    raw.data.2016.2019 <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
+
+    raw.data.medium.pull <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
 
     prev_table <- sirfunctions_io("list", NULL, analytic_folder, edav = use_edav) |>
       dplyr::filter(grepl(raw_data_2000_name, name)) |>
       dplyr::select("file" = "name", "size", "ctime" = "lastModified")
 
     if (use_edav) {
-      cli::cli_alert_info("Downloading static polio data from 2001-2016")
+      cli::cli_alert_info(paste0("Downloading static polio data from 2001-", med_year))
     } else {
-      cli::cli_alert_info("Loading static polio data from 2001-2016")
+      cli::cli_alert_info(paste0("Loading static polio data from 2001-", med_year))
     }
 
-    raw.data.2001.2016 <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
+    raw.data.large.pull <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
 
     raw.data <- split_concat_raw_data(
       action = "concat",
-      raw.data.post.2019 = raw.data.post.2019,
-      raw.data.2016.2019 = raw.data.2016.2019,
-      raw.data.2001.2016 = raw.data.2001.2016
+      raw.data.small.pull = raw.data.small.pull,
+      raw.data.medium.pull = raw.data.medium.pull,
+      raw.data.large.pull = raw.data.large.pull
     )
   }
 
@@ -1651,8 +1689,7 @@ if (!force.new.run) {
     file.path(polis_folder, "data", core_ready_folder),
     edav = use_edav
   ) |>
-    dplyr::filter(grepl("positives", name),
-                  endsWith(name, ".rds")) |>
+    dplyr::filter(grepl("positives_2001-01-01", name)) |>
     dplyr::select("ctime" = "lastModified") |>
     dplyr::mutate(ctime = as.Date(ctime)) |>
     dplyr::pull(ctime)
@@ -1712,13 +1749,11 @@ if (!force.new.run) {
 if (create.cache) {
   cli::cli_process_start("15) Caching processed data")
 
-  out <- split_concat_raw_data(action = "split", split.years = c(2000, 2016, 2019), raw.data.all = raw.data)
-
-  current.year <- lubridate::year(Sys.time())
+  out <- split_concat_raw_data(action = "split", split.years = c(2000, med_year, small_year), raw.data.all = raw.data)
 
   out_files <- out$split.years |>
     dplyr::mutate(
-      file_name = ifelse(grepl(current.year, tag), "recent", stringr::str_replace_all(tag, "-", ".")),
+      file_name = ifelse(grepl(current_year, tag), "recent", stringr::str_replace_all(tag, "-", ".")),
       file_name = paste0("raw.data.", file_name, output_format)
     )
 
@@ -1775,8 +1810,8 @@ if (create.cache) {
 }
 
 raw_data_cut_size <- switch(size,
-                            "small" = 2019,
-                            "medium" = 2016,
+                            "small" = small_year,
+                            "medium" = med_year,
                             "large" = 2000)
 
 raw.data <- split_concat_raw_data(action = "split",
@@ -2458,18 +2493,21 @@ f.yrs.01 <- function(df, yrs) {
 #' @param action `str` Can either be to `"concat"` or `"split"`.
 #' @param split.years `array` A numeric array of years by which data should be split.
 #' @param raw.data.all `list` A list of data objects to be split.
-#' @param raw.data.post.2019 `list` A list of data objects to be concatenated.
-#' @param raw.data.2016.2019 `list` A list of data objects to be concatenated.
-#' @param raw.data.2001.2016 `list` A list of data objects to be concatenated.
+#' @param raw.data.small.pull `list` A list of data objects to be concatenated. This is
+#' the 'small' dataset, which consists of data from the past 6 years.
+#' @param raw.data.medium.pull `list` A list of data objects to be concatenated. This is
+#' the 'small' dataset, which consists of data from the past 9 years.
+#' @param raw.data.large.pull `list` A list of data objects to be concatenated. This is
+#' the 'small' dataset, which consists of data since 2000.
 #' @returns `list` A list of lists or a single concatenated list.
 #' @keywords internal
 split_concat_raw_data <- function(
     action,
     split.years = NULL,
     raw.data.all = NULL,
-    raw.data.post.2019 = NULL,
-    raw.data.2016.2019 = NULL,
-    raw.data.2001.2016 = NULL) {
+    raw.data.small.pull = NULL,
+    raw.data.medium.pull = NULL,
+    raw.data.large.pull = NULL) {
   actions <- c("concat", "split")
 
   if (!action %in% actions) {
@@ -2541,22 +2579,22 @@ split_concat_raw_data <- function(
   }
 
   if (action == "concat") {
-    if (sum(is.null(raw.data.post.2019), is.null(raw.data.2016.2019), is.null(raw.data.2001.2016)) > 1) {
+    if (sum(is.null(raw.data.small.pull), is.null(raw.data.medium.pull), is.null(raw.data.large.pull)) > 1) {
       stop("You must include at least two subsets of raw.data files to concatenate")
     }
 
     input <- list()
 
-    if (!is.null(raw.data.post.2019)) {
-      input[["raw.data.post.2019"]] <- raw.data.post.2019
+    if (!is.null(raw.data.small.pull)) {
+      input[["raw.data.small.pull"]] <- raw.data.small.pull
     }
 
-    if (!is.null(raw.data.post.2019)) {
-      input[["raw.data.2016.2019"]] <- raw.data.2016.2019
+    if (!is.null(raw.data.small.pull)) {
+      input[["raw.data.medium.pull"]] <- raw.data.medium.pull
     }
 
-    if (!is.null(raw.data.2001.2016)) {
-      input[["raw.data.2001.2016"]] <- raw.data.2001.2016
+    if (!is.null(raw.data.large.pull)) {
+      input[["raw.data.large.pull"]] <- raw.data.large.pull
     }
 
     to.concat <- names(input)
@@ -2576,7 +2614,7 @@ split_concat_raw_data <- function(
     }
 
     for (i in static.tables) {
-      out[[i]] <- raw.data.post.2019[[i]]
+      out[[i]] <- raw.data.small.pull[[i]]
     }
 
     return(out)

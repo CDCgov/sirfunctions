@@ -8,9 +8,9 @@ split_concat_raw_data(
   action,
   split.years = NULL,
   raw.data.all = NULL,
-  raw.data.post.2019 = NULL,
-  raw.data.2016.2019 = NULL,
-  raw.data.2001.2016 = NULL
+  raw.data.small.pull = NULL,
+  raw.data.medium.pull = NULL,
+  raw.data.large.pull = NULL
 )
 }
 \arguments{
@@ -20,11 +20,14 @@ split_concat_raw_data(
 
 \item{raw.data.all}{\code{list} A list of data objects to be split.}
 
-\item{raw.data.post.2019}{\code{list} A list of data objects to be concatenated.}
+\item{raw.data.small.pull}{\code{list} A list of data objects to be concatenated. This is
+the 'small' dataset, which consists of data from the past 6 years.}
 
-\item{raw.data.2016.2019}{\code{list} A list of data objects to be concatenated.}
+\item{raw.data.medium.pull}{\code{list} A list of data objects to be concatenated. This is
+the 'small' dataset, which consists of data from the past 9 years.}
 
-\item{raw.data.2001.2016}{\code{list} A list of data objects to be concatenated.}
+\item{raw.data.large.pull}{\code{list} A list of data objects to be concatenated. This is
+the 'small' dataset, which consists of data since 2000.}
 }
 \value{
 \code{list} A list of lists or a single concatenated list.
