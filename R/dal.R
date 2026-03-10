@@ -486,7 +486,7 @@ edav_io <- function(
           withr::with_tempfile("dest", {
             AzureStor::storage_download(container = azcontainer, file_loc, dest)
             readRDS(dest)
-            })
+            }, fileext = ".rds")
         )
 
       }
@@ -506,6 +506,13 @@ edav_io <- function(
 
     } else if (endsWith(file_loc, ".xlsx") | endsWith(file_loc, ".xls")) {
 
+      file_ext <- NA_character_
+      if (endsWith(file_loc, ".xlsx")) {
+        file_ext <- ".xlsx"
+      } else {
+        file_ext <- ".xls"
+      }
+
       return(
         withr::with_tempfile("excel_file", {
           AzureStor::storage_download(azcontainer,
@@ -514,7 +521,7 @@ edav_io <- function(
                                       overwrite = TRUE
           )
         read_excel_from_edav(src = excel_file, ...)
-        })
+        }, fileext = file_ext)
       )
 
     } else if (endsWith(file_loc, ".parquet")) {
@@ -528,7 +535,7 @@ edav_io <- function(
           )
 
           arrow::read_parquet(parquet_file)
-        })
+        }, fileext = ".parquet")
       )
 
     } else if (endsWith(file_loc, ".qs2")) {
@@ -541,7 +548,7 @@ edav_io <- function(
                                       overwrite = TRUE
           )
           qs2::qs_read(qs2_file)
-        }
+        }, fileext = ".qs2"
         )
       )
 
@@ -555,7 +562,7 @@ edav_io <- function(
                                       overwrite = TRUE
           )
           terra::rast(tif_file)
-        })
+        }, fileext = ".tif")
       )
 
     }
