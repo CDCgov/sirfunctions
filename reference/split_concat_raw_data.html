@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">sirfunctions</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.1.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.1.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -46,9 +46,9 @@
 <span>  <span class="va">action</span>,</span>
 <span>  split.years <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  raw.data.all <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  raw.data.post.2019 <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  raw.data.2016.2019 <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  raw.data.2001.2016 <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  raw.data.small.pull <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  raw.data.medium.pull <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  raw.data.large.pull <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -68,16 +68,19 @@
 <dd><p><code>list</code> A list of data objects to be split.</p></dd>
 
 
-<dt id="arg-raw-data-post-">raw.data.post.2019<a class="anchor" aria-label="anchor" href="#arg-raw-data-post-"></a></dt>
-<dd><p><code>list</code> A list of data objects to be concatenated.</p></dd>
+<dt id="arg-raw-data-small-pull">raw.data.small.pull<a class="anchor" aria-label="anchor" href="#arg-raw-data-small-pull"></a></dt>
+<dd><p><code>list</code> A list of data objects to be concatenated. This is
+the 'small' dataset, which consists of data from the past 6 years.</p></dd>
 
 
-<dt id="arg-raw-data-">raw.data.2016.2019<a class="anchor" aria-label="anchor" href="#arg-raw-data-"></a></dt>
-<dd><p><code>list</code> A list of data objects to be concatenated.</p></dd>
+<dt id="arg-raw-data-medium-pull">raw.data.medium.pull<a class="anchor" aria-label="anchor" href="#arg-raw-data-medium-pull"></a></dt>
+<dd><p><code>list</code> A list of data objects to be concatenated. This is
+the 'small' dataset, which consists of data from the past 9 years.</p></dd>
 
 
-<dt id="arg-raw-data-">raw.data.2001.2016<a class="anchor" aria-label="anchor" href="#arg-raw-data-"></a></dt>
-<dd><p><code>list</code> A list of data objects to be concatenated.</p></dd>
+<dt id="arg-raw-data-large-pull">raw.data.large.pull<a class="anchor" aria-label="anchor" href="#arg-raw-data-large-pull"></a></dt>
+<dd><p><code>list</code> A list of data objects to be concatenated. This is
+the 'small' dataset, which consists of data since 2000.</p></dd>
 
 </dl></div>
     <div class="section level2">

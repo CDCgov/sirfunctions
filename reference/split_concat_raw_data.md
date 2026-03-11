@@ -9,9 +9,9 @@ split_concat_raw_data(
   action,
   split.years = NULL,
   raw.data.all = NULL,
-  raw.data.post.2019 = NULL,
-  raw.data.2016.2019 = NULL,
-  raw.data.2001.2016 = NULL
+  raw.data.small.pull = NULL,
+  raw.data.medium.pull = NULL,
+  raw.data.large.pull = NULL
 )
 ```
 
@@ -29,17 +29,20 @@ split_concat_raw_data(
 
   `list` A list of data objects to be split.
 
-- raw.data.post.2019:
+- raw.data.small.pull:
 
-  `list` A list of data objects to be concatenated.
+  `list` A list of data objects to be concatenated. This is the 'small'
+  dataset, which consists of data from the past 6 years.
 
-- raw.data.2016.2019:
+- raw.data.medium.pull:
 
-  `list` A list of data objects to be concatenated.
+  `list` A list of data objects to be concatenated. This is the 'small'
+  dataset, which consists of data from the past 9 years.
 
-- raw.data.2001.2016:
+- raw.data.large.pull:
 
-  `list` A list of data objects to be concatenated.
+  `list` A list of data objects to be concatenated. This is the 'small'
+  dataset, which consists of data since 2000.
 
 ## Value
 

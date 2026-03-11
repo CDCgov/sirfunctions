@@ -2,12 +2,12 @@
 
 Download POLIS data from the CDC pre-processed endpoint. By default this
 function will return a "small" or recent dataset. This is primarily for
-data that is from 2019 onwards. You can specify a "medium" sized dataset
-for data that is from 2016 onwards. Finally the "large" sized dataset
-will provide information from 2001 onwards. Regular pulls form the data
-will recreate the "small" dataset when new information is availble and
-the Data Management Team can force the creation of the "medium" and
-"large" static datasets as necessary.
+data that is from the past six years. You can specify a "medium" sized
+dataset for data that is from the past nine years. Finally the "large"
+sized dataset will provide information from 2000 onwards. Regular pulls
+form the data will recreate the "small" dataset when new information is
+available and the Data Management Team can force the creation of the
+"medium" and "large" static datasets as necessary.
 
 ## Usage
 
@@ -35,11 +35,11 @@ get_all_polio_data(
 
   `str` Size of data to download. Defaults to `"small"`.
 
-  - `"small"`: Data from 2019-present.
+  - `"small"`: Data from the last six years.
 
-  - `"medium"`: Data from 2016-present.
+  - `"medium"`: Data from the last nine years.
 
-  - `"large"`: Data from 2001-present.
+  - `"large"`: Data from 2000-present.
 
 - data_folder:
 
@@ -106,7 +106,7 @@ Named `list` containing polio data that is relevant to CDC.
 
 ``` r
 if (FALSE) { # \dontrun{
-raw.data <- get_all_polio_data() # downloads data since 2019, including spatial files
+raw.data <- get_all_polio_data() # downloads data for last 6 years, including spatial files
 raw.data <- get_all_polio_data(size = "small", attach.spatial.data = FALSE) # exclude spatial data
 } # }
 ```
