@@ -4,7 +4,8 @@
 <br>
 
 <!-- badges: start -->
-[![R-CMD-check](https://github.com/CDCGov/sirfunctions/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/CDCGov/sirfunctions/actions/workflows/R-CMD-check.yaml)
+[![R-CMD-check](https://github.com/CDCgov/sirfunctions/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/CDCgov/sirfunctions/actions/workflows/R-CMD-check.yaml)
+[![Codecov test coverage](https://codecov.io/gh/CDCgov/sirfunctions/graph/badge.svg)](https://app.codecov.io/gh/CDCgov/sirfunctions)
 <!-- badges: end -->
 
 ## Overview
