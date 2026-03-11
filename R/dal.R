@@ -258,7 +258,7 @@ sirfunctions_io <- function(
     if (edav) {
       return(edav_io(
         io = "read", NULL,
-        file_loc, azcontainer = azcontainer
+        file_loc, azcontainer = azcontainer, ...
       ))
     } else {
       if (!grepl(".rds$|.rda$|.csv$|.xlsx$|.xls$|.parquet$|.qs2$|.tif$", file_loc)) {
