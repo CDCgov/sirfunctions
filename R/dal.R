@@ -258,7 +258,7 @@ sirfunctions_io <- function(
     if (edav) {
       return(edav_io(
         io = "read", NULL,
-        file_loc, azcontainer = azcontainer
+        file_loc, azcontainer = azcontainer, ...
       ))
     } else {
       if (!grepl(".rds$|.rda$|.csv$|.xlsx$|.xls$|.parquet$|.qs2$|.tif$", file_loc)) {
@@ -486,7 +486,7 @@ edav_io <- function(
           withr::with_tempfile("dest", {
             AzureStor::storage_download(container = azcontainer, file_loc, dest)
             readRDS(dest)
-            })
+            }, fileext = ".rds")
         )
 
       }
@@ -506,6 +506,13 @@ edav_io <- function(
 
     } else if (endsWith(file_loc, ".xlsx") | endsWith(file_loc, ".xls")) {
 
+      file_ext <- NA_character_
+      if (endsWith(file_loc, ".xlsx")) {
+        file_ext <- ".xlsx"
+      } else {
+        file_ext <- ".xls"
+      }
+
       return(
         withr::with_tempfile("excel_file", {
           AzureStor::storage_download(azcontainer,
@@ -514,7 +521,7 @@ edav_io <- function(
                                       overwrite = TRUE
           )
         read_excel_from_edav(src = excel_file, ...)
-        })
+        }, fileext = file_ext)
       )
 
     } else if (endsWith(file_loc, ".parquet")) {
@@ -528,7 +535,7 @@ edav_io <- function(
           )
 
           arrow::read_parquet(parquet_file)
-        })
+        }, fileext = ".parquet")
       )
 
     } else if (endsWith(file_loc, ".qs2")) {
@@ -541,7 +548,7 @@ edav_io <- function(
                                       overwrite = TRUE
           )
           qs2::qs_read(qs2_file)
-        }
+        }, fileext = ".qs2"
         )
       )
 
@@ -555,7 +562,7 @@ edav_io <- function(
                                       overwrite = TRUE
           )
           terra::rast(tif_file)
-        })
+        }, fileext = ".tif")
       )
 
     }
@@ -895,16 +902,16 @@ normalize_format <- function(fmt) {
 #'
 #' @description Download POLIS data from the CDC pre-processed endpoint. By default
 #' this function will return a "small" or recent dataset. This is primarily for data
-#' that is from 2019 onwards. You can specify a "medium" sized dataset for data
-#' that is from 2016 onwards. Finally the "large" sized dataset will provide information
-#' from 2001 onwards. Regular pulls form the data will recreate the "small" dataset
-#' when new information is availble and the Data Management Team can force the
+#' that is from the past six years. You can specify a "medium" sized dataset for data
+#' that is from the past nine years. Finally the "large" sized dataset will provide information
+#' from 2000 onwards. Regular pulls form the data will recreate the "small" dataset
+#' when new information is available and the Data Management Team can force the
 #' creation of the "medium" and "large" static datasets as necessary.
 #'
 #' @param size `str` Size of data to download. Defaults to `"small"`.
-#' - `"small"`: Data from 2019-present.
-#' - `"medium"`: Data from 2016-present.
-#' - `"large"`: Data from 2001-present.
+#' - `"small"`: Data from the last six years.
+#' - `"medium"`: Data from the last nine years.
+#' - `"large"`: Data from 2000-present.
 #' @param data_folder `str` Location of the data folder containing pre-processed POLIS data,
 #' spatial files, coverage data, and population data. Defaults to `"GID/PEB/SIR/Data"`.
 #' @param polis_folder `str` Location of the POLIS folder. Defaults to `"GID/PEB/SIR/POLIS"`.
@@ -927,7 +934,7 @@ normalize_format <- function(fmt) {
 #' @returns Named `list` containing polio data that is relevant to CDC.
 #' @examples
 #' \dontrun{
-#' raw.data <- get_all_polio_data() # downloads data since 2019, including spatial files
+#' raw.data <- get_all_polio_data() # downloads data for last 6 years, including spatial files
 #' raw.data <- get_all_polio_data(size = "small", attach.spatial.data = FALSE) # exclude spatial data
 #' }
 #'
@@ -990,10 +997,15 @@ spatial_folder <- file.path(data_folder, "spatial")
 coverage_folder <- file.path(data_folder, "coverage")
 pop_folder <- file.path(data_folder, "pop")
 
+# Year cutoffs for the different datasets
+current_year <- lubridate::year(Sys.Date())
+small_year <- current_year - 5
+med_year <- current_year - 8
+
 # Required files
 raw_data_recent_name <- paste0("raw.data.recent", output_format)
-raw_data_2016_2018_name <- paste0("raw.data.2016.2018", output_format)
-raw_data_2000_name <- paste0("raw.data.2000.2015", output_format)
+raw_data_medium_name <- paste0("raw.data.", med_year, ".", small_year - 1, output_format)
+raw_data_2000_name <- paste0("raw.data.2000.", med_year - 1, output_format)
 spatial_data_name <- paste0("spatial.data", output_format)
 global_ctry_sf_name <- "global.ctry.rds"
 global_prov_sf_name <- "global.prov.rds"
@@ -1098,34 +1110,34 @@ if (!force.new.run) {
   }
 
   if (use_edav) {
-    cli::cli_alert_info("Downloading most recent active polio data from 2019 onwards")
+    cli::cli_alert_info(paste0("Downloading most recent active polio data from ", small_year," onwards"))
   } else {
-    cli::cli_alert_info("Loading most recent active polio data from 2019 onwards")
+    cli::cli_alert_info(paste0("Loading most recent active polio data from ", small_year," onwards"))
   }
 
-  raw.data.post.2019 <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
+  raw.data.small.pull <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
 
   if (size == "small") {
-    raw.data <- raw.data.post.2019
+    raw.data <- raw.data.small.pull
   }
 
   if (size == "medium") {
     prev_table <- sirfunctions_io("list", NULL, analytic_folder, edav = use_edav) |>
-      dplyr::filter(grepl(raw_data_2016_2018_name, name)) |>
+      dplyr::filter(grepl(raw_data_medium_name, name)) |>
       dplyr::select("file" = "name", "size", "ctime" = "lastModified")
 
     if (use_edav) {
-      cli::cli_alert_info("Downloading static polio data from 2016-2019")
+      cli::cli_alert_info(paste0("Downloading static polio data from ", med_year, "-", small_year))
     } else {
-      cli::cli_alert_info("Loading static polio data from 2016-2019")
+      cli::cli_alert_info(paste0("Loading static polio data from ", med_year, "-", small_year))
     }
 
-    raw.data.2016.2018 <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
+    raw.data.medium.pull <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
 
     raw.data <- split_concat_raw_data(
       action = "concat",
-      raw.data.post.2019 = raw.data.post.2019,
-      raw.data.2016.2019 = raw.data.2016.2018
+      raw.data.small.pull = raw.data.small.pull,
+      raw.data.medium.pull = raw.data.medium.pull
     )
   }
 
@@ -1133,33 +1145,34 @@ if (!force.new.run) {
     prev_table <- sirfunctions_io("list", NULL, analytic_folder,
                                   edav = use_edav, full_names = TRUE
     ) |>
-      dplyr::filter(grepl(raw_data_2016_2018_name, name)) |>
+      dplyr::filter(grepl(raw_data_medium_name, name)) |>
       dplyr::select("file" = "name", "size", "ctime" = "lastModified")
 
     if (use_edav) {
-      cli::cli_alert_info("Downloading static polio data from 2016-2019")
+      cli::cli_alert_info(paste0("Downloading static polio data from ", med_year, "-", small_year))
     } else {
-      cli::cli_alert_info("Loading static polio data from 2016-2019")
+      cli::cli_alert_info(paste0("Loading static polio data from ", med_year, "-", small_year))
     }
-    raw.data.2016.2019 <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
+
+    raw.data.medium.pull <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
 
     prev_table <- sirfunctions_io("list", NULL, analytic_folder, edav = use_edav) |>
       dplyr::filter(grepl(raw_data_2000_name, name)) |>
       dplyr::select("file" = "name", "size", "ctime" = "lastModified")
 
     if (use_edav) {
-      cli::cli_alert_info("Downloading static polio data from 2001-2016")
+      cli::cli_alert_info(paste0("Downloading static polio data from 2001-", med_year))
     } else {
-      cli::cli_alert_info("Loading static polio data from 2001-2016")
+      cli::cli_alert_info(paste0("Loading static polio data from 2001-", med_year))
     }
 
-    raw.data.2001.2016 <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
+    raw.data.large.pull <- sirfunctions_io("read", NULL, prev_table$file, edav = use_edav)
 
     raw.data <- split_concat_raw_data(
       action = "concat",
-      raw.data.post.2019 = raw.data.post.2019,
-      raw.data.2016.2019 = raw.data.2016.2019,
-      raw.data.2001.2016 = raw.data.2001.2016
+      raw.data.small.pull = raw.data.small.pull,
+      raw.data.medium.pull = raw.data.medium.pull,
+      raw.data.large.pull = raw.data.large.pull
     )
   }
 
@@ -1683,8 +1696,7 @@ if (!force.new.run) {
     file.path(polis_folder, "data", core_ready_folder),
     edav = use_edav
   ) |>
-    dplyr::filter(grepl("positives", name),
-                  endsWith(name, ".rds")) |>
+    dplyr::filter(grepl("positives_2001-01-01", name)) |>
     dplyr::select("ctime" = "lastModified") |>
     dplyr::mutate(ctime = as.Date(ctime)) |>
     dplyr::pull(ctime)
@@ -1744,13 +1756,11 @@ if (!force.new.run) {
 if (create.cache) {
   cli::cli_process_start("15) Caching processed data")
 
-  out <- split_concat_raw_data(action = "split", split.years = c(2000, 2016, 2019), raw.data.all = raw.data)
-
-  current.year <- lubridate::year(Sys.time())
+  out <- split_concat_raw_data(action = "split", split.years = c(2000, med_year, small_year), raw.data.all = raw.data)
 
   out_files <- out$split.years |>
     dplyr::mutate(
-      file_name = ifelse(grepl(current.year, tag), "recent", stringr::str_replace_all(tag, "-", ".")),
+      file_name = ifelse(grepl(current_year, tag), "recent", stringr::str_replace_all(tag, "-", ".")),
       file_name = paste0("raw.data.", file_name, output_format)
     )
 
@@ -1807,8 +1817,8 @@ if (create.cache) {
 }
 
 raw_data_cut_size <- switch(size,
-                            "small" = 2019,
-                            "medium" = 2016,
+                            "small" = small_year,
+                            "medium" = med_year,
                             "large" = 2000)
 
 raw.data <- split_concat_raw_data(action = "split",
@@ -2490,18 +2500,21 @@ f.yrs.01 <- function(df, yrs) {
 #' @param action `str` Can either be to `"concat"` or `"split"`.
 #' @param split.years `array` A numeric array of years by which data should be split.
 #' @param raw.data.all `list` A list of data objects to be split.
-#' @param raw.data.post.2019 `list` A list of data objects to be concatenated.
-#' @param raw.data.2016.2019 `list` A list of data objects to be concatenated.
-#' @param raw.data.2001.2016 `list` A list of data objects to be concatenated.
+#' @param raw.data.small.pull `list` A list of data objects to be concatenated. This is
+#' the 'small' dataset, which consists of data from the past 6 years.
+#' @param raw.data.medium.pull `list` A list of data objects to be concatenated. This is
+#' the 'small' dataset, which consists of data from the past 9 years.
+#' @param raw.data.large.pull `list` A list of data objects to be concatenated. This is
+#' the 'small' dataset, which consists of data since 2000.
 #' @returns `list` A list of lists or a single concatenated list.
 #' @keywords internal
 split_concat_raw_data <- function(
     action,
     split.years = NULL,
     raw.data.all = NULL,
-    raw.data.post.2019 = NULL,
-    raw.data.2016.2019 = NULL,
-    raw.data.2001.2016 = NULL) {
+    raw.data.small.pull = NULL,
+    raw.data.medium.pull = NULL,
+    raw.data.large.pull = NULL) {
   actions <- c("concat", "split")
 
   if (!action %in% actions) {
@@ -2573,22 +2586,22 @@ split_concat_raw_data <- function(
   }
 
   if (action == "concat") {
-    if (sum(is.null(raw.data.post.2019), is.null(raw.data.2016.2019), is.null(raw.data.2001.2016)) > 1) {
+    if (sum(is.null(raw.data.small.pull), is.null(raw.data.medium.pull), is.null(raw.data.large.pull)) > 1) {
       stop("You must include at least two subsets of raw.data files to concatenate")
     }
 
     input <- list()
 
-    if (!is.null(raw.data.post.2019)) {
-      input[["raw.data.post.2019"]] <- raw.data.post.2019
+    if (!is.null(raw.data.small.pull)) {
+      input[["raw.data.small.pull"]] <- raw.data.small.pull
     }
 
-    if (!is.null(raw.data.post.2019)) {
-      input[["raw.data.2016.2019"]] <- raw.data.2016.2019
+    if (!is.null(raw.data.small.pull)) {
+      input[["raw.data.medium.pull"]] <- raw.data.medium.pull
     }
 
-    if (!is.null(raw.data.2001.2016)) {
-      input[["raw.data.2001.2016"]] <- raw.data.2001.2016
+    if (!is.null(raw.data.large.pull)) {
+      input[["raw.data.large.pull"]] <- raw.data.large.pull
     }
 
     to.concat <- names(input)
@@ -2608,7 +2621,7 @@ split_concat_raw_data <- function(
     }
 
     for (i in static.tables) {
-      out[[i]] <- raw.data.post.2019[[i]]
+      out[[i]] <- raw.data.small.pull[[i]]
     }
 
     return(out)
@@ -3253,12 +3266,7 @@ read_excel_from_edav <- function(src, sheet = NULL, ...) {
   } else {
     # Read all sheets
     sheets <- readxl::excel_sheets(src)
-
-    if (endsWith(src, ".xlsx")) {
-      output <- purrr::map(sheets, \(x) readxl::read_xlsx(path = src, sheet = x, ...))
-    } else if (endsWith(src, ".xls")) {
-      output <- purrr::map(sheets, \(x) readxl::read_xls(path = src, sheet = x, ...))
-    }
+    output <- purrr::map(sheets, \(x) readxl::read_excel(path = src, sheet = x, ...))
 
     names(output) <- sheets
   }
