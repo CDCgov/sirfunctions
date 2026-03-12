@@ -14,10 +14,27 @@
 #'
 #' @export
 extract_country_data <- function(.country, .raw.data = raw.data) {
+
+  # Rename the columns in the pop datasets to be consistent with the rest of the code
+  .raw.data$ctry.pop <- dplyr::rename_with(.raw.data$ctry.pop, recode,
+                                            ADM0_NAME = "ctry")
+
+  .raw.data$prov.pop <- dplyr::rename_with(.raw.data$prov.pop, recode,
+                                            ADM0_NAME = "ctry",
+                                            ADM0_GUID = "adm0guid",
+                                            ADM1_NAME = "prov",
+                                            u15pop.prov = "u15pop")
+
+  .raw.data$dist.pop <- dplyr::rename_with(.raw.data$dist.pop, recode,
+                                            ADM0_NAME = "ctry",
+                                            ADM0_GUID = "adm0guid",
+                                            ADM1_NAME = "prov",
+                                            ADM2_NAME = "dist")
+
   # Format .country
   .country <- stringr::str_to_upper(stringr::str_trim(.country))
   # Check to make sure that all country passed in .country exists
-  ctry_check <- setdiff(.country, .raw.data$ctry.pop$ADM0_NAME)
+  ctry_check <- setdiff(.country, .raw.data$ctry.pop$ctry)
 
   if (length(ctry_check) > 0) {
     cli::cli_alert_warning("The following countries do not exist in global polio dataset: ")
@@ -92,16 +109,33 @@ extract_country_data <- function(.country, .raw.data = raw.data) {
 extract_country_data_single <- function(
     .country,
     .raw.data = raw.data) {
+
+  # Rename the columns in the pop datasets to be consistent with the rest of the code
+  .raw.data$ctry.pop <- dplyr::rename_with(.raw.data$ctry.pop, recode,
+                                           ADM0_NAME = "ctry")
+
+  .raw.data$prov.pop <- dplyr::rename_with(.raw.data$prov.pop, recode,
+                                           ADM0_NAME = "ctry",
+                                           ADM0_GUID = "adm0guid",
+                                           ADM1_NAME = "prov",
+                                           u15pop.prov = "u15pop")
+
+  .raw.data$dist.pop <- dplyr::rename_with(.raw.data$dist.pop, recode,
+                                           ADM0_NAME = "ctry",
+                                           ADM0_GUID = "adm0guid",
+                                           ADM1_NAME = "prov",
+                                           ADM2_NAME = "dist")
+
   .country <- stringr::str_to_upper(stringr::str_trim(.country))
-  if (!(.country %in% unique(.raw.data$ctry.pop$ADM0_NAME))) {
+  if (!(.country %in% unique(.raw.data$ctry.pop$ctry))) {
     stop("Invalid country name. Please try again.")
   }
 
   cli::cli_h1(paste0("--Processing country data for: ", stringr::str_to_title(.country), "--"))
   # Error checking for overlapping ADM0 Names
   ctry.matches <- .raw.data$ctry.pop |>
-    dplyr::filter(stringr::str_detect(ADM0_NAME, .country))
-  ctrys <- sort(unique(ctry.matches$ADM0_NAME)) |>
+    dplyr::filter(stringr::str_detect(ctry, .country))
+  ctrys <- sort(unique(ctry.matches$ctry)) |>
     stringr::str_to_title()
   if (length(ctrys) > 1) {
     message("Multiple countries match that name")
@@ -154,7 +188,7 @@ extract_country_data_single <- function(
   if (!is.null(.raw.data$global.ctry)) {
     cli::cli_process_start(paste0(steps, ") Subsetting country spatial data\n"))
     ctry.data$ctry <- .raw.data$global.ctry |>
-      dplyr::filter(stringr::str_detect(ADM0_NAME, .country))
+      dplyr::filter(stringr::str_detect(ctry, .country))
     ctry.data$ctry <- dplyr::filter(
       ctry.data$ctry,
       stringr::str_to_upper(ADM0_SOVRN) == stringr::str_to_upper(chosen.country)
@@ -426,40 +460,52 @@ extract_country_data_single <- function(
   cli::cli_process_start(paste0(steps, ") Prepping population data"))
 
   ctry.data$ctry.pop <- .raw.data$ctry.pop |>
-    dplyr::filter(ADM0_NAME == .country) |>
-    dplyr::select(year,
-                  ctry = ADM0_NAME,
-                  u15pop,
-                  adm0guid,
-                  datasource
-    )
+    dplyr::filter(ctry == .country) |>
+    dplyr::select(dplyr::any_of(
+      c(
+        "year",
+        "ctry",
+        "adm0guid",
+        "u5pop",
+        "u15pop",
+        "totpop",
+        "datasource"
+      )
+    ))
 
   ctry.data$prov.pop <- .raw.data$prov.pop |>
-    dplyr::filter(ADM0_NAME == .country) |>
-    dplyr::mutate(ADM0_NAME = .country) |>
-    dplyr::select(year,
-                  ctry = ADM0_NAME,
-                  prov = ADM1_NAME,
-                  u15pop = u15pop.prov,
-                  adm0guid = ADM0_GUID,
-                  adm1guid,
-                  datasource
-    )
+    dplyr::filter(ctry == .country) |>
+    dplyr::select(dplyr::any_of(
+      c(
+        "year",
+        "ctry",
+        "prov",
+        "adm0guid",
+        "adm1guid",
+        "u5pop",
+        "u15pop",
+        "totpop",
+        "datasource"
+      )
+    ))
 
   ctry.data$dist.pop <- .raw.data$dist.pop |>
-    dplyr::filter(ADM0_NAME == .country) |>
-    # filter(stringr::str_detect(ADM0_NAME, .country)) |>
-    dplyr::mutate(ADM0_NAME = .country) |>
-    dplyr::select(year,
-                  ctry = ADM0_NAME,
-                  prov = ADM1_NAME,
-                  dist = ADM2_NAME,
-                  u15pop,
-                  adm0guid = ADM0_GUID,
-                  adm1guid,
-                  adm2guid,
-                  datasource
-    )
+    dplyr::filter(ctry == .country) |>
+    dplyr::select(dplyr::any_of(
+      c(
+        "year",
+        "ctry",
+        "prov",
+        "dist",
+        "adm0guid",
+        "adm1guid",
+        "adm2guid",
+        "u5pop",
+        "u15pop",
+        "totpop",
+        "datasource"
+      )
+    ))
 
   cli::cli_process_done()
   steps <- steps + 1
