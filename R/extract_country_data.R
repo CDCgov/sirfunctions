@@ -188,7 +188,7 @@ extract_country_data_single <- function(
   if (!is.null(.raw.data$global.ctry)) {
     cli::cli_process_start(paste0(steps, ") Subsetting country spatial data\n"))
     ctry.data$ctry <- .raw.data$global.ctry |>
-      dplyr::filter(stringr::str_detect(ctry, .country))
+      dplyr::filter(stringr::str_detect(ADM0_NAME, .country))
     ctry.data$ctry <- dplyr::filter(
       ctry.data$ctry,
       stringr::str_to_upper(ADM0_SOVRN) == stringr::str_to_upper(chosen.country)
@@ -527,6 +527,7 @@ extract_country_data_single <- function(
   steps <- steps + 1
 
   cli::cli_process_start(paste0(steps, ") Attaching coverage data"))
+  no_errors <- TRUE
   tryCatch({
     ctry.data$ctry_coverage <- .raw.data$ctry.coverage |>
       dplyr::filter(GUID %in% unique(ctry.data$ctry.pop$adm0guid))
@@ -539,14 +540,17 @@ extract_country_data_single <- function(
                                " using an outdated version of get_all_polio_data()",
                                " when recreating the static files. ",
                                "Loading old coverage dataset."))
+    no_errors <- FALSE
   })
 
-  tryCatch({
-    ctry.data$coverage <- .raw.data$coverage |>
-      dplyr::filter(ctry %in% unique(ctry.data$ctry.pop$ctry))
-  }, error = \(e) {
-    cli::cli_alert_warning("Failed to attach coverage data.")
-  })
+  if (!no_errors) {
+    tryCatch({
+      ctry.data$coverage <- .raw.data$coverage |>
+        dplyr::filter(ctry %in% unique(ctry.data$ctry.pop$ctry))
+    }, error = \(e) {
+      cli::cli_alert_warning("Failed to attach coverage data.")
+    })
+  }
 
   cli::cli_process_done()
 
