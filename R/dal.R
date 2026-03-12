@@ -2670,6 +2670,8 @@ check_afp_geographies <- function(afp_data, pop_data, spatial_scale, fix_afp=FAL
                                  ADM1_NAME = "prov",
                                  ADM2_NAME = "dist",
                                  ADM0_GUID = "adm0guid",
+                                 ADM1_GUID = "adm1guid",
+                                 ADM2_GUID = "adm2guid",
                                  u15pop.prov = "u15pop"
   )
 
