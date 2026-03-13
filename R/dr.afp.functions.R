@@ -377,10 +377,11 @@ generate_afp_by_month_summary <- function(afp_data, start_date, end_date, by,
 
   if (!is.null(pop_data)) {
     pop_data <- dplyr::rename_with(pop_data, recode,
-      u15pop.prov = "u15pop",
-      ADM0_NAME = "ctry",
-      ADM1_NAME = "prov",
-      ADM2_NAME = "dist"
+                                 ADM0_NAME = "ctry",
+                                 ADM1_NAME = "prov",
+                                 ADM2_NAME = "dist",
+                                 ADM0_GUID = "adm0guid",
+                                 u15pop.prov = "u15pop"
     )
     pop_data <- pop_data |>
       dplyr::filter(dplyr::between(year, lubridate::year(start_date), lubridate::year(end_date)))
@@ -574,11 +575,11 @@ generate_int_data <- function(afp_data, pop_data, start_date, end_date,
     cdc.classification.all = "cdc.class"
   )
   pop_data <- dplyr::rename_with(pop_data, recode,
-    ADM0_NAME = "ctry",
-    ADM1_NAME = "prov",
-    ADM2_NAME = "dist",
-    ADM0_GUID = "adm0guid",
-    u15pop.prov = "u15pop"
+                                 ADM0_NAME = "ctry",
+                                 ADM1_NAME = "prov",
+                                 ADM2_NAME = "dist",
+                                 ADM0_GUID = "adm0guid",
+                                 u15pop.prov = "u15pop"
   )
 
   if (!"daysstooltolab" %in% names(afp_data)) {
