@@ -886,6 +886,11 @@ generate_c1_table <- function(raw_data, start_date, end_date,
     dplyr::mutate(dplyr::across(dplyr::ends_with("label"), \(x) tidyr::replace_na(x, "0/0"))) |>
     dplyr::rename(Region = whoregion)
 
+  # Manual edit to reflect Indonesia WPRO change in May 23, 2025
+  combine <- combine |>
+    dplyr::mutate(Region = ifelse(ctry == "INDONESIA" & 
+      analysis_year_start >= lubridate::as_date("2025-05-23"), "WPRO", Region))
+
   cli::cli_progress_update()
   cli::cli_progress_done()
 
@@ -1383,6 +1388,11 @@ generate_c2_table <- function(afp_data, pop_data, start_date, end_date,
     dplyr::select(-Region) |>
     dplyr::rename(Region = who.region) |>
     tidyr::replace_na(list(`SG Priority Level` = "LOW"))
+
+  # Manual edit to reflect Indonesia WPRO change in May 23, 2025
+  results <- results |>
+    dplyr::mutate(Region = ifelse(ctry == "INDONESIA" & 
+      analysis_year_start >= lubridate::as_date("2025-05-23"), "WPRO", Region))
 
   cli::cli_progress_done()
 
