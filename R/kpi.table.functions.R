@@ -158,6 +158,26 @@ generate_pos_timeliness <- function(raw_data, start_date, end_date,
   pos <- add_rolling_years(pos, start_date, end_date, "dateonset")
   pos <- add_seq_capacity(pos, ctry_col = "place.admin.0", lab_locs)
 
+  # Manual edit based on changes to the sequencing lab list in Feb 2025
+  # There is no collection date, so will use dateonset to classify
+  pos <- pos |>
+    mutate(seq.lab = case_when(
+    seq.lab == "CDC-Atlanta" & dateonset >= as_date("2025-02-01") & culture.itd.lab == "Cameroon" ~ "NICD-South Africa",
+    seq.lab == "CDC-Atlanta" & dateonset >= as_date("2025-02-01") & culture.itd.lab == "ETHIOPIA/ KEMRI-Kenya" ~ "UVRI-Uganda",
+    seq.lab == "CDC-Atlanta" & dateonset >= as_date("2025-02-01") & culture.itd.lab %in% c("Ibadan-Nigeria, Maiduguri-Nigeria", "Nigeria") ~ "Ibadan-Nigeria",
+    seq.lab == "CDC-Atlanta" & dateonset >= as_date("2025-02-01") & culture.itd.lab == "KEMRI-Kenya" ~ "UVRI-Uganda",
+    place.admin.0 == "UGANDA" & dateonset >= as_date("2025-02-01") ~ "UVRI-Uganda",
+    seq.lab == "CDC-Atlanta" & dateonset >= as_date("2025-02-01") & culture.itd.lab == "Senegal" ~ "NICD-South Africa",
+    seq.lab == "CDC-Atlanta" & dateonset >= as_date("2025-02-01") & culture.itd.lab == "Varied (KEMRI-Kenya/ Oman/ Jordan)" ~ "Varied (UVRI/ Oman/ Jordan)",
+    .default = seq.lab
+  )) |>
+  mutate(seq.cat = case_when(
+    dateonset >= as_date("2025-02-01") & culture.itd.lab %in% c("Ibadan-Nigeria, Maiduguri-Nigeria", "Nigeria") & seq.lab == "Ibadan-Nigeria" ~ "Not shipped for sequencing",
+    place.admin.0 == "UGANDA" & dateonset >= as_date("2025-02-01") ~ "Not shipped for sequencing",
+    .default = seq.cat
+  )) |>
+  mutate(seq.capacity = if_else(place.admin.0 %in% c("NIGERIA", "UGANDA") & dateonset >= as_date("2025-02-01"), "yes", seq.capacity))
+
   pos_summary <- pos |>
     dplyr::mutate(
       ontonothq = as.numeric(lubridate::as_date(.data$datenotificationtohq) -
