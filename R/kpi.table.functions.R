@@ -1014,7 +1014,7 @@ generate_c2_table <- function(afp_data, pop_data, start_date, end_date,
   pop_data <- dplyr::rename_with(pop_data, recode,
     ADM0_GUID = "adm0guid",
     u15pop.prov = "u15pop",
-    WHO_REGION = "who_region"
+    WHO_REGION = "who.region"
   )
   cli::cli_progress_update()
 
@@ -1375,13 +1375,13 @@ generate_c2_table <- function(afp_data, pop_data, start_date, end_date,
 
   # Add region and risk levels
   region_lookup_table <- pop_data |>
-    dplyr::select(dplyr::any_of(c("ctry", "prov", "dist", "who_region"))) |>
+    dplyr::select(dplyr::any_of(c("ctry", "prov", "dist", "who.region"))) |>
     dplyr::distinct()
 
   results <- add_risk_category(results, risk_table) |>
     dplyr::left_join(region_lookup_table) |>
     dplyr::select(-Region) |>
-    dplyr::rename(Region = who_region) |>
+    dplyr::rename(Region = who.region) |>
     tidyr::replace_na(list(`SG Priority Level` = "LOW"))
 
   cli::cli_progress_done()
