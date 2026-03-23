@@ -196,7 +196,7 @@ get_ctry_abbrev <- function(afp_data) {
         .data$whoregion != "AFRO" ~ .data$country.iso3
       )
     ) |>
-    dplyr::select("ctry.short", "place.admin.0", "whoregion") |>
+    dplyr::select("ctry.short", "place.admin.0") |>
     # fixing bad abbreviation in Gabon and turning all to upper case to eliminate dupes
     dplyr::mutate(
       ctry.short = ifelse(.data$place.admin.0 == "GABON" & .data$ctry.short == "BUU",
@@ -224,6 +224,9 @@ get_ctry_abbrev <- function(afp_data) {
       ctry.short == "IND" & place.admin.0 == "INDONESIA" ~ "IDN",
       .default = ctry.short
     ))
+  
+  ctry_abbrev <- ctry_abbrev |>
+    dplyr::mutate(whoregion = get_region(place.admin.0))
 
   summarize_ctry_abbrev <- ctry_abbrev |>
     dplyr::group_by(place.admin.0) |>
