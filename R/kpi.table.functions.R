@@ -718,7 +718,7 @@ generate_c1_table <- function(raw_data, start_date, end_date,
 
   # Calculate meeting indicators
   dist_lookup_table <- raw_data$dist.pop |>
-    dplyr::select(ctry = ADM0_NAME, prov = ADM1_NAME, dist = ADM2_NAME, adm2guid) |>
+    dplyr::select(ctry, prov, dist, adm2guid) |>
     dplyr::distinct()
 
   # Flag any inconsistent GUIDs to say any calculations are invalid
@@ -1012,9 +1012,6 @@ generate_c2_table <- function(afp_data, pop_data, start_date, end_date,
     cdc.classification.all = "cdc.class"
   )
   pop_data <- dplyr::rename_with(pop_data, recode,
-    ADM0_NAME = "ctry",
-    ADM1_NAME = "prov",
-    ADM2_NAME = "dist",
     ADM0_GUID = "adm0guid",
     u15pop.prov = "u15pop",
     WHO_REGION = "who_region"
