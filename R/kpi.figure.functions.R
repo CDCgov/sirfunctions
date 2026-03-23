@@ -529,8 +529,11 @@ generate_kpi_npafp_bar <- function(c1, afp_data,
   ctry_abbrev <- get_ctry_abbrev(afp_data)
   priority_ctry <- c1 |>
     dplyr::left_join(ctry_abbrev,
-                     by = c("ctry" = "place.admin.0", "Region" = "whoregion")) |>
+                     by = c("ctry" = "place.admin.0")) |>
     dplyr::filter(.data$`SG Priority Level` == "HIGH") |>
+    # Remove whoregion from ctry_abbrev and use Region since 
+    # c1 already accounts for Indonesia change and it's not used here
+    dplyr::select(-whoregion) |>
     dplyr::mutate(prop_met_npafp = .data$prop_met_npafp)
 
   bar_plot <- generate_kpi_barchart(priority_ctry,
@@ -587,7 +590,10 @@ generate_kpi_evdetect_bar <- function(c1, afp_data,
   ctry_abbrev <- get_ctry_abbrev(afp_data)
   priority_ctry <- c1 |>
     dplyr::left_join(ctry_abbrev,
-                     by = c("ctry" = "place.admin.0", "Region" = "whoregion")) |>
+                     by = c("ctry" = "place.admin.0")) |>
+    # Remove whoregion from ctry_abbrev and use Region since 
+    # c1 already accounts for Indonesia change and it's not used here
+    dplyr::select(-whoregion) |>
     dplyr::mutate(prop_met_ev = .data$prop_met_ev)
 
   if (!is.null(who_region)) {
@@ -635,7 +641,10 @@ generate_kpi_stoolad_bar <- function(c1, afp_data,
   ctry_abbrev <- get_ctry_abbrev(afp_data)
   priority_ctry <- c1 |>
     dplyr::left_join(ctry_abbrev,
-                     by = c("ctry" = "place.admin.0", "Region" = "whoregion")) |>
+                     by = c("ctry" = "place.admin.0")) |>
+    # Remove whoregion from ctry_abbrev and use Region since 
+    # c1 already accounts for Indonesia change and it's not used here
+    dplyr::select(-whoregion) |>
     dplyr::filter(.data$`SG Priority Level` == "HIGH") |>
     dplyr::mutate(prop_met_stool = .data$prop_met_stool)
 
@@ -932,6 +941,9 @@ generate_timely_ship_violin <- function(afp_data,
   afp_filtered <- afp_data |>
     dplyr::filter(.data$`SG Priority Level` %in% priority_level,
                   .data$whoregion %in% who_region) |>
+    dplyr::mutate(whoregion = get_region(place.admin.0)) |>
+    # Remove other who region columns because it's confusing
+    dplyr::select(-dplyr::any_of(c("who.region", "Region"))) |>
     dplyr::left_join(ctry_abbrev,
                      by = c("ctry" = "place.admin.0", "whoregion")) |>
     dplyr::mutate(
@@ -1053,6 +1065,9 @@ generate_lab_culture_violin <- function(lab_data, afp_data,
   lab_filtered <- lab_data |> dplyr::left_join(ctry_abbrev,
                                            by = c("country" = "place.admin.0",
                                                   "whoregion")) |>
+    dplyr::mutate(whoregion = get_region(country)) |>
+    # Remove other who region columns because it's confusing
+    dplyr::select(-dplyr::any_of(c("who.region", "Region"))) |>
     add_risk_category(ctry_col = "country") |>
     dplyr::mutate(
       year = lubridate::year(.data$DateStoolCollected)
@@ -1139,6 +1154,9 @@ generate_lab_itd_violin <- function(lab_data, afp_data,
   lab_filtered <- lab_data |> dplyr::left_join(ctry_abbrev,
                                                by = c("country" = "place.admin.0",
                                                       "whoregion")) |>
+    dplyr::mutate(whoregion = get_region(country)) |>
+    # Remove other who region columns because it's confusing
+    dplyr::select(-dplyr::any_of(c("who.region", "Region"))) |>
     add_risk_category(ctry_col = "country") |>
     dplyr::mutate(
       year = lubridate::year(.data$DateStoolCollected)
@@ -1225,6 +1243,9 @@ generate_lab_seqship_violin <- function(lab_data, afp_data,
   lab_filtered <- lab_data |> dplyr::left_join(ctry_abbrev,
                                                by = c("country" = "place.admin.0",
                                                       "whoregion")) |>
+    dplyr::mutate(whoregion = get_region(country)) |>
+    # Remove other who region columns because it's confusing
+    dplyr::select(-dplyr::any_of(c("who.region", "Region"))) |>
     add_risk_category(ctry_col = "country") |>
     dplyr::mutate(
       year = lubridate::year(.data$DateStoolCollected)
@@ -1312,6 +1333,9 @@ generate_lab_seqres_violin <- function(lab_data, afp_data,
   lab_filtered <- lab_data |> dplyr::left_join(ctry_abbrev,
                                                by = c("country" = "place.admin.0",
                                                       "whoregion")) |>
+    dplyr::mutate(whoregion = get_region(country)) |>
+    # Remove other who region columns because it's confusing
+    dplyr::select(-dplyr::any_of(c("who.region", "Region"))) |>
     add_risk_category(ctry_col = "country") |>
     dplyr::mutate(
       year = lubridate::year(.data$DateStoolCollected)
@@ -1425,6 +1449,9 @@ generate_lab_itdres_seqres_violin <- function(lab_data, afp_data,
   lab_filtered <- lab_data |> dplyr::left_join(ctry_abbrev,
                                                by = c("country" = "place.admin.0",
                                                       "whoregion")) |>
+    dplyr::mutate(whoregion = get_region(country)) |>
+    # Remove other who region columns because it's confusing
+    dplyr::select(-dplyr::any_of(c("who.region", "Region"))) |>
     add_risk_category(ctry_col = "country") |>
     dplyr::mutate(
       year = lubridate::year(.data$DateStoolCollected)
