@@ -11,6 +11,8 @@ generate_timely_det_violin(
   priority_level = c("HIGH", "MEDIUM", "LOW (WATCHLIST)", "LOW"),
   who_region = NULL,
   rolling = TRUE,
+  risk_table = NULL,
+  lab_locs = NULL,
   output_path = Sys.getenv("KPI_FIGURES"),
   y_max = 250
 )
@@ -29,6 +31,13 @@ generate_timely_det_violin(
 all of the regions.}
 
 \item{rolling}{\code{logical} Using rolling periods or year-to-year? Defaults to \code{TRUE}.}
+
+\item{risk_table}{\code{tibble} Priority level of each country. Defaults to \code{NULL},
+which will download the information directly from EDAV.}
+
+\item{lab_locs}{\code{tibble} Summary of the sequencing capacities of labs.
+Output of \code{\link[=get_lab_locs]{get_lab_locs()}}. Defaults to \code{NULL}, which will download the information
+directly from EDAV.}
 
 \item{output_path}{\code{str} Where to output the figure to.}
 

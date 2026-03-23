@@ -736,6 +736,11 @@ generate_kpi_violin <- function(
 #' @param rolling `logical` Using rolling periods or year-to-year? Defaults to `TRUE`.
 #' @param who_region `list` Regions to display. Defaults to `NULL`, which shows
 #' all of the regions.
+#' @param risk_table `tibble` Priority level of each country. Defaults to `NULL`,
+#' which will download the information directly from EDAV.
+#' @param lab_locs `tibble` Summary of the sequencing capacities of labs.
+#' Output of [get_lab_locs()]. Defaults to `NULL`, which will download the information
+#' directly from EDAV.
 #' @param output_path `str` Where to output the figure to.
 #' @param y_max `num` The maximum y-axis value.
 #'
@@ -752,12 +757,14 @@ generate_timely_det_violin <- function(raw_data,
                                        priority_level = c("HIGH", "MEDIUM", "LOW (WATCHLIST)", "LOW"),
                                        who_region = NULL,
                                        rolling = TRUE,
+                                       risk_table = NULL, 
+                                       lab_locs = NULL,
                                        output_path = Sys.getenv("KPI_FIGURES"),
                                        y_max = 250) {
 
   start_date <- lubridate::as_date(start_date)
   end_date <- lubridate::as_date(end_date)
-  pos <- generate_pos_timeliness(raw_data, start_date, end_date)
+  pos <- generate_pos_timeliness(raw_data, start_date, end_date, risk_table, lab_locs)
   ctry_abbrev <- get_ctry_abbrev(raw_data$afp)
   color.risk.cat <- c(
     "HIGH" = "#d73027",
