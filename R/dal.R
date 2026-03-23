@@ -903,14 +903,14 @@ normalize_format <- function(fmt) {
 #' @description Download POLIS data from the CDC pre-processed endpoint. By default
 #' this function will return a "small" or recent dataset. This is primarily for data
 #' that is from the past six years. You can specify a "medium" sized dataset for data
-#' that is from the past nine years. Finally the "large" sized dataset will provide information
+#' that is from 2016 onwards. Finally the "large" sized dataset will provide information
 #' from 2000 onwards. Regular pulls form the data will recreate the "small" dataset
 #' when new information is available and the Data Management Team can force the
 #' creation of the "medium" and "large" static datasets as necessary.
 #'
 #' @param size `str` Size of data to download. Defaults to `"small"`.
 #' - `"small"`: Data from the last six years.
-#' - `"medium"`: Data from the last nine years.
+#' - `"medium"`: Data from 2016-present.
 #' - `"large"`: Data from 2000-present.
 #' @param data_folder `str` Location of the data folder containing pre-processed POLIS data,
 #' spatial files, coverage data, and population data. Defaults to `"GID/PEB/SIR/Data"`.
@@ -1000,7 +1000,7 @@ pop_folder <- file.path(data_folder, "pop")
 # Year cutoffs for the different datasets
 current_year <- lubridate::year(Sys.Date())
 small_year <- current_year - 5
-med_year <- current_year - 8
+med_year <- 2016 #hardcode to 2016 because it's an important point in time
 
 # Required files
 raw_data_recent_name <- paste0("raw.data.recent", output_format)
@@ -2503,7 +2503,7 @@ f.yrs.01 <- function(df, yrs) {
 #' @param raw.data.small.pull `list` A list of data objects to be concatenated. This is
 #' the 'small' dataset, which consists of data from the past 6 years.
 #' @param raw.data.medium.pull `list` A list of data objects to be concatenated. This is
-#' the 'small' dataset, which consists of data from the past 9 years.
+#' the 'small' dataset, which consists of data since 2016.
 #' @param raw.data.large.pull `list` A list of data objects to be concatenated. This is
 #' the 'small' dataset, which consists of data since 2000.
 #' @returns `list` A list of lists or a single concatenated list.
