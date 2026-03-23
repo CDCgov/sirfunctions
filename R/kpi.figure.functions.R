@@ -781,10 +781,18 @@ generate_timely_det_violin <- function(raw_data,
   }
 
   pos_filtered <- pos |>
+    dplyr::mutate(whoregion = get_region(place.admin.0)) |>
+    # Remove other who region columns because it's confusing
+    dplyr::select(-dplyr::any_of(c("who.region", "Region"))) |>
     dplyr::filter(.data$`SG Priority Level` %in% priority_level,
                   .data$whoregion %in% who_region) |>
     dplyr::left_join(ctry_abbrev,
                      by = c("place.admin.0", "whoregion")) |>
+    # Manually change the region of Indonesia based on change
+    # since get_region() defaults to WPRO now, we have to do the opposite
+    # to assign Indonesia samples to SEARO prior to May 23, 2025
+    dplyr::mutate(whoregion = ifelse(place.admin.0 == "INDONESIA" & 
+      analysis_year_start < lubridate::as_date("2025-05-23"), "SEARO", whoregion)) |>
     dplyr::mutate(seq_lab = case_when(
       .data$seq.capacity == "no" ~ "No sequencing capacity",
       .data$seq.capacity == "yes" ~ "Sequencing capacity"
@@ -796,12 +804,12 @@ generate_timely_det_violin <- function(raw_data,
     )
 
   if (rolling) {
-    facets <- ggh4x::facet_nested(rolling_period~seq_lab+who.region,
+    facets <- ggh4x::facet_nested(rolling_period~seq_lab+whoregion,
                                     scales = "free", space = "free",
                                     labeller = ggplot2::label_wrap_gen(13),
                                     switch = "y")
   } else {
-    facets <- ggh4x::facet_nested(year~seq_lab+who.region,
+    facets <- ggh4x::facet_nested(year~seq_lab+whoregion,
                                     scales = "free", space = "free",
                                     labeller = ggplot2::label_wrap_gen(13),
                                     switch = "y")
