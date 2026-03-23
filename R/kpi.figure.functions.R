@@ -1072,6 +1072,9 @@ generate_lab_culture_violin <- function(lab_data, afp_data,
     dplyr::mutate(
       year = lubridate::year(.data$DateStoolCollected)
     ) |>
+    # Filter out "incorrect" lab data where the date onset doesn't match
+    # the stool collection date
+    dplyr::filter(dplyr::between(DateStoolCollected, analysis_year_start, analysis_year_end)) |>
     dplyr::filter(.data$`SG Priority Level` %in% priority_level,
                   !is.na(.data$culture.itd.cat),
                   dplyr::between(DateStoolCollected, start_date, end_date)) |>
@@ -1158,6 +1161,9 @@ generate_lab_itd_violin <- function(lab_data, afp_data,
     # Remove other who region columns because it's confusing
     dplyr::select(-dplyr::any_of(c("who.region", "Region"))) |>
     add_risk_category(ctry_col = "country") |>
+    # Filter out "incorrect" lab data where the date onset doesn't match
+    # the stool collection date
+    dplyr::filter(dplyr::between(DateStoolCollected, analysis_year_start, analysis_year_end)) |>
     dplyr::mutate(
       year = lubridate::year(.data$DateStoolCollected)
     ) |>
@@ -1247,6 +1253,9 @@ generate_lab_seqship_violin <- function(lab_data, afp_data,
     # Remove other who region columns because it's confusing
     dplyr::select(-dplyr::any_of(c("who.region", "Region"))) |>
     add_risk_category(ctry_col = "country") |>
+    # Filter out "incorrect" lab data where the date onset doesn't match
+    # the stool collection date
+    dplyr::filter(dplyr::between(DateStoolCollected, analysis_year_start, analysis_year_end)) |>
     dplyr::mutate(
       year = lubridate::year(.data$DateStoolCollected)
     ) |>
@@ -1337,6 +1346,9 @@ generate_lab_seqres_violin <- function(lab_data, afp_data,
     # Remove other who region columns because it's confusing
     dplyr::select(-dplyr::any_of(c("who.region", "Region"))) |>
     add_risk_category(ctry_col = "country") |>
+    # Filter out "incorrect" lab data where the date onset doesn't match
+    # the stool collection date
+    dplyr::filter(dplyr::between(DateStoolCollected, analysis_year_start, analysis_year_end)) |>
     dplyr::mutate(
       year = lubridate::year(.data$DateStoolCollected)
     ) |>
@@ -1453,6 +1465,9 @@ generate_lab_itdres_seqres_violin <- function(lab_data, afp_data,
     # Remove other who region columns because it's confusing
     dplyr::select(-dplyr::any_of(c("who.region", "Region"))) |>
     add_risk_category(ctry_col = "country") |>
+    # Filter out "incorrect" lab data where the date onset doesn't match
+    # the stool collection date
+    dplyr::filter(dplyr::between(DateStoolCollected, analysis_year_start, analysis_year_end)) |>
     dplyr::mutate(
       year = lubridate::year(.data$DateStoolCollected)
     ) |>
