@@ -700,7 +700,8 @@ get_lab_locs <- function(lab_locs_path = NULL, use_edav = TRUE) {
       country == "OCCUPIED PALESTINIAN TERRITORY, INCLUDING EAST JERUSALEM" ~ "Jordan",
       seq.lab %in% c("-", NA) ~ "Unknown",
       .default = seq.lab
-    ))
+    )) |>
+    dplyr::mutate(seq.capacity = tolower(seq.capacity))
 
 
   return(lab.locs.edited)
