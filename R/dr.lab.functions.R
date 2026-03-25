@@ -469,7 +469,7 @@ clean_lab_data_regional <- function(lab_data,
       )), \(x) as.Date.character(x,
         tryFormats = c(
           "%Y-%m-%d",
-          "%Y/%m%/%d",
+          "%Y/%m/%d",
           "%m/%d/%Y"
         ),
         optional = T
