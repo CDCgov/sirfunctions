@@ -1167,7 +1167,7 @@ lab_data_errors_who <- function(lab.data, afp.data,
 #' @returns `tibble` Cleaned lab data.
 #' @examples
 #' \dontrun{
-#' lab_path <- "C:/Users/XRG9/lab_data_who.csv"
+#' lab_path <- "C:/Users/abc1/lab_data_who.csv"
 #' ctry.data <- init_dr("algeria", lab_data_path = lab_path)
 #' ctry.data$lab_data <- clean_lab_data(ctry.data, "2021-01-01", "2023-12-31")
 #'
