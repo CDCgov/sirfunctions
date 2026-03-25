@@ -1214,7 +1214,7 @@ clean_lab_data <- function(lab_data, start_date, end_date,
   }
 
   # Add lab cleaning step to correct lab data
-  lab_data <- lab_data |>
+  lab_data_man <- lab_data |>
   mutate(seq.lab = case_when(
     seq.lab == "CDC-Atlanta" & DateStoolCollected >= as_date("2025-02-01") & culture.itd.lab == "Cameroon" ~ "NICD-South Africa",
     seq.lab == "CDC-Atlanta" & DateStoolCollected >= as_date("2025-02-01") & culture.itd.lab == "ETHIOPIA/ KEMRI-Kenya" ~ "UVRI-Uganda",
@@ -1230,7 +1230,7 @@ clean_lab_data <- function(lab_data, start_date, end_date,
     country == "UGANDA" & DateStoolCollected >= as_date("2025-02-01") ~ "Not shipped for sequencing",
     .default = seq.cat
   )) |>
-  mutate(seq.capacity = if_else(country %in% c("NIGERIA", "UGANDA") & DateStoolCollected >= as_date("2025-02-01"), "yes", seq.capacity))
+  mutate(seq.capacity = if_else(country %in% c("NIGERIA", "UGANDA") & DateStoolCollected >= as_date("2025-02-01"), "Sequencing capacity", seq.capacity))
 
   return(lab_data)
 }
