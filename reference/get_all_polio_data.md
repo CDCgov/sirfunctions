@@ -3,9 +3,9 @@
 Download POLIS data from the CDC pre-processed endpoint. By default this
 function will return a "small" or recent dataset. This is primarily for
 data that is from the past six years. You can specify a "medium" sized
-dataset for data that is from the past nine years. Finally the "large"
-sized dataset will provide information from 2000 onwards. Regular pulls
-form the data will recreate the "small" dataset when new information is
+dataset for data that is from 2016 onwards. Finally the "large" sized
+dataset will provide information from 2000 onwards. Regular pulls form
+the data will recreate the "small" dataset when new information is
 available and the Data Management Team can force the creation of the
 "medium" and "large" static datasets as necessary.
 
@@ -37,7 +37,7 @@ get_all_polio_data(
 
   - `"small"`: Data from the last six years.
 
-  - `"medium"`: Data from the last nine years.
+  - `"medium"`: Data from 2016-present.
 
   - `"large"`: Data from 2000-present.
 

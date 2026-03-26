@@ -37,7 +37,7 @@ split_concat_raw_data(
 - raw.data.medium.pull:
 
   `list` A list of data objects to be concatenated. This is the 'small'
-  dataset, which consists of data from the past 9 years.
+  dataset, which consists of data since 2016.
 
 - raw.data.large.pull:
 
