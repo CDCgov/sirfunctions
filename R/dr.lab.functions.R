@@ -469,7 +469,7 @@ clean_lab_data_regional <- function(lab_data,
       )), \(x) as.Date.character(x,
         tryFormats = c(
           "%Y-%m-%d",
-          "%Y/%m%/%d",
+          "%Y/%m/%d",
           "%m/%d/%Y"
         ),
         optional = T
@@ -684,6 +684,7 @@ get_lab_locs <- function(lab_locs_path = NULL, use_edav = TRUE) {
   # Manual corrections
   lab.locs.edited <- lab.locs |>
     dplyr::filter(!is.na(country)) |>
+    dplyr::mutate(seq.capacity = stringr::str_to_lower(seq.capacity)) |>
     dplyr::mutate(`wgs.lab*` = stringr::str_replace_all(`wgs.lab*`, "- ", "-"),
                   seq.lab = stringr::str_replace_all(seq.lab, "- ", "-"),
                   culture.itd.lab = stringr::str_replace_all(culture.itd.lab, "- ", "-")) |>
@@ -1166,7 +1167,7 @@ lab_data_errors_who <- function(lab.data, afp.data,
 #' @returns `tibble` Cleaned lab data.
 #' @examples
 #' \dontrun{
-#' lab_path <- "C:/Users/XRG9/lab_data_who.csv"
+#' lab_path <- "C:/Users/abc1/lab_data_who.csv"
 #' ctry.data <- init_dr("algeria", lab_data_path = lab_path)
 #' ctry.data$lab_data <- clean_lab_data(ctry.data, "2021-01-01", "2023-12-31")
 #'
@@ -1211,6 +1212,25 @@ clean_lab_data <- function(lab_data, start_date, end_date,
                                         afp_data, ctry_name, lab_locs_path, use_edav)
     lab_data <- add_rolling_years(lab_data, start_date, end_date, "CaseDate")
   }
+
+  # Add lab cleaning step to correct lab data
+  lab_data_man <- lab_data |>
+  mutate(seq.lab = case_when(
+    seq.lab == "CDC-Atlanta" & DateStoolCollected >= as_date("2025-02-01") & culture.itd.lab == "Cameroon" ~ "NICD-South Africa",
+    seq.lab == "CDC-Atlanta" & DateStoolCollected >= as_date("2025-02-01") & culture.itd.lab == "ETHIOPIA/ KEMRI-Kenya" ~ "UVRI-Uganda",
+    seq.lab == "CDC-Atlanta" & DateStoolCollected >= as_date("2025-02-01") & culture.itd.lab %in% c("Ibadan-Nigeria, Maiduguri-Nigeria", "Nigeria") ~ "Ibadan-Nigeria",
+    seq.lab == "CDC-Atlanta" & DateStoolCollected >= as_date("2025-02-01") & culture.itd.lab == "KEMRI-Kenya" ~ "UVRI-Uganda",
+    country == "UGANDA" & DateStoolCollected >= as_date("2025-02-01") ~ "UVRI-Uganda",
+    seq.lab == "CDC-Atlanta" & DateStoolCollected >= as_date("2025-02-01") & culture.itd.lab == "Senegal" ~ "NICD-South Africa",
+    seq.lab == "CDC-Atlanta" & DateStoolCollected >= as_date("2025-02-01") & culture.itd.lab == "Varied (KEMRI-Kenya/ Oman/ Jordan)" ~ "Varied (UVRI/ Oman/ Jordan)",
+    .default = seq.lab
+  )) |>
+  mutate(seq.cat = case_when(
+    DateStoolCollected >= as_date("2025-02-01") & culture.itd.lab %in% c("Ibadan-Nigeria, Maiduguri-Nigeria", "Nigeria") & seq.lab == "Ibadan-Nigeria" ~ "Not shipped for sequencing",
+    country == "UGANDA" & DateStoolCollected >= as_date("2025-02-01") ~ "Not shipped for sequencing",
+    .default = seq.cat
+  )) |>
+  mutate(seq.capacity = if_else(country %in% c("NIGERIA", "UGANDA") & DateStoolCollected >= as_date("2025-02-01"), "Sequencing capacity", seq.capacity))
 
   return(lab_data)
 }
