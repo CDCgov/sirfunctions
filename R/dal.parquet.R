@@ -97,6 +97,7 @@ create_raw_data_parquet <- function(raw_data, path) {
 build_parquet_raw_data <- function(
   path = NULL,
   from_edav = F,
+  dataset = "all",
   container = NULL
 ) {
   if (from_edav) {
@@ -108,9 +109,9 @@ build_parquet_raw_data <- function(
       container <- get_azure_storage_connection()
     }
 
-    raw_data <- build_parquet_raw_data_edav(path, container)
+    raw_data <- build_parquet_raw_data_edav(path, dataset, container)
   } else {
-    raw_data <- build_parquet_raw_data_local(path)
+    raw_data <- build_parquet_raw_data_local(path, dataset)
   }
 
   return(raw_data)
@@ -225,12 +226,13 @@ get_partition_cols <- function(name) {
 #' Build raw_data using local parquet files
 #'
 #' @param path `str` A path to the parquet directory
+#' @param dataset `str` A specific dataset. Defaults to `"all"`. Otherwise, can specify any dataset in the list returned by [get_all_polio_data()]. 
 #'
 #' @returns `list` A list containing connections to the folders associated with
 #' individual datasets in the original output of [get_all_polio_data()].
 #' @keywords internal
 #'
-build_parquet_raw_data_local <- function(path = NULL) {
+build_parquet_raw_data_local <- function(path = NULL, dataset = "all") {
   if (!dir.exists(path)) {
     cli::cli_abort("Not a valid directory.")
   }
@@ -262,7 +264,11 @@ build_parquet_raw_data_local <- function(path = NULL) {
     "metadata"
   )
   data <- list.files(path)
-  data <- intersect(data, valid_values)
+  if (dataset == "all") {
+    data <- intersect(data, valid_values)
+  } else {
+    data <- intersect(data, dataset)
+  }
 
   raw_data <- list()
   for (i in data) {
@@ -276,6 +282,7 @@ build_parquet_raw_data_local <- function(path = NULL) {
 #'
 #' @param path `str` Path to EDAV folder containing parquet files. This must
 #' be the absolute file path from the Blob endpoint of the container.
+#' @param dataset `str` A specific dataset. Defaults to `"all"`. Otherwise, can specify any dataset in the list returned by [get_all_polio_data()]. 
 #' @param container `azcontainer` An instance of an Azure container to connect
 #' to. Pass [get_azure_storage_connection()] using defaults if not accessing
 #' using a service principal.
@@ -284,7 +291,7 @@ build_parquet_raw_data_local <- function(path = NULL) {
 #' individual datasets in the original output of [get_all_polio_data()].
 #' @keywords internal
 #'
-build_parquet_raw_data_edav <- function(path = NULL, container = NULL, ...) {
+build_parquet_raw_data_edav <- function(path = NULL, dataset = "all", container = NULL) {
   if (is.null(container)) {
     container <- get_azure_storage_connection()
   }
@@ -301,19 +308,30 @@ build_parquet_raw_data_edav <- function(path = NULL, container = NULL, ...) {
 
   raw_data <- NULL
 
+  if (dataset == "all") {
+    source_path <- paste0(path, "raw_data_parquet/*")
+  } else {
+    source_path <- paste0(file.path(path, "raw_data_parquet", dataset), "/*")
+  }
+
   local_pq <- file.path(rappdirs::user_data_dir("sirfunctions"), basename(path))
   AzureStor::storage_multidownload(
     container,
-    src = paste0(path, "/*"),
+    src = source_path,
     dest = local_pq,
     recursive = TRUE,
     overwrite = TRUE
   )
 
-  raw_data <- build_parquet_raw_data_local(local_pq)
+  raw_data <- build_parquet_raw_data_local(local_pq, dataset)
   cli::cli_process_done()
+  
+  if (length(raw_data) == 1) {
+    return(raw_data[[1]])
+  } else {
+    return(raw_data)
+  }
 
-  return(raw_data)
 }
 
 #' Drop Shape column and convert to binary

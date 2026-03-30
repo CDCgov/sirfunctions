@@ -4,7 +4,7 @@
 \alias{build_parquet_raw_data_edav}
 \title{Build raw_data using EDAV files}
 \usage{
-build_parquet_raw_data_edav(path = NULL, container = NULL, ...)
+build_parquet_raw_data_edav(path = NULL, container = NULL, dataset = "all")
 }
 \arguments{
 \item{path}{\code{str} Path to EDAV folder containing parquet files. This must

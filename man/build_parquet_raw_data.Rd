@@ -4,7 +4,12 @@
 \alias{build_parquet_raw_data}
 \title{Recreate raw data from local parquet folder}
 \usage{
-build_parquet_raw_data(path = NULL, from_edav = F, container = NULL)
+build_parquet_raw_data(
+  path = NULL,
+  from_edav = F,
+  dataset = "all",
+  container = NULL
+)
 }
 \arguments{
 \item{path}{\code{str} Local path to the parquet folder}

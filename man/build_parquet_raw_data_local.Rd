@@ -4,7 +4,7 @@
 \alias{build_parquet_raw_data_local}
 \title{Build raw_data using local parquet files}
 \usage{
-build_parquet_raw_data_local(path = NULL)
+build_parquet_raw_data_local(path = NULL, dataset = "all")
 }
 \arguments{
 \item{path}{\code{str} A path to the parquet directory}
