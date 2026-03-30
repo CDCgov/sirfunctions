@@ -61,6 +61,7 @@ create_raw_data_parquet <- function(raw_data, path){
 
 #' Recreate raw data from local parquet folder
 #'
+#' @description
 #' Recreates an output of [get_all_polio_data()] from a folder housing
 #' data in parquet format.
 #'
@@ -69,6 +70,9 @@ create_raw_data_parquet <- function(raw_data, path){
 #' @param container `azcontainer` An instance of an Azure container to connect
 #' to. Pass [get_azure_storage_connection()] using defaults if not accessing
 #' using a service principal.
+#' 
+#' @details
+#' For tibbles with Shapes, pass to [from_wkb_to_sf()] first before creating maps.
 #'
 #' @returns `list` A list containing connections to the folders associated with
 #' individual datasets in the original output of [get_all_polio_data()].
@@ -274,28 +278,66 @@ build_parquet_raw_data_edav <- function(path = NULL, container = NULL, ...) {
 #' Drop Shape column and convert to binary
 #'
 #' @param x `sf` or `data.frame` Geodata.
-#' @param geom_col `str` Name of the geometry column.
-#'
-#' @returns `tibble` Data without any Shape column.
+#' 
+#' @details
+#' This function was written using the CDC EDAV Chatbot using the model GPT-5.2.
+#' @returns `tibble` dData without any Shape column.
 #'
 #' @keywords internal
 #' 
-to_wkb_drop_sf <- function(x, geom_col) {
-  # Works whether x is sf or a plain data.frame with an sfc column
-  geom <- if (inherits(x, "sf")) {
-    sf::st_geometry(x)
+to_wkb_drop_sf <- function(sf_data) {
+
+  if ("Shape" %in% names(sf_data)) {
+    geom_col <- "Shape"
+  } else if ("geometry" %in% names(sf_data)) {
+    geom_col <- "geometry"
   } else {
-    x[[geom_col]]
+    cli::cli_abort("Not an sf dataset.")
+  }
+
+  # Works whether x is sf or a plain data.frame with an sfc column
+  geom <- if (inherits(sf_data, "sf")) {
+    sf::st_geometry(sf_data)
+  } else {
+    sf_data[[geom_col]]
   } 
 
   # Convert to WKB (list of raw vectors), then drop the "WKB" class
   wkb <- sf::st_as_binary(geom)
   wkb <- unclass(wkb)   # <- key line: makes it a plain list Arrow can infer
 
-  x[[paste0(geom_col, "_wkb")]] <- wkb
-  x[[geom_col]] <- NULL
-  if (inherits(x, "sf")) {
-     x <- sf::st_drop_geometry(x)
+  sf_data[[geom_col]] <- wkb
+  if (inherits(sf_data, "sf")) {
+     sf_data <- sf::st_drop_geometry(sf_data)
   }
-  return(x)
+  return(sf_data)
+}
+
+#' Convert WKB back to sf column
+#'
+#' @param sf_data `arrow connection` Geodata arrow connection.
+#'
+#' @returns `tibble` Geodata with `sf`.
+#'
+#' @export
+from_wkb_to_sf <- function(sf_data) {
+
+
+  # Ensure that global shapefiles have Shape and city/roads as geometry. 
+  # Otherwise, need to modify this function.
+  if ("Shape" %in% names(sf_data)) {
+    wkb_col <- "Shape"
+  } else if ("geometry" %in% names(sf_data)) {
+    wkb_col <- "geometry"
+  } else {
+    cli::cli_abort("Not an sf dataset.")
+  }
+
+  sf_data |>
+    dplyr::mutate(dplyr::across(dplyr::any_of(wkb_col), \(x) {
+      sf::st_as_sf(x, EWKB = TRUE, crs = 4326)
+    }))
+  
+  return(sf_data)
+
 }
