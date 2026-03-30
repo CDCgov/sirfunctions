@@ -1,0 +1,249 @@
+
+#' Create super regions from subsets of consequential geographies
+#'
+#' @description
+#' Create a shapefile containing super regions of consequential geographies.
+#'
+#'
+#' @param cg `tibble` Table containing data about existing CGs, the dataset
+#' is expected to contain the following headers of the following datatypes:
+#' - `type`: `str` Consequential geographies must have a type of `"cg"`. All other
+#' can be `NA`.
+#' - `label`: `str` Geographic grouping (i.e., "Lake Chad"). Can be a country or a
+#' subset of a country (i.e., "Northern Yemen"). This column will be used to group
+#' the consequential geographies for creating super regions.
+#' - `ctry`: `str` Name of the country.
+#' - `prov`: `str` Name of the province.
+#' - `dist`: `str` Name of the district.
+#' - `adm_level`: `str` Name of the administrative level. Must be one of `NA` if
+#' at the country level, `"adm1"` if at the province level, and `"adm2` if at the
+#' district level.
+#'
+#' @param ctry `sf` Country level spatial objects. Can be the `global.ctry` spatial object attached
+#' to the output of [get_all_polio_data()].
+#' @param prov `sf` Province level spatial objects. Can be the `global.prov` spatial object attached
+#' to the output of [get_all_polio_data()].
+#' @param dist `sf` District level spatial objects. Can be the `global.dist` spatial object attached
+#' to the output of [get_all_polio_data()].
+#' @details
+#' You can download an example dataset using:
+#' sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds").
+#'
+#' @returns `sf` Single spatial object with all consequential geography
+#' super regions.
+#' @examples
+#' \dontrun{
+#' polio_data <- get_all_polio_data()
+#' cg <- sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds")
+#' create_cg_super_regions(cg, ctry = polio_data$global.ctry,
+#' prov = polio_data$global.prov, dist = polio_data$global.dist)
+#' }
+create_cg_super_regions <- function(cg, ctry, prov, dist){
+
+  cg_names <- cg |>
+    dplyr::filter(type == "cg") |>
+    dplyr::pull(label) |>
+    unique()
+
+  cg_super_regions <- lapply(cg_names, function(cg_name){
+
+    level <- cg |>
+      dplyr::filter(label == cg_name) |>
+      dplyr::pull(adm_level) |>
+      unique()
+
+    if(level == "adm1"){
+      region <- cg |>
+        dplyr::filter(label == cg_name) |>
+        dplyr::left_join(prov |>
+                           filter(yr.end == 9999) |>
+                           dplyr::select(ADM0_NAME, ADM1_NAME, GUID),
+                         by = c("ctry" = "ADM0_NAME",
+                                "prov" = "ADM1_NAME"))
+
+      return(prov |>
+        dplyr::filter(GUID %in% region$GUID) |>
+        sf::st_union() |>
+        sf::st_as_sf() |>
+        dplyr::select(Shape = x) |>
+        dplyr::mutate(name = cg_name,
+                      adm_level = unique(region$adm_level),
+                      GUIDs = paste0(region$GUID, collapse = ", ")))
+    }
+
+    if(level == "adm2"){
+      region <- cg |>
+        dplyr::filter(label == cg_name) |>
+        dplyr::left_join(dist |>
+                           filter(yr.end == 9999) |>
+                           dplyr::select(ADM0_NAME, ADM1_NAME, ADM2_NAME, GUID),
+                         by = c("ctry" = "ADM0_NAME",
+                                "prov" = "ADM1_NAME",
+                                "dist" = "ADM2_NAME"))
+
+      return(dist |>
+        dplyr::filter(GUID %in% region$GUID) |>
+        sf::st_union() |>
+        sf::st_as_sf() |>
+        dplyr::select(Shape = x) |>
+        dplyr::mutate(name = cg_name,
+                      adm_level = unique(region$adm_level),
+                      GUIDs = paste0(region$GUID, collapse = ", ")))
+    }
+  }) |>
+    dplyr::bind_rows()
+
+  return(cg_super_regions)
+}
+
+#' Flag positives data from identified consequential geographies
+#'
+#' @description
+#' Obtains positive detections and determines whether they are part of the
+#' consequential geographies or not. If they are, then they are flagged in the column `in_cg` as
+#' `TRUE`.
+#'
+#' @param cg_super_regions `sf` Spatial object of all CG super regions and a
+#' flag for all their specific GUIDs. This is the output of [create_cg_super_regions()].
+#' @param pos `tibble` The positives file from the output of [get_all_polio_data()].
+#' @param start_year `int` The the earliest year for analysis. Defaults to 2016.
+#' @returns `sf` All CG related positives flagged and ready for mapping with a point geography.
+#' @examples
+#' \dontrun{
+#' polio_data <- get_all_polio_data()
+#' cg <- sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds")
+#' super_regions <- create_cg_super_regions(cg,
+#' ctry = polio_data$global.ctry, prov = polio_data$global.prov, dist = polio_data$global.dist)
+#' cg_positives <- flag_cg_positives(cg_super_regions, polio_data$pos)
+#' }
+flag_cg_positives <- function(cg_super_regions, pos, start_year = 2016){
+
+  earliest_emergences <- pos |>
+    dplyr::filter(!is.na(emergencegroup)) |>
+    dplyr::select(dateonset, adm1guid, admin2guid, emergencegroup, yronset) |>
+    dplyr::group_by(emergencegroup) |>
+    dplyr::filter(dateonset == min(dateonset)) |>
+    dplyr::ungroup() |>
+    dplyr::filter(yronset >= start_year)
+
+  pos_dets <- lapply(1:nrow(cg_super_regions), function(x){
+
+    current_region <- cg_super_regions |>
+      dplyr::slice(x)
+
+
+    guids <- current_region |>
+      dplyr::pull(GUIDs) |>
+      str_split(", ") |>
+      unlist()
+
+    adm_level <- current_region |>
+      dplyr::pull(adm_level)
+
+    if(adm_level == "adm1"){
+
+      emergences <- earliest_emergences |>
+        dplyr::filter(adm1guid %in% guids) |>
+        dplyr::pull(emergencegroup) |>
+        unique()
+
+      return(pos |>
+               dplyr::filter(emergencegroup %in% emergences) |>
+               dplyr::select(latitude, longitude, adm1guid) |>
+               tidyr::drop_na() |>
+               dplyr::mutate(in_cg = adm1guid %in% guids,
+                             cg_label = current_region$name) |>
+               sf::st_as_sf(coords = c(x = "longitude", y = "latitude")))
+
+    }
+
+    if(adm_level == "adm2"){
+
+      emergences <- earliest_emergences |>
+        dplyr::filter(admin2guid %in% guids) |>
+        dplyr::pull(emergencegroup) |>
+        unique()
+
+      return(pos |>
+               dplyr::filter(emergencegroup %in% emergences) |>
+               dplyr::select(latitude, longitude, admin2guid) |>
+               tidyr::drop_na() |>
+               dplyr::mutate(in_cg = admin2guid %in% guids,
+                             cg_label = current_region$name) |>
+               sf::st_as_sf(coords = c(x = "longitude", y = "latitude")))
+
+    }
+
+  }) |>
+    dplyr::bind_rows()
+
+  sf::st_crs(pos_dets) <- sf::st_crs(cg_super_regions)
+
+  return(pos_dets)
+
+}
+
+#' Create the consequential geography expansion map
+#'
+#' @description
+#' Creates a map of consequential geographies.
+#'
+#' @param polio_data `list` Output of [get_all_polio_data()] with `attach.spatial.data = TRUE`.
+#' @inheritParams create_cg_super_regions
+#' @details
+#' You can download an example dataset using:
+#' sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds").
+#' @returns `ggplot` CG expansion map.
+#' @examples
+#' \dontrun{
+#' polio_data <- get_all_polio_data()
+#' cg <- sirfunctions_io("read", file_loc = "Data/misc/consequential_geographies.rds")
+#' create_cg_expansion_map(polio_data, cg)
+#' }
+#' @export
+create_cg_expansion_map <- function(polio_data, cg){
+
+  cli::cli_process_start("Extracting spatial files")
+  ctry <- polio_data$global.ctry
+  prov <- polio_data$global.prov
+  dist <- polio_data$global.dist
+  cli::cli_process_done()
+
+  cli::cli_process_start("Creating super regions")
+  cg_super_regions <- create_cg_super_regions(cg = cg, ctry = ctry, prov = prov, dist = dist)
+  cli::cli_process_done()
+
+  cli::cli_process_start("Flagging detections inside and outside CGs")
+  pos_cg_dets <- flag_cg_positives(cg_super_regions = cg_super_regions, pos = polio_data$pos)
+  cli::cli_process_done()
+
+  bbox <- sf::st_bbox(pos_cg_dets)
+
+  bbox["xmin"] <- bbox["xmin"] - (100000 / 6370000) * (180 / pi) / cos(bbox["xmin"] * pi / 180)
+  bbox["xmax"] <- bbox["xmax"] + (100000 / 6370000) * (180 / pi) / cos(bbox["xmax"] * pi / 180)
+  bbox["ymin"] <- bbox["ymin"] - (100000 / 6370000) * (180 / pi)
+  bbox["ymax"] <- bbox["ymax"] + (100000 / 6370000) * (180 / pi)
+
+  pos_cg_dets2 <- pos_cg_dets |>
+    dplyr::mutate(in_cg = ifelse(in_cg, "In CG", "Out of CG"))
+
+  cli::cli_process_start("Building map")
+  plot <- ggplot2::ggplot() +
+    ggplot2::geom_sf(data = ctry |> dplyr::filter(yr.end == 9999), fill = NA) +
+    ggplot2::geom_sf(data = pos_cg_dets2, aes(color = cg_label, alpha = in_cg), size = 0.5) +
+    ggplot2::geom_sf(data = cg_super_regions, aes(color = name), linewidth = 0.5, fill = NA) +
+    ggplot2::coord_sf(xlim = bbox[c("xmin", "xmax")], ylim = bbox[c("ymin", "ymax")]) +
+    ggplot2::scale_alpha_manual(values = c(1, 0.3)) +
+    ggplot2::scale_color_brewer(palette = "Dark2", direction = -1) +
+    ggplot2::theme_void() +
+    ggplot2::labs(color = "Consequential Geography", alpha = "Location",
+                  title = "Consequential geographies and the global footprint of emergences from those regions") +
+    ggplot2::theme(legend.position = "bottom",
+                   legend.box.background = element_rect(color = "black")) +
+    ggplot2::guides(alpha = ggplot2::guide_legend(nrow=2,byrow=T),
+                    color = ggplot2::guide_legend(nrow=3,byrow=T))
+  cli::cli_process_done()
+
+  return(plot)
+
+}

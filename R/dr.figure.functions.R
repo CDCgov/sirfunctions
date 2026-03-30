@@ -47,6 +47,10 @@ generate_ctry_timeliness_graph <- function(int.data,
   int.data <- int.data |>
     dplyr::filter(medi >= 0 | !is.na(medi))
 
+  if (nrow(int.data) == 0) {
+    return(output_empty_image(output_path, "timely_nation.png"))
+  }
+
   timely_nation <- ggplot2::ggplot() +
     ggplot2::geom_bar(
       data = int.data,
@@ -71,7 +75,7 @@ generate_ctry_timeliness_graph <- function(int.data,
     ggplot2::coord_flip() +
     ggplot2::ylab("Median Days") +
     ggplot2::xlab("Year of Paralysis Onset") +
-    ggplot2::scale_x_discrete(labels = labs) +
+    #ggplot2::scale_x_discrete(labels = labs) +
     ggplot2::scale_fill_manual(
       name = "Interval",
       drop = T,
@@ -91,7 +95,6 @@ generate_ctry_timeliness_graph <- function(int.data,
     height = 4
   )
 
-  # test commit
   return(timely_nation)
 }
 
@@ -140,6 +143,10 @@ generate_prov_timeliness_graph <- function(int.data,
 
   int.data <- int.data |>
     dplyr::filter(medi >= 0 | !is.na(medi))
+
+  if (nrow(int.data) == 0) {
+    return(output_empty_image(output_path, "timely_prov.png"))
+  }
 
   timely_prov <- ggplot2::ggplot(int.data |>
     dplyr::filter(is.na(medi) == F &
@@ -219,11 +226,18 @@ generate_afp_epicurve <- function(ctry.data,
   start_date <- lubridate::as_date(start_date)
   end_date <- lubridate::as_date(end_date)
 
-  afp.epi.date.filter <- ctry.data$afp.epi %>%
+  afp.epi.date.filter <- ctry.data$afp.all.2 %>%
     dplyr::filter(
-      dplyr::between(yronset, as.numeric(lubridate::year(start_date)), as.numeric(lubridate::year(end_date))),
+      dplyr::between(date, start_date, end_date),
       cdc.classification.all2 != "NOT-AFP"
-    )
+    ) |>
+    dplyr::mutate(epi.week = epiweek(date),
+                  epiweek.year = paste0(year, "-", epi.week)) |>
+    dplyr::select(place.admin.0 = ctry, epi.week,
+                  yronset = year, cdc.classification.all2, epiweek.year) |>
+    dplyr::group_by(place.admin.0, epi.week, yronset,
+                    cdc.classification.all2, epiweek.year) |>
+    dplyr::summarize(afp.cases = dplyr::n())
 
   case.num.labs <- dplyr::reframe(
     dplyr::group_by(afp.epi.date.filter, yronset),
@@ -235,6 +249,10 @@ generate_afp_epicurve <- function(ctry.data,
     case.num.labs,
     by = c("yronset" = "yronset")
   )
+
+  if (nrow(afp.epi.date.filter1) == 0) {
+    return(output_empty_image(output_path, "afp.epi.curve.png"))
+  }
 
   afp.epi.curve <- ggplot2::ggplot(
     afp.epi.date.filter1,
@@ -260,6 +278,86 @@ generate_afp_epicurve <- function(ctry.data,
   return(afp.epi.curve)
 }
 
+#' AFP cases by ctry and year
+#'
+#' Generates a tile plot for the number of AFP cases per month by country.
+#'
+#' @param afp.by.month.ctry `tibble` Table summarizing AFP cases by month and province. This is the output of
+#' [generate_afp_by_month_summary()].
+#' @param start_date `str` Start date of the analysis.
+#' @param end_date `str` End date of the analysis. By default, it displays the most recent date.
+#' @param output_path `str` Local path to output the figure.
+#' @param .height `int` Change the height of the figure. Defaults to 5.
+#'
+#' @returns `ggplot` A tile plot displaying the number of AFP cases by month and province.
+#' @examples
+#' \dontrun{
+#' ctry.data <- init_dr("algeria")
+#' afp.by.month <- generate_afp_by_month_summary(
+#'   raw.data$afp, "2021-01-01", "2023-12-31", "ctry",
+#'   raw.data$ctry.pop
+#' generate_afp_prov_year(afp.by.month, start_date, end_date)
+#' }
+#'
+#' @export
+generate_afp_ctry_year <- function(afp.by.month.ctry,
+                                   start_date,
+                                   end_date = lubridate::today(),
+                                   output_path = Sys.getenv("DR_FIGURE_PATH"),
+                                   .height = 5) {
+  if (!requireNamespace("forcats", quietly = TRUE)) {
+    stop(
+      'Package "forcats" must be installed to use this function.',
+      call. = FALSE
+    )
+  }
+
+  start_date <- lubridate::as_date(start_date)
+  end_date <- lubridate::as_date(end_date)
+
+  afp.month.ctry.g <- afp.by.month.ctry |>
+    dplyr::filter(dplyr::between(year, lubridate::year(start_date), lubridate::year(end_date)), !is.na(ctry))
+
+  afp.month.ctry.g$case.cat <- factor(afp.month.ctry.g$case.cat, levels = c(c("0", "1", "2-5", "6-9", "10+")))
+
+  if (nrow(afp.month.ctry.g) == 0) {
+    return(output_empty_image(output_path, "afp.dets.ctry.year.png"))
+  }
+
+  # add a point to indicate cVDPV2 detections
+
+  afp.dets.ctry.year <- ggplot2::ggplot(
+    afp.month.ctry.g |>
+      dplyr::arrange(u15pop),
+    ggplot2::aes(
+      x = mon.year,
+      y = forcats::fct_inorder(ctry),
+      fill = case.cat,
+
+    )
+  ) +
+    ggplot2::geom_tile(color = "black") +
+    ggplot2::ggtitle("Number of AFP Cases by Country") +
+    sirfunctions::f.plot.looks("geomtile") +
+    ggplot2::scale_fill_manual(
+      values = sirfunctions::f.color.schemes("afp.prov"),
+      name = "AFP Cases",
+      drop = T
+    ) +
+    geom_text(aes(label=cases)) +
+    ggplot2::theme(plot.caption = ggplot2::element_text(hjust = 0)) +
+    ggplot2::labs(caption = "Countries are ordered by under 15 population, with highest on top")
+
+  ggplot2::ggsave(
+    "afp.dets.ctry.year.png",
+    plot = afp.dets.ctry.year,
+    path = output_path,
+    width = 14,
+    height = .height
+  )
+
+  return(afp.dets.ctry.year)
+}
 
 
 #' AFP cases by province and year
@@ -271,6 +369,7 @@ generate_afp_epicurve <- function(ctry.data,
 #' @param start_date `str` Start date of the analysis.
 #' @param end_date `str` End date of the analysis. By default, it displays the most recent date.
 #' @param output_path `str` Local path to output the figure.
+#' @param .height `int` Change the height of the figure. Defaults to 5.
 #'
 #' @returns `ggplot` A tile plot displaying the number of AFP cases by month and province.
 #' @examples
@@ -288,7 +387,8 @@ generate_afp_epicurve <- function(ctry.data,
 generate_afp_prov_year <- function(afp.by.month.prov,
                                    start_date,
                                    end_date = lubridate::today(),
-                                   output_path = Sys.getenv("DR_FIGURE_PATH")) {
+                                   output_path = Sys.getenv("DR_FIGURE_PATH"),
+                                   .height = 5) {
   if (!requireNamespace("forcats", quietly = TRUE)) {
     stop(
       'Package "forcats" must be installed to use this function.',
@@ -303,6 +403,10 @@ generate_afp_prov_year <- function(afp.by.month.prov,
     dplyr::filter(dplyr::between(year, lubridate::year(start_date), lubridate::year(end_date)), !is.na(prov))
 
   afp.month.prov.g$case.cat <- factor(afp.month.prov.g$case.cat, levels = c(c("0", "1", "2-5", "6-9", "10+")))
+
+  if (nrow(afp.month.prov.g) == 0) {
+    return(output_empty_image(output_path, "afp.dets.prov.year.png"))
+  }
 
   # add a point to indicate cVDPV2 detections
 
@@ -331,7 +435,7 @@ generate_afp_prov_year <- function(afp.by.month.prov,
     plot = afp.dets.prov.year,
     path = output_path,
     width = 14,
-    height = 5
+    height = .height
   )
 
   return(afp.dets.prov.year)
@@ -404,11 +508,19 @@ generate_es_site_det <- function(sia.data,
   es.data <- es.data |>
     dplyr::filter(dplyr::between(collect.date, es_start_date, es_end_date))
 
+  if (nrow(es.data) == 0) {
+    return(output_empty_image(output_path, "es.site.det.png"))
+  }
+
   sias <- sia.data %>%
     dplyr::filter(status == "Done") %>%
     dplyr::filter(yr.sia >= lubridate::year(es_start_date) &
       yr.sia <= lubridate::year(es_end_date)) %>%
     dplyr::filter(province %in% es.data$ADM1_NAME)
+
+  if (nrow(sia.data) == 0) {
+    cli::cli_alert_info("No SIAs in the specified date range")
+  }
 
   sias$activity.start.date <- as.Date(sias$activity.start.date)
   sias$activity.end.date <- as.Date(sias$activity.end.date)
@@ -446,8 +558,8 @@ generate_es_site_det <- function(sia.data,
     unique() |>
     dplyr::pull()
 
-  miss_vaccine <- minsy_vaccine_types[!(minsy_vaccine_types %in% names(default_vaccine_type))]
-  miss_dets <- es.data_all_dets[!(es.data_all_dets %in% names(default_detections))]
+  miss_vaccine <- minsy_vaccine_types[!(minsy_vaccine_types %in% names(vaccine_types))]
+  miss_dets <- es.data_all_dets[!(es.data_all_dets %in% names(detection_types))]
 
 
   if (length(miss_vaccine > 0)) {
@@ -469,7 +581,7 @@ generate_es_site_det <- function(sia.data,
     )
 
     cli::cli_alert_warning(warning_message)
-    print(miss_vaccine)
+    print(miss_dets)
   }
 
 
@@ -486,13 +598,6 @@ generate_es_site_det <- function(sia.data,
   maxy <- max(es.data$collect.date) + 7
 
   es.site.det <- ggplot2::ggplot() +
-    ggplot2::geom_point(
-      data = es.data |>
-        dplyr::arrange(ADM1_NAME),
-      ggplot2::aes(x = collect.date, y = site.name, col = all_dets),
-      pch = 19,
-      size = 3
-    ) +
     ggplot2::geom_rect(
       data = minsy,
       ggplot2::aes(
@@ -558,6 +663,8 @@ generate_es_site_det <- function(sia.data,
 #' @param es_start_date `str` Start date of analysis. By default, this is one year from the end date.
 #' @param es_end_date `str` End date of analysis.
 #' @param output_path `str` Local path for where to save the figure to.
+#' @param add_legend `logical` Whether to add or remove a legend in the figure.
+#' @param .color `str` What column to use as color. Defaults to `site.name`.
 #'
 #' @returns `ggplot` A scatterplot for timeliness of ES samples.
 #' @examples
@@ -570,12 +677,18 @@ generate_es_site_det <- function(sia.data,
 generate_es_timely <- function(es.data,
                                es_start_date = (lubridate::as_date(es_end_date) - lubridate::years(1)),
                                es_end_date = end_date,
-                               output_path = Sys.getenv("DR_FIGURE_PATH")) {
+                               output_path = Sys.getenv("DR_FIGURE_PATH"),
+                               add_legend = TRUE,
+                               .color = "site.name") {
   es_start_date <- lubridate::as_date(es_start_date)
   es_end_date <- lubridate::as_date(es_end_date)
 
   es.data <- es.data |>
     dplyr::filter(dplyr::between(collect.date, es_start_date, es_end_date))
+
+  if (nrow(es.data) == 0) {
+    return(output_empty_image(output_path, "es.timely.png"))
+  }
 
   es.data$timely <-
     difftime(
@@ -622,7 +735,7 @@ generate_es_timely <- function(es.data,
     ) +
     ggplot2::geom_point(
       data = dplyr::filter(es.data, timely >= 0),
-      ggplot2::aes(x = collect.date, y = timely, color = site.name),
+      ggplot2::aes(x = collect.date, y = timely, color = !!dplyr::sym(.color)),
       alpha = 0.7,
       position = ggplot2::position_jitter(height = .2, width = 0.5),
       size = 3
@@ -642,6 +755,11 @@ generate_es_timely <- function(es.data,
       axis.text = ggplot2::element_text(size = 14),
       plot.caption = ggplot2::element_text(hjust = 0)
     )
+
+  if (!add_legend) {
+    es.timely <- es.timely +
+      ggplot2::theme(legend.position = "none")
+  }
 
   ggplot2::ggsave("es.timely.png",
     plot = es.timely,
@@ -704,8 +822,13 @@ generate_case_num_dose_g <- function(ctry.data,
       cdc.classification.all2 == "NPAFP",
       dplyr::between(age.months, 6, 59)
     ) |>
+    dplyr::mutate(year = factor(year)) |>
     dplyr::group_by(dose.cat, year, prov) |>
     dplyr::summarise(freq = dplyr::n())
+
+  if (nrow(dcat.yr.prov) == 0) {
+    return(output_empty_image(output_path, "case.num.dose.g.png"))
+  }
 
   # case num by year and province by vaccination status
   case.num.dose.g <- ggplot2::ggplot() +
@@ -789,6 +912,10 @@ generate_iss_barplot <- function(iss.data = NULL,
     dplyr::group_by(month, year, priority_level) %>%
     dplyr::summarize(freq = dplyr::n()) %>%
     dplyr::filter(dplyr::between(year, lubridate::year(start_date), lubridate::year(end_date)))
+
+  if (nrow(iss.data3) == 0) {
+    return(output_empty_image(output_path, "iss.barplot.png"))
+  }
 
   iss.data3$labs <- month.abb[iss.data3$month] %>%
     factor(
@@ -930,6 +1057,10 @@ generate_pop_map <- function(ctry.data,
     dplyr::left_join(prov.shape, ctry.data$prov.pop, by = c("GUID" = "adm1guid", "year")) |>
     dplyr::filter(year == lubridate::year(end_date))
 
+  if (nrow(shape.prov.pop) == 0) {
+    return(output_empty_image(output_path, "pop.map.png"))
+  }
+
   pop.map <- ggplot2::ggplot() +
     ggplot2::geom_sf(
       data = ctry.data$ctry,
@@ -940,12 +1071,12 @@ generate_pop_map <- function(ctry.data,
     ggplot2::geom_sf(data = shape.prov.pop, ggplot2::aes(fill = u15pop)) +
     ggplot2::geom_sf(data = sf::st_crop(ctry.data$roads, ctry.data$ctry)) +
     ggplot2::geom_sf(
-      data = dplyr::filter(ctry.data$cities, toupper(CNTRY_NAME) == ctry.data$name),
+      data = dplyr::filter(ctry.data$cities, toupper(CNTRY_NAME) %in% ctry.data$name),
       size = 3,
       color = "blue"
     ) +
     ggrepel::geom_label_repel(
-      data = dplyr::filter(ctry.data$cities, toupper(CNTRY_NAME) == ctry.data$name),
+      data = dplyr::filter(ctry.data$cities, toupper(CNTRY_NAME) %in% ctry.data$name),
       ggplot2::aes(label = CITY_NAME, geometry = geometry),
       stat = "sf_coordinates"
     ) +
@@ -1073,6 +1204,9 @@ generate_dist_pop_map <- function(ctry.data,
     dplyr::left_join(dist.shape, ctry.data$dist.pop, by = c("GUID" = "adm2guid", "year")) |>
     dplyr::filter(year == lubridate::year(end_date))
 
+  if (nrow(shape.dist.pop) == 0) {
+    return(output_empty_image(output_path, "pop.map.prov.png"))
+  }
 
   pop.map.provn <- ggplot2::ggplot() +
     ggplot2::geom_sf(
@@ -1089,7 +1223,7 @@ generate_dist_pop_map <- function(ctry.data,
     ) +
     ggrepel::geom_label_repel(
       data = shape.prov.pop,
-      ggplot2::aes(label = ADM1_NAME, geometry = SHAPE),
+      ggplot2::aes(label = ADM1_NAME, geometry = Shape),
       stat = "sf_coordinates",
       force = 80
     ) +
@@ -1199,7 +1333,7 @@ generate_afp_case_map <- function(afp.all,
   }
 
   if (nrow(afp.case.map.filter) == 0) {
-    cli::cli_abort("No data available for the specified date range.")
+    return(output_empty_image(output_path, "afp.case.map.png"))
   }
 
   if (min(afp.case.map.filter$year) > year(start_date)) {
@@ -1285,9 +1419,9 @@ generate_afp_case_map <- function(afp.all,
     ) +
     ggplot2::ggtitle(paste(
       "Paralytic Polio and Compatible Cases",
-      lubridate::year(min(as.numeric(afp.case.map.filter$year))),
+      min(as.numeric(as.character(afp.case.map.filter$year)), na.rm = TRUE),
       "-",
-      lubridate::year(max(as.numeric(afp.case.map.filter$year)))
+      max(as.numeric(as.character(afp.case.map.filter$year)), na.rm = TRUE)
     )) +
     # NOTE: IF THERE ARE NONE IT NEEDS TO THROW AN ERROR
     sirfunctions::f.plot.looks("epicurve") +
@@ -1384,6 +1518,10 @@ generate_npafp_maps <- function(prov.extract,
   provnpafp <- prov.extract |>
     filter(!is.na(prov))
 
+  if (nrow(provnpafp) == 0) {
+    return(output_empty_image(output_path, "npafp.map.png"))
+  }
+
   provnpafp$cats <- cut(
     provnpafp$npafp_rate,
     breaks = c(-1, 0, 1, 2, 3, Inf),
@@ -1403,7 +1541,6 @@ generate_npafp_maps <- function(prov.extract,
       )
     ) %>%
     dplyr::filter(year >= lubridate::year(start_date) & year <= lubridate::year(end_date))
-
 
   prov.cut$cats <- factor(
     prov.cut$cats,
@@ -1625,6 +1762,10 @@ generate_npafp_maps_dist <- function(dist.extract,
 
   distnpafp <- dist.extract |>
     filter(!is.na(dist))
+
+  if (nrow(distnpafp) == 0) {
+    return(output_empty_image(output_path, "npafp.map.dist.png"))
+  }
 
   distnpafp$cats <- cut(
     distnpafp$npafp_rate,
@@ -1873,6 +2014,10 @@ generate_stool_ad_maps <- function(ctry.data,
       "adm1guid" = "adm1guid"
     )
   )
+
+  if (nrow(stoolad.p) == 0) {
+    return(output_empty_image(output_path, "stool.ad.maps.png"))
+  }
 
   stoolad.p <- stoolad.p %>%
     filter(!is.na(prov)) %>%
@@ -2142,6 +2287,10 @@ generate_stool_ad_maps_dist <- function(ctry.data,
       levels = c("Zero AFP cases", "<40%", "40-59%", "60-79%", "80%+")
     ))
 
+  if (nrow(stoolad.d) == 0) {
+    return(output_empty_image(output_path, "stool.ad.maps.dist.png"))
+  }
+
   stoolad.nums.d <- stoolad.d %>%
     dplyr::group_by(year, adm2guid, dist) %>%
     dplyr::summarize(meet.stool = sum(per.stool.ad >= 80, na.rm = T)) %>%
@@ -2249,7 +2398,7 @@ generate_stool_ad_maps_dist <- function(ctry.data,
 #' @param prov.shape `sf` Province shapefile in long format.
 #' @param start_date `str` Start date of analysis.
 #' @param end_date `str` End date of analysis.
-#' @param mark_x `bool` Mark where there are less than 5 AFP cases? Defaults to `TRUE`.
+#' @param mark_x `logical` Mark where there are less than 5 AFP cases? Defaults to `TRUE`.
 #' @param pt_size `numeric` Size of the marks.
 #' @param output_path `str` Local path where to save the figure to.
 #'
@@ -2342,6 +2491,9 @@ generate_timeliness_maps <- function(ctry.data,
       year <= lubridate::year(end_date)) %>%
     tidyr::complete(year, prov, type)
 
+  if (nrow(long.timely) == 0) {
+    return(output_empty_image(output_path, "mapt_all.png"))
+  }
 
   for (i in 1:nrow(long.timely)) {
     if (is.na(long.timely$adm1guid[i])) {
@@ -2823,6 +2975,10 @@ generate_es_det_map <- function(es.data,
   es.data <- es.data |>
     dplyr::filter(dplyr::between(collect.date, es_start_date, es_end_date))
 
+  if (nrow(es.data) == 0) {
+    return(output_empty_image(output_path, "es.det.map.png"))
+  }
+
   det.rate <- dplyr::summarise(
     dplyr::group_by(es.data, site.name),
     det.rate = 100 * sum(as.numeric(ev.detect), na.rm = TRUE) / dplyr::n(),
@@ -3049,6 +3205,10 @@ generate_iss_map <- function(iss.data,
       dplyr::between(`_gps_ending_latitude`, bbox$ymin, bbox$ymax)
     )
 
+  if (nrow(iss.data) == 0) {
+    return(output_empty_image(output_path, "iss.map.png"))
+  }
+
   pryr <- dplyr::count(iss.data, priority_level, year) |>
     dplyr::filter(priority_level == "High")
 
@@ -3181,6 +3341,14 @@ generate_surv_ind_tab <- function(ctry.data,
                                   dstool,
                                   afp.case,
                                   country_name = Sys.getenv("DR_COUNTRY")) {
+
+  # Check if multiple countries are used
+  if (length(unlist(stringr::str_split(country_name, ", "))) > 1 |
+      length(unique(ctry.extract$adm0guid)) > 1) {
+    cli::cli_abort(paste0("Only one country is supported by this function.",
+                          " For regional summaries, use `generate_surv_reg_tab()`."))
+  }
+
   if (!requireNamespace("janitor", quietly = TRUE)) {
     stop('Package "janitor" must be installed to use this function.',
       .call = FALSE
@@ -3190,6 +3358,12 @@ generate_surv_ind_tab <- function(ctry.data,
   if (!requireNamespace("tibble", quietly = TRUE)) {
     stop('Package "tibble" must be installed to use this function.',
       .call = FALSE
+    )
+  }
+
+  if (!requireNamespace("flextable", quietly = TRUE)) {
+    stop('Package "flextable" must be installed to use this function.',
+         .call = FALSE
     )
   }
 
@@ -3224,7 +3398,7 @@ generate_surv_ind_tab <- function(ctry.data,
     dplyr::filter(u15pop >= 100000)
 
   unique.dist.100k <- ctry.data$dist.pop %>%
-    dplyr::filter(ctry == stringr::str_to_upper(country_name) &
+    dplyr::filter(ctry %in% stringr::str_to_upper(country_name) &
       u15pop >= 100000) %>%
     unique() %>%
     dplyr::group_by(year, u15pop, adm2guid) %>%
@@ -3356,6 +3530,13 @@ generate_pop_tab <- function(pnpafp,
                              start_date,
                              end_date,
                              prov.case.ind = lifecycle::deprecated()) {
+
+  if (!requireNamespace("flextable", quietly = TRUE)) {
+    stop('Package "flextable" must be installed to use this function.',
+         .call = FALSE
+    )
+  }
+
   if (lifecycle::is_present(prov.case.ind)) {
     lifecycle::deprecate_warn(
       "1.3.0",
@@ -3397,7 +3578,7 @@ generate_pop_tab <- function(pnpafp,
     dplyr::mutate(u15pop = round(u15pop, 0)) |>
     dplyr::filter(!is.na(prov))
 
-  date.analysis <- seq(lubridate::year(start_date), lubridate::year(end_date), 1)
+  date.analysis <- unique(c(pstool$year, pnpafp$year))
   pop.date.analysis <- paste0("u15pop_", date.analysis[1:length(date.analysis) - 1])
 
   sub.prov.join.wide <- tidyr::pivot_wider(
@@ -3557,9 +3738,7 @@ generate_pop_tab <- function(pnpafp,
 #' Issues with stool adequacy at the country level
 #'
 #' Generates a summary table at the country level highlighting issues around stool adequacy.
-#'
-#' @param ctry.data `list` large list containing polio data for a country. This is the output of
-#' [extract_country_data()] or [init_dr()].
+#' @param afp_data `tibble` `afp.all.2` of the output of [extract_country_data()].
 #' @param cstool `tibble` Stool adequacy at the country level. This is the output of [f.stool.ad.01()].
 #' @param start_date `str` Start date of analysis.
 #' @param end_date `str` End date of analysis.
@@ -3585,7 +3764,7 @@ generate_pop_tab <- function(pnpafp,
 #' }
 #'
 #' @export
-generate_inad_tab <- function(ctry.data,
+generate_inad_tab <- function(afp_data,
                               cstool,
                               start_date,
                               end_date) {
@@ -3604,8 +3783,14 @@ generate_inad_tab <- function(ctry.data,
     )
   }
 
+  if (!requireNamespace("flextable", quietly = TRUE)) {
+    stop('Package "flextable" must be installed to use this function.',
+         .call = FALSE
+    )
+  }
+
   # All AFP cases
-  afps.all <- ctry.data$afp.all.2 %>%
+  afps.all <- afp_data %>%
     dplyr::filter(
       dplyr::between(date, start_date, end_date),
       cdc.classification.all2 != "NOT-AFP"
@@ -3660,7 +3845,7 @@ generate_inad_tab <- function(ctry.data,
     )
 
   inad.tab <- allinadstool |>
-    dplyr::select(-dplyr::any_of(c(
+    dplyr::select(-dplyr::any_of(c("weight",
       "days_in_year", "days.at.risk",
       "adm0guid", "earliest_date", "latest_date",
       "datasource", "ctry", "u15pop"
@@ -3755,6 +3940,13 @@ generate_inad_tab <- function(ctry.data,
 #'
 #' @export
 generate_60_day_tab <- function(cases.need60day) {
+
+  if (!requireNamespace("flextable", quietly = TRUE)) {
+    stop('Package "flextable" must be installed to use this function.',
+         .call = FALSE
+    )
+  }
+
   comp.by.year <- cases.need60day |>
     dplyr::group_by(year) |>
     dplyr::summarize(
@@ -3867,6 +4059,13 @@ generate_60_day_tab <- function(cases.need60day) {
 generate_es_tab <- function(es.data,
                             es_start_date = (lubridate::as_date(es_end_date) - lubridate::years(1)),
                             es_end_date = end_date) {
+
+  if (!requireNamespace("flextable", quietly = TRUE)) {
+    stop('Package "flextable" must be installed to use this function.',
+         .call = FALSE
+    )
+  }
+
   es_start_date <- lubridate::as_date(es_start_date)
   es_end_date <- lubridate::as_date(es_end_date)
 
@@ -4050,4 +4249,25 @@ generate_es_tab <- function(es.data,
   }
 
   return(es.table)
+}
+
+
+# Helper functions ----
+
+#' Output an empty image
+#'
+#' @param output_path `str` Output path.
+#' @param img_title `str` Title of the image.
+#'
+#' @returns `NULL` silently upon success.
+#' @keywords internal
+#'
+output_empty_image <- function(output_path, img_title) {
+  cli::cli_alert_info(paste0("No data to create the figure for: ", img_title))
+  ggplot2::ggplot() +
+    ggplot2::theme_void() +
+    ggplot2::annotate("text", x = 1, y = 1, label = "No data to produce the figure.")
+  ggplot2::ggsave(img_title, path = output_path, bg = "white", width = 4, height = 4)
+
+  invisible()
 }

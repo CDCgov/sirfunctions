@@ -4,11 +4,10 @@
 \alias{generate_inad_tab}
 \title{Issues with stool adequacy at the country level}
 \usage{
-generate_inad_tab(ctry.data, cstool, start_date, end_date)
+generate_inad_tab(afp_data, cstool, start_date, end_date)
 }
 \arguments{
-\item{ctry.data}{\code{list} large list containing polio data for a country. This is the output of
-\code{\link[=extract_country_data]{extract_country_data()}} or \code{\link[=init_dr]{init_dr()}}.}
+\item{afp_data}{\code{tibble} \code{afp.all.2} of the output of \code{\link[=extract_country_data]{extract_country_data()}}.}
 
 \item{cstool}{\code{tibble} Stool adequacy at the country level. This is the output of \code{\link[=f.stool.ad.01]{f.stool.ad.01()}}.}
 

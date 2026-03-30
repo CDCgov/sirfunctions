@@ -2,23 +2,21 @@
 
 #' Downloads the desk review template code
 #'
-#' @param output_path where to download the desk review template code
+#' @param output_path `str` Where to download the desk review template code.
+#' @param country_name `str` Name of the country in the desk review.
 #' @keywords internal
 #'
-copy_dr_template_code <- function(output_path = Sys.getenv("DR_PATH")) {
-  dr_template_name <- "desk_review_template.Rmd"
-  github_raw_url <- "https://raw.githubusercontent.com/nish-kishore/sg-desk-reviews/main/resources/desk_review_template.Rmd"
+copy_dr_template_code <- function(output_path = Sys.getenv("DR_PATH"), country_name = Sys.getenv("DR_COUNTRY")) {
 
-  # download only if it doesn't already exist
-  data_folder_files <- list.files(output_path)
-  if ((stringr::str_detect(data_folder_files, "_template") |> sum()) == 0) {
-    cli::cli_process_start("Downloading the desk review template.")
-    download.file(github_raw_url, file.path(output_path, dr_template_name))
-    cli::cli_process_done()
-  } else {
-    message("Template file already exists. Skipping download.")
-    return(NULL)
-  }
+  dr_template_name <- paste0(paste(tolower(country_name), collapse = "_"), "_desk_review_template.Rmd")
+
+  rmarkdown::draft(
+    file = file.path(output_path, dr_template_name),
+    template = "desk-review-template",
+    package = "sirfunctions",
+    create_dir = FALSE,
+    edit = FALSE
+  )
 }
 
 #' Get functions used for the desk review from Github
@@ -35,9 +33,9 @@ copy_dr_functions <- function(branch = "main", output_folder = Sys.getenv("DR_FU
       call. = FALSE
     )
   }
-  repo <- "nish-kishore/sirfunctions"
+  repo <- "CDCGov/sirfunctions"
   github_raw_url <- "https://raw.githubusercontent.com"
-  github_folder_url <- "https://api.github.com/repos/nish-kishore/sirfunctions/git/trees"
+  github_folder_url <- "https://api.github.com/repos/CDCGov/sirfunctions/git/trees"
   github_folder_url <- file.path(github_folder_url, paste0(branch, "?recursive=1"))
   req <- httr::GET(github_folder_url)
   file_path <- data.frame("paths" = unlist(lapply(httr::content(req)$tree, function(x) x$path)))
@@ -223,6 +221,9 @@ set_data_size <- function(year) {
 #' @param dr_data_path `str` path to save the data set to.
 #' Expected path is ./country/year/data
 #' @param attach_spatial_data whether to attach spatial data
+#' @param .data_folder `str` Path to the data folder.
+#' @param .polis_folder `str` Path to the POLIS folder.
+#' @param .use_edav `logical` Whether to use EDAV or not.
 #' @keywords internal
 #'
 #' @returns `list` large list containing polio data
@@ -230,10 +231,13 @@ update_data <-
   function(data_size,
            country_name,
            dr_data_path,
-           attach_spatial_data) {
+           attach_spatial_data,
+           .data_folder,
+           .polis_folder,
+           .use_edav) {
     message("Saving a new copy of the dataset.")
     path_to_save <-
-      paste0(paste(dr_data_path, "saved_on", Sys.Date(), sep = "_"), ".Rds")
+      paste0(paste(dr_data_path, "raw_data_saved_on", Sys.Date(), sep = "_"), ".Rds")
 
     # Overwrite the data
     if (file.exists(path_to_save)) {
@@ -241,7 +245,15 @@ update_data <-
     }
 
     raw_data <-
-      sirfunctions::get_all_polio_data(size = data_size, attach.spatial.data = attach_spatial_data)
+      sirfunctions::get_all_polio_data(size = data_size,
+                                       attach.spatial.data = attach_spatial_data,
+                                       data_folder = .data_folder,
+                                       polis_folder = .polis_folder,
+                                       use_edav = .use_edav
+                                       )
+    country_name <- stringr::str_replace_all(country_name, ", ", ",") |>
+      stringr::str_split(",") |>
+      unlist()
     country_data <- sirfunctions::extract_country_data(country_name, raw_data)
     readr::write_rds(country_data, path_to_save)
     message(paste0("Data saved at:\n", dr_data_path))
@@ -265,7 +277,7 @@ load_data <- function(data_dir_path) {
     }
 
     file_names <- list.files(data_dir_path, pattern = "\\.Rds$", ignore.case = T)
-
+    file_names <- file_names[stringr::str_detect(file_names, "saved_on")]
     load_data <- suppressWarnings(as.integer(load_data))
     if (is.na(load_data) | load_data == 0) {
       message("Invalid response. Please try again.")
@@ -309,6 +321,7 @@ create_metadata <- function(path) {
 #' @param country_name `str` name of the country
 #' @param data_path path of the data folder used in the desk review
 #' @param attach_spatial_data whether to attach spatial data
+#' @inheritParams update_data
 #' @keywords internal
 #'
 #' @returns `list` large list containing polio data
@@ -317,8 +330,12 @@ generate_data <-
            data_size,
            country_name,
            dr_data_path,
-           attach_spatial_data) {
+           attach_spatial_data,
+           .data_folder,
+           .polis_folder,
+           .use_edav) {
     file_names <- list.files(data_path, pattern = "\\.rds$", ignore.case = T)
+    file_names <- file_names[stringr::str_detect(file_names, "raw_data")]
 
     data_exists <- length(file_names) != 0
     if (data_exists) {
@@ -341,7 +358,10 @@ generate_data <-
             data_size,
             country_name,
             dr_data_path,
-            attach_spatial_data
+            attach_spatial_data,
+            .data_folder,
+            .polis_folder,
+            .use_edav
           ))
         } else if (create_new_save == "n") {
           return(load_data(data_path))
@@ -358,7 +378,10 @@ generate_data <-
         data_size,
         country_name,
         dr_data_path,
-        attach_spatial_data
+        attach_spatial_data,
+        .data_folder,
+        .polis_folder,
+        .use_edav
       ))
     }
   }
@@ -463,14 +486,14 @@ fetch_dr_data <- function(country, year, local_dr_repo) {
 #' the function is ran.
 #' @param local_dr_folder `str` Folder where the desk review code is located.
 #' Defaults to the current working directory.
-#' @param attach_spatial_data `bool` Whether to include spatial data. Defaults to `TRUE`.
-#' @param sg_dr_folder `str` Folder where the local git repository is located. Defaults to `NULL`.
+#' @param attach_spatial_data `logical` Whether to include spatial data. Defaults to `TRUE`.
 #' @param lab_data_path `str` Location of the lab data. Defaults to `NULL`.
 #' @param iss_data_path `str` Location of the ISS data. Defaults to `NULL`.
 #' @param branch `str` What branch to download the DR functions from GitHub.
 #' `"main"` is the default, which contains the official version of the package. Other branches,
 #' like `"dev"` may contain experimental features not yet available in the `"main"` branch.
-#' @param source `bool` Whether to source local functions or use sirfunctions. Defaults to `TRUE`.
+#' @param source `logical` Whether to source local functions or use sirfunctions. Defaults to `FALSE`.
+#' @inheritParams get_all_polio_data
 #'
 #' @returns `list` A list containing all dataframe for all polio data.
 #' @examples
@@ -485,30 +508,32 @@ init_dr <-
            start_date = NULL,
            end_date = NULL,
            local_dr_folder = getwd(),
-           sg_dr_folder = NULL,
            lab_data_path = NULL,
            iss_data_path = NULL,
            attach_spatial_data = T,
            branch = "main",
-           source = T) {
+           source = F,
+           data_folder = "GID/PEB/SIR/Data",
+           polis_folder = "GID/PEB/SIR/POLIS",
+           use_edav = TRUE) {
     country_name <-
       stringr::str_trim(stringr::str_to_upper(country_name))
 
     if (is.null(end_date)) {
       end_date <- Sys.Date() - lubridate::weeks(6)
-      end_date <<- end_date
+      assign("end_date", end_date, envir = .GlobalEnv)
     } else {
       end_date <- lubridate::as_date(end_date)
-      end_date <<- end_date
+      assign("end_date", end_date, envir = .GlobalEnv)
     }
 
     if (is.null(start_date)) {
       start_date <- (end_date - lubridate::years(3)) |>
         lubridate::floor_date("year")
-      start_date <<- start_date
+      assign("start_date", start_date, envir = .GlobalEnv)
     } else {
       start_date <- lubridate::as_date(start_date)
-      start_date <<- start_date
+      assign("start_date", start_date, envir = .GlobalEnv)
     }
 
     year <- lubridate::year(end_date)
@@ -577,7 +602,10 @@ init_dr <-
       data_size,
       country_name,
       dr_data_path,
-      attach_spatial_data
+      attach_spatial_data,
+      data_folder,
+      polis_folder,
+      use_edav
     )
 
     # Attaching lab data if available and creating a copy to data folder
@@ -591,14 +619,32 @@ init_dr <-
         cli::cli_process_start("Saving a copy of the lab data to the data folder.")
         dr_lab_data_path <- file.path(
           data_path,
-          paste0(country_data$ctry$ISO_3_CODE, "_lab_data_", Sys.Date(), ".Rds")
+          paste0(paste(country_data$ctry$ISO_3_CODE, collapse = "_"), "_lab_data_", Sys.Date(), ".Rds")
         )
         saveRDS(country_data$lab.data, dr_lab_data_path)
         Sys.setenv(DR_LAB_PATH = dr_lab_data_path)
-      } else {
-        Sys.setenv(DR_LAB_PATH = lab_data_path)
-      }
-    }
+        }
+      } else if(is.null(lab_data_path) &
+                use_edav == TRUE &
+                (stringr::str_detect(data_folder_files, "_lab_data_") |> sum() == 0)) {
+          sirfunctions_io("read", file_loc = get_constant("CLEANED_LAB_DATA"), edav = use_edav)
+
+          cli::cli_alert_info("Caching lab data to the desk review folder")
+          dr_lab_data_path <- file.path(
+            data_path,
+            paste0(paste(country_data$ctry$ISO_3_CODE, collapse = "_"), "_lab_data_", Sys.Date(), ".Rds")
+          )
+          Sys.setenv(DR_LAB_PATH = dr_lab_data_path)
+          saveRDS(get("lab_data", envir = globalenv()), dr_lab_data_path)
+        } else if (is.null(lab_data_path) &
+                  (use_edav == TRUE) &
+                  (stringr::str_detect(data_folder_files, "_lab_data_") |> sum() != 0)) {
+          cli::cli_alert_info("Loading cached lab data")
+          lab_files <- data_folder_files[stringr::str_detect(data_folder_files, "lab_data")]
+          lab_data <- readRDS(file.path(data_path, lab_files[1]))
+          assign("lab_data", lab_data, envir = .GlobalEnv)
+          Sys.setenv(DR_LAB_PATH = file.path(data_path, lab_files[1]))
+          }
 
     # Attaching ISS data if available and creating a copy to data folder
     if (!is.null(iss_data_path)) {
@@ -624,8 +670,12 @@ init_dr <-
       start_date, end_date, country_name
     )
 
-    end_date <<- lubridate::as_date(end_date)
-    start_date <<- lubridate::as_date(start_date)
+    end_date <- lubridate::as_date(end_date)
+    assign("end_date", end_date, envir = .GlobalEnv)
+
+    start_date <- lubridate::as_date(start_date)
+    assign("start_date", start_date, envir = .GlobalEnv)
+
     # Setting environmental variables
     Sys.setenv(DR_PATH = file.path(country_dir_path))
     Sys.setenv(DR_DATA_PATH = file.path(country_dir_path, "data"))
@@ -634,13 +684,16 @@ init_dr <-
     Sys.setenv(DR_POWERPOINT_PATH = file.path(country_dir_path, "powerpoint"))
     Sys.setenv(DR_FIGURE_PATH = file.path(country_dir_path, "figures"))
     Sys.setenv(DR_FUNC_PATH = file.path(country_dir_path, "R"))
-    Sys.setenv(DR_COUNTRY = country_name)
+    Sys.setenv(DR_COUNTRY = paste(country_name, collapse = ", "))
 
     # Copy functions in R
     copy_dr_functions(branch)
 
     # Copy desk review template
-    copy_dr_template_code()
+    dr_template_name <- paste0(paste(tolower(country_name), collapse = "_"), "_desk_review_template.Rmd")
+    if (!file.exists(file.path(Sys.getenv("DR_PATH"), dr_template_name))) {
+      copy_dr_template_code()
+    }
 
     # Source the functions used in the Desk Review
     if (source) {
@@ -652,114 +705,10 @@ init_dr <-
       cli::cli_process_done()
     }
 
-    return(country_data)
+    assign("ctry.data", country_data, envir = .GlobalEnv)
+    cli::cli_alert_success("ctry.data loaded to the global environment")
+    cli::cli_alert_success("Desk review analysis set up complete.")
+    cli::cli_text(paste0("Click here to access the template file: ",
+                         "{.file ", file.path(Sys.getenv("DR_PATH"), dr_template_name), "}"))
+    return(invisible(country_data))
   }
-
-#' Upload desk review script to the sg-desk-reviews GitHub repository
-#'
-#' Upload the desk review template script to the [sg-desk-reviews](https://github.com/nish-kishore/sg-desk-reviews)
-#' repository, which houses the code for the desk reviews.
-#' This function can be used in a general sense to upload files to
-#' a github repository. Note that the function will only commit, and that the user must push themselves.
-#'
-#' @param file_path `str` Location of the file to upload to the sg-desk-reviews repo.
-#' @param repo_path `str` Local path of the sg-desk-review repo.
-#' @param message `str` Message to include in the commit.
-#'
-#' @returns A status message.
-#' @examples
-#' \dontrun{
-#' dr_template_path <- "C:/Users/ABC1/Desktop/local_dr/algeria/2024/algeria_template.Rmd"
-#' repo_path <- "C:/Users/ABC1/Desktop/github/sg-desk-reviews"
-#' str_message <- "Added algeria to the SG folder"
-#' upload_dr_to_github(dr_template_path, repo_path, str_message)
-#' }
-#' @export
-upload_dr_to_github <-
-  function(file_path, repo_path, message = "updating file") {
-    if (!requireNamespace("git2r", quietly = TRUE)) {
-      stop('Package "git2r" must be installed to use this function.',
-        .call = FALSE
-      )
-    }
-
-    # Check if the repository is initialized
-    if (is.null(git2r::discover_repository(repo_path))) {
-      stop("Git repository not found at ", repo_path)
-    }
-
-    # Open the repository
-    repo <- git2r::repository(repo_path)
-
-    # Get the name of the current file
-    file_name <- basename(file_path)
-
-    # Copy over the file in the file_path to the repo_path
-    file.copy(file_path, repo_path, recursive = T)
-
-    # Add the file to the repository
-    tryCatch(
-      {
-        git2r::add(repo, path = file.path(repo_path, file_name))
-
-        # Commit the changes with a message including the file name
-        commit_msg <- paste0(message, ": ", file_name)
-        git2r::commit(repo, message = commit_msg)
-        message("Changes committed successfully. Please push using GitHub Desktop or command line ")
-      },
-      error = function(e) {
-        message("No changes to the file.")
-      }
-    )
-
-    # tryCatch({
-    #   git2r::push(repo)
-    #   message("Changes pushed successfully.")
-    # },
-    # error = function(e) {
-    #   stop(message("Unable to push changes. Check if Git is set up correctly."))
-    # })
-  }
-
-
-#' Freeze desk review data to the desk review folder in EDAV
-#'
-#' Data from the desk review can be stored in EDAV so there's an exact copy of the
-#' dataset used in the desk review. This ensures that even after years,
-#' the desk reviews can be ran exactly as it was.
-#' @param rds_obj `Robj` Object loaded in R. This would be `ctry.data`, for example.
-#' @param file_name `str` Name given to the Rds object, do not append `.rds`. This is
-#' what gets stored in EDAV.
-#' @param country `str` Country as a string.
-#' @param year `int` It is recommended to set this to the year
-#' when the desk review was ran.
-#'
-#' @returns A status message.
-#' @examples
-#' \dontrun{
-#' raw.data <- get_all_polio_data()
-#' ctry.data <- init_dr("algeria")
-#' freeze_dr_data(ctry.data, "algeria_ctry_data")
-#' }
-#'
-#' @export
-#' @seealso [init_dr()]
-freeze_dr_data <- function(rds_obj,
-                           file_name,
-                           country = Sys.getenv("DR_COUNTRY"),
-                           year = as.numeric(format(Sys.Date(), "%Y"))) {
-  country <- stringr::str_to_lower(country)
-
-  sirfunctions::edav_io(
-    io = "write",
-    default_dir = NULL,
-    file_loc = file.path(
-      "GID/PEB/SIR/Data/desk_review",
-      country,
-      year,
-      paste0(file_name, ".rds")
-    ),
-    obj = rds_obj
-  )
-  message("File saved successfully.")
-}

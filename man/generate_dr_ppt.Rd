@@ -5,7 +5,6 @@
 \title{Generate the desk review slide deck}
 \usage{
 generate_dr_ppt(
-  ppt_template_path,
   ctry.data,
   start_date,
   end_date,
@@ -31,12 +30,11 @@ generate_dr_ppt(
   es.timely,
   es.table,
   country = Sys.getenv("DR_COUNTRY"),
+  ppt_template_path = NULL,
   ppt_output_path = Sys.getenv("DR_POWERPOINT_PATH")
 )
 }
 \arguments{
-\item{ppt_template_path}{\code{str} Sath to the PowerPoint template.}
-
 \item{ctry.data}{\code{list} List containing polio data for a country. Either the output of
 \code{\link[=extract_country_data]{extract_country_data()}} or \code{\link[=init_dr]{init_dr()}}.}
 
@@ -87,6 +85,8 @@ generate_dr_ppt(
 \item{es.table}{\code{flextable} ES table.}
 
 \item{country}{\code{str} Name of the country.}
+
+\item{ppt_template_path}{\code{str} Path to the PowerPoint template.}
 
 \item{ppt_output_path}{\code{str} Path where the PowerPoint should be outputted.}
 }

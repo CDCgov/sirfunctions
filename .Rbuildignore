@@ -6,3 +6,7 @@
 ^misc
 ^testing
 ^.git
+^\.github$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$

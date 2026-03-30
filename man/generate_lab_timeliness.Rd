@@ -4,17 +4,28 @@
 \alias{generate_lab_timeliness}
 \title{Summary of lab sample timeliness}
 \usage{
-generate_lab_timeliness(lab_data, spatial.scale, start.date, end.date)
+generate_lab_timeliness(
+  lab_data,
+  spatial.scale,
+  start_date,
+  end_date,
+  start.date = lifecycle::deprecated(),
+  end.date = lifecycle::deprecated()
+)
 }
 \arguments{
 \item{lab_data}{\code{tibble} Lab data. Ensure that this lab data is cleaned using
 \code{\link[=clean_lab_data]{clean_lab_data()}} before running the function.}
 
-\item{spatial.scale}{\code{str} Spatial scale to analyze the data. Valid values are \verb{"ctry", "prov", "dist"}.}
+\item{spatial.scale}{\code{str} Spatial scale to analyze the data. Valid values are \verb{"ctry", "prov", "all"}.}
 
-\item{start.date}{\code{str} Start date of analysis.}
+\item{start_date}{\code{str} Start date of analysis.}
 
-\item{end.date}{\code{str} End date of analysis.}
+\item{end_date}{\code{str} End date of analysis.}
+
+\item{start.date}{\code{str} \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} renamed in favor of \code{start_date}.}
+
+\item{end.date}{\code{str} \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} renamed in favor of \code{end_date}.}
 }
 \value{
 \code{tibble} A table with timeliness data summary.

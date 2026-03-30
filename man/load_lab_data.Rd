@@ -2,7 +2,7 @@
 % Please edit documentation in R/dr.lab.functions.R
 \name{load_lab_data}
 \alias{load_lab_data}
-\title{Function to load the raw lab data}
+\title{Function to load the raw lab data locally}
 \usage{
 load_lab_data(lab_data_path, sheet_name = NULL)
 }

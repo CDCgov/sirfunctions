@@ -10,7 +10,8 @@ clean_lab_data(
   end_date,
   afp_data = NULL,
   ctry_name = NULL,
-  lab_locs_path = NULL
+  lab_locs_path = NULL,
+  use_edav = TRUE
 )
 }
 \arguments{
@@ -25,6 +26,8 @@ clean_lab_data(
 \item{ctry_name}{\code{str} or \code{list} Name or a list of countries. Defaults to \code{NULL}.}
 
 \item{lab_locs_path}{\code{str} Location of testing lab locations. Default is \code{NULL}. Will download from EDAV, if necessary.}
+
+\item{use_edav}{\code{logical} Whether to obtain data from EDAV. Defaults to \code{TRUE}.}
 }
 \value{
 \code{tibble} Cleaned lab data.
@@ -35,7 +38,7 @@ came from WHO or the regional office.
 }
 \examples{
 \dontrun{
-lab_path <- "C:/Users/XRG9/lab_data_who.csv"
+lab_path <- "C:/Users/abc1/lab_data_who.csv"
 ctry.data <- init_dr("algeria", lab_data_path = lab_path)
 ctry.data$lab_data <- clean_lab_data(ctry.data, "2021-01-01", "2023-12-31")
 

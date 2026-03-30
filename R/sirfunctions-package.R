@@ -2,10 +2,10 @@
 "_PACKAGE"
 
 ## usethis namespace: start
-#' @import rlang
 #' @import dplyr
-#' @import lubridate
 #' @import ggplot2
+#' @import lubridate
+#' @import rlang
 #' @importFrom AzureAuth get_azure_token
 #' @importFrom AzureAuth list_azure_tokens
 #' @importFrom AzureAuth load_azure_token
@@ -34,32 +34,19 @@
 #' @importFrom cli cli_process_start
 #' @importFrom cli cli_progress_done
 #' @importFrom cli cli_progress_step
-#' @importFrom flextable add_footer_lines
-#' @importFrom flextable add_footer_row
-#' @importFrom flextable add_header_lines
-#' @importFrom flextable add_header_row
-#' @importFrom flextable align
-#' @importFrom flextable as_grouped_data
-#' @importFrom flextable autofit
-#' @importFrom flextable bg
-#' @importFrom flextable bold
-#' @importFrom flextable colformat_double
-#' @importFrom flextable color
-#' @importFrom flextable flextable
-#' @importFrom flextable fontsize
-#' @importFrom flextable fp_border_default
-#' @importFrom flextable hline
-#' @importFrom flextable save_as_image
-#' @importFrom flextable set_header_df
-#' @importFrom flextable set_header_labels
-#' @importFrom flextable theme_booktabs
-#' @importFrom flextable vline
-#' @importFrom flextable width
 #' @importFrom glue glue
+#' @importFrom grDevices rgb
+#' @importFrom httr content
+#' @importFrom httr GET
+#' @importFrom httr status_code
+#' @importFrom jsonlite fromJSON
 #' @importFrom lifecycle badge
 #' @importFrom lifecycle deprecate_warn
 #' @importFrom lifecycle deprecated
 #' @importFrom lifecycle is_present
+#' @importFrom pins board_azure
+#' @importFrom purrr map
+#' @importFrom rappdirs user_data_dir
 #' @importFrom readr read_csv
 #' @importFrom readr read_rds
 #' @importFrom readr write_csv
@@ -84,6 +71,10 @@
 #' @importFrom sf st_sample
 #' @importFrom sf st_touches
 #' @importFrom sf st_transform
+#' @importFrom stats end
+#' @importFrom stats runif
+#' @importFrom stats setNames
+#' @importFrom stats start
 #' @importFrom stringr regex
 #' @importFrom stringr str_c
 #' @importFrom stringr str_count
@@ -109,9 +100,12 @@
 #' @importFrom tidyr separate_wider_regex
 #' @importFrom tidyr unite
 #' @importFrom tidyr unnest
+#' @importFrom utils capture.output
 #' @importFrom utils download.file
 #' @importFrom utils globalVariables
 #' @importFrom utils head
+#' @importFrom withr with_tempdir
+#' @importFrom yaml read_yaml
 ## usethis namespace: end
 NULL
 
@@ -186,5 +180,58 @@ utils::globalVariables(c(
   "vaccine.type", "value", "vdpv", "vdpv.1", "vdpv.2", "vdpv.3", "virus.type",
   "virustype", "vtype_mod", "weight", "who.region", "WHO_CODE", "WHO_REGION",
   "wild.1", "wild.3", "wpv", "year2", "years_active", "yr.end", "yr.sia",
-  "yr.st", "yronset"
+  "yr.st", "yronset","nums", "diffs", "set_iterator",
+
+  # From calc_hr_range()
+  "set",
+
+  # From create_polis_data_folder()
+  "src_path", "dest_path", "isdir", "size",
+
+  # From get_cdc_childvaxview_data()
+  "geography", "coverage_estimate",
+  "population_sample_size", "vaccine", "_95_ci",
+
+  # From get_vpd_data()
+  "country_name", "vpd", "variable", "iso3_code", "vpd_short_name",
+
+  # From sirfunctions_io()
+  "isdir", "lastModified", "mtime", "uid",
+
+  # From KPI
+  "CaseDate",  "Region",  "SG",  "Priority",  "Level",  "Shape",  "VDPV1",  "VDPV2",  "VDPV3",  "WILD1",
+  "active_sites",  "adequacy.denominator",  "adm0guid_afp",  "adm0guid_pop",
+  "adm1guid_afp",  "adm1guid_pop",  "adm2guid_afp",  "adm2guid_pop",  "afp_cases",
+  "analysis_year_end",  "analysis_year_start",  "archived_data",  "category",
+  "consistent_guid",  "ctry.short",  "culture.itd.cat",  "culture_itd_lab",
+  "date_interval",  "det_denom",  "dist_stool",  "dist_w_100k",  "es_samples",  "es_sites",
+  "es_sites_w_age",  "ev_denom",  "ev_label",  "ev_rate",  "good_samples",  "indicator",
+  "is_target",  "label",  "met_ev",  "met_ev_5_samples",  "met_ev_label",  "met_good_samples",
+  "met_npafp",  "met_npafp_label",  "met_stool",  "met_stool_label",
+  "met_timely_wild_vdpv",  "met_timely_wild_vdpv_label",
+  "met_timely_wpv_vdpv_det",  "n_na",  "n_samples_12_mo",  "npafp_cat",  "npafp_denom",
+  "npafp_label",  "ontoinvest",  "ontolab",  "ontostool_final",  "per_stool_ad",
+  "prop_good_es",  "prop_met_ev",  "prop_met_ev_5_samples",
+  "prop_met_ev_5_samples_label",  "prop_met_ev_label",  "prop_met_good_samples",
+  "prop_met_good_samples_label",  "prop_met_npafp",  "prop_met_stool",
+  "prop_met_timely_wild_vdpv",  "prop_met_timely_wpv_vdpv_det",
+  "prop_met_timely_wpv_vdpv_det_label",  "prop_t1_label",  "prop_t2_label",
+  "prop_t3_label",  "prop_t4_label",  "prop_t5_label",  "prop_timely_det_wpv_vdpv",
+  "prop_timely_isolation",  "prop_timely_itd",  "prop_timely_itdres_seqres",
+  "prop_timely_seqres",  "prop_timely_seqship",  "prop_timely_ship",
+  "prop_timely_wild_vdpv",  "prop_timely_wild_vdpv_label",  "raw_data",  "region",
+  "rolling_period",  "sampling_interval",  "seq.cat",  "seq.lab",  "seq_lab",  "setNames",
+  "sg_priority_level", "SG Priority Level", "site_age",  "stool_collection_date",  "stool_denom",
+  "stool_label",  "t1",  "t2",  "t3",  "t4",  "t5",  "timely_cat",  "timely_det",  "timely_isolation",
+  "timely_itd",  "timely_itdres_seqres",  "timely_seqres",  "timely_seqship",
+  "timely_ship",  "timely_wpv_vdpv_detections",  "wgs.lab*",  "who_region",  "whoregion",
+  "wild_vdpv",  "wpv_vdpv_detections",  "y",  "year_label",  "year_num",  "year_number",
+
+  "GUIDs", "adm_level", "cases", "cg_label",
+  "coltonothq","in_cg", "index", "lastModifiedEDAV", "median_wild_vdpv_det",
+  "median_wild_vdpv_det_label", "median_wild_vdpv_det_n", "median_wpv_vdpv_det",
+  "median_wpv_vdpv_det_label", "median_wpv_vdpv_samples", "min_date",
+  "spatial.data", "u15pop.x", "u15pop.y", "updated", "vacc", "values", "x",
+  "lab_data", "ctry.data"
+
 ))

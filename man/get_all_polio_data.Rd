@@ -6,27 +6,58 @@
 \usage{
 get_all_polio_data(
   size = "small",
-  folder = "GID/PEB/SIR/Data/",
-  force.new.run = F,
-  recreate.static.files = F,
-  attach.spatial.data = T
+  data_folder = "GID/PEB/SIR/Data",
+  polis_folder = "GID/PEB/SIR/POLIS",
+  core_ready_folder = "Core_Ready_Files",
+  force.new.run = FALSE,
+  recreate.static.files = FALSE,
+  attach.spatial.data = TRUE,
+  use_edav = TRUE,
+  use_archived_data = FALSE,
+  archive = TRUE,
+  keep_n_archives = Inf,
+  output_format = "rds",
+  local_caching = TRUE
 )
 }
 \arguments{
 \item{size}{\code{str} Size of data to download. Defaults to \code{"small"}.
 \itemize{
-\item \code{"small"}: Data from 2019-present.
+\item \code{"small"}: Data from the last six years.
 \item \code{"medium"}: Data from 2016-present.
-\item \code{"large"}: Data from 2001-present.
+\item \code{"large"}: Data from 2000-present.
 }}
 
-\item{folder}{\code{str} Location of the CDC pre-processed endpoint, defaults to \code{"GID/PEB/SIR/Data"}.}
+\item{data_folder}{\code{str} Location of the data folder containing pre-processed POLIS data,
+spatial files, coverage data, and population data. Defaults to \code{"GID/PEB/SIR/Data"}.}
 
-\item{force.new.run}{\code{bool} Default \code{FALSE}, if \code{TRUE} will run recent data and cache.}
+\item{polis_folder}{\code{str} Location of the POLIS folder. Defaults to \code{"GID/PEB/SIR/POLIS"}.}
 
-\item{recreate.static.files}{\code{bool} Default \code{FALSE}, if \code{TRUE} will run all data and cache.}
+\item{core_ready_folder}{\code{str} Which core ready folder to use. Defaults to \code{"Core_Ready_Files"}.}
 
-\item{attach.spatial.data}{\code{bool} Default \code{TRUE}, adds spatial data to downloaded object.}
+\item{force.new.run}{\code{logical} Default \code{FALSE}, if \code{TRUE} will run recent data and cache.}
+
+\item{recreate.static.files}{\code{logical} Default \code{FALSE}, if \code{TRUE} will run all data and cache.}
+
+\item{attach.spatial.data}{\code{logical} Default \code{TRUE}, adds spatial data to downloaded object.}
+
+\item{use_edav}{\code{logical} Build raw data list using EDAV files. Defaults to \code{TRUE}.}
+
+\item{use_archived_data}{\code{logical} Allows the ability to recreate the raw data file using previous
+preprocessed data. If}
+
+\item{archive}{Logical. Whether to archive previous output directories
+before overwriting. Default is \code{TRUE}.}
+
+\item{keep_n_archives}{Numeric. Number of archive folders to retain.
+Defaults to \code{Inf}, which keeps all archives. Set to a finite number
+(e.g., 3) to automatically delete older archives beyond the N most recent.}
+
+\item{output_format}{str: output_format to save files as.
+Available formats include 'rds' and 'qs2'. Defaults is 'rds'.}
+
+\item{local_caching}{\code{logical} Enable local caching so data is stored locally and
+only downloaded when there is updated data from EDAV.}
 }
 \value{
 Named \code{list} containing polio data that is relevant to CDC.
@@ -34,16 +65,16 @@ Named \code{list} containing polio data that is relevant to CDC.
 \description{
 Download POLIS data from the CDC pre-processed endpoint. By default
 this function will return a "small" or recent dataset. This is primarily for data
-that is from 2019 onwards. You can specify a "medium" sized dataset for data
+that is from the past six years. You can specify a "medium" sized dataset for data
 that is from 2016 onwards. Finally the "large" sized dataset will provide information
-from 2001 onwards. Regular pulls form the data will recreate the "small" dataset
-when new information is availble and the Data Management Team can force the
+from 2000 onwards. Regular pulls form the data will recreate the "small" dataset
+when new information is available and the Data Management Team can force the
 creation of the "medium" and "large" static datasets as necessary.
 }
 \examples{
 \dontrun{
-raw.data <- get_all_polio_data() # downloads data since 2019, including spatial files
-}
+raw.data <- get_all_polio_data() # downloads data for last 6 years, including spatial files
 raw.data <- get_all_polio_data(size = "small", attach.spatial.data = FALSE) # exclude spatial data
+}
 
 }

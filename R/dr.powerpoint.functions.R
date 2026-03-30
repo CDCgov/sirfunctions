@@ -50,8 +50,8 @@ generate_pptx_assumptions <- function(start_date, end_date) {
 #' The desk review PowerPoint template is used to build the desk review slide deck.
 #' The function will either download the template from the sg-desk-reviews GitHub page
 #' or get it locally.
-#' @param path `str` Path to the PowerPoint template. If `NULL`,
-#' will prompt user to download from the sg-desk-review GitHub repository
+#' @param path `str` Path to the PowerPoint template. If `NULL`, uses the
+#' default template inside sirfunctions.
 #'
 #' @returns `str` Local path of the PowerPoint template.
 #' @examples
@@ -66,9 +66,7 @@ generate_pptx_assumptions <- function(start_date, end_date) {
 #' @export
 get_ppt_template <- function(path = NULL) {
   if (is.null(path)) {
-    url <- "https://github.com/nish-kishore/sg-desk-reviews/tree/main/resources"
-
-    stop(paste0("\nPlease download the PPT template file here:\n"), url)
+    return(system.file("extdata", "desk_review_template.pptx", package = "sirfunctions"))
   } else {
     return(file.path(path))
   }
@@ -81,7 +79,6 @@ get_ppt_template <- function(path = NULL) {
 #' superseded by [generate_dr_ppt2()]. The function outputs images to the PowerPoint
 #' directly from objects, unlike `generate_dr_ppt2()` which uses images saved in a folder.
 #'
-#' @param ppt_template_path `str` Sath to the PowerPoint template.
 #' @param ctry.data `list` List containing polio data for a country. Either the output of
 #' [extract_country_data()] or [init_dr()].
 #' @param start_date `str` Start date of desk review.
@@ -108,6 +105,7 @@ get_ppt_template <- function(path = NULL) {
 #' @param es.timely `ggplot` ES timeliness.
 #' @param es.table `flextable` ES table.
 #' @param country `str` Name of the country.
+#' @param ppt_template_path `str` Path to the PowerPoint template.
 #' @param ppt_output_path `str` Path where the PowerPoint should be outputted.
 #' @returns None.
 #' @examples
@@ -127,7 +125,7 @@ get_ppt_template <- function(path = NULL) {
 #' }
 #'
 #' @export
-generate_dr_ppt <- function(ppt_template_path, ctry.data, start_date, end_date,
+generate_dr_ppt <- function(ctry.data, start_date, end_date,
                             pop.map, pop.map.prov, afp.case.map, afp.epi.curve,
                             surv.ind.tab, afp.dets.prov.year, pop.tab, npafp.map,
                             npafp.map.dist, stool.ad.maps, stool.ad.maps.dist,
@@ -136,6 +134,7 @@ generate_dr_ppt <- function(ppt_template_path, ctry.data, start_date, end_date,
                             mapt_all, es.site.det, es.det.map, es.timely,
                             es.table,
                             country = Sys.getenv("DR_COUNTRY"),
+                            ppt_template_path = NULL,
                             ppt_output_path = Sys.getenv("DR_POWERPOINT_PATH")) {
   if (!requireNamespace("rvg", quietly = TRUE)) {
     stop('Package "rvg" must be installed to use this function.',
@@ -156,8 +155,10 @@ generate_dr_ppt <- function(ppt_template_path, ctry.data, start_date, end_date,
     stop("Output path does not exist. Please try again.")
   }
 
-  if (!file.exists(ppt_template_path)) {
-    stop("Ppt template path does not exist. Please try again.")
+  if (!is.null(ppt_template_path)) {
+    if (!file.exists(ppt_template_path)) {
+      stop("Ppt template path does not exist. Please try again.")
+    }
   }
 
   ppt_template_path <- get_ppt_template(ppt_template_path)

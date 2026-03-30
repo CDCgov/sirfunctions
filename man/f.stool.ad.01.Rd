@@ -47,9 +47,9 @@ When calculating the \code{adequacy.final} column:
 \item{bad.data}{\code{str} How to  treat bad data. Valid values are:\verb{"remove", "inadequate"}. Defaults to \code{"inadequate"}.
 \code{"inadequate"} treats samples with bad data as inadequate.}
 
-\item{rolling}{\code{bool} Should data be analyzed on a rolling bases? Defaults to \code{FALSE}.}
+\item{rolling}{\code{logical} Should data be analyzed on a rolling bases? Defaults to \code{FALSE}.}
 
-\item{sp_continuity_validation}{\code{bool} Should GUIDs not present in all years of the dataset be excluded? Default \code{TRUE}.}
+\item{sp_continuity_validation}{\code{logical} Should GUIDs not present in all years of the dataset be excluded? Default \code{TRUE}.}
 
 \item{admin.data}{\code{tibble} Population data. Renamed in favor of \code{pop.data}.}
 }
@@ -63,11 +63,13 @@ missing data is treated. \code{"good"} classifies missing data as good quality
 excludes missing from the calculations.
 }
 \examples{
+\dontrun{
 raw.data <- get_all_polio_data()
 stool.ads <- f.stool.ad.01(raw.data$afp, raw.data$ctry.pop,
   "2021-01-01", "2023-12-31",
   "ctry",
   sp_continuity_validation = FALSE
 )
+}
 
 }
