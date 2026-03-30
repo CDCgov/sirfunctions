@@ -17,6 +17,9 @@ create_raw_data_parquet <- function(raw_data, path){
   start <- Sys.time()
   df_names <- names(raw_data)
 
+  options(arrow.use_threads = TRUE)
+  on.exit(options(arrow.use_threads = old_threads), add = TRUE)
+
   if (!dir.exists(path)) {
     cli::cli_abort("Directory path does not exist.")
   }
@@ -26,17 +29,12 @@ create_raw_data_parquet <- function(raw_data, path){
   for (i in df_names) {
     cli::cli_alert_info(paste0("Now processing: ", i))
 
-    if (i %in% c("global.prov", "global.dist")) {
-      raw_data[[i]] |>
-        dplyr::mutate(SHAPE = sf::st_as_text(SHAPE)) |>
-        arrow::write_dataset(path = file.path(path, i),
-                             partitioning = get_partition_cols(i))
-
-    } else if (i == "global.ctry") {
+    if (i %in% c("global.ctry", "global.prov", "global.dist")) {
       raw_data[[i]] |>
         dplyr::mutate(Shape = sf::st_as_text(Shape)) |>
         arrow::write_dataset(path = file.path(path, i),
                              partitioning = get_partition_cols(i))
+
     } else if (i %in% c("cities", "roads")) {
       raw_data[[i]] |>
         dplyr::mutate(geometry = sf::st_as_text(geometry)) |>
@@ -166,24 +164,24 @@ upload_parquet_to_edav <- function(src, dest, container = NULL) {
 #' }
 get_partition_cols <- function(name) {
   switch(name,
-         "afp" = "place.admin.0",
-         "afp.dupe" = "place.admin.0",
-         "afp.epi" = "place.admin.0",
-         "para.case" = "place.admin.0",
-         "es" = "ADM0_NAME",
-         "es.dupe" = "ADM0_NAME",
-         "sia" = "place.admin.0",
-         "sia.dupe" = "place.admin.0",
-         "pos" = "place.admin.0",
-         "pos.dupe" = "place.admin.0",
-         "other" = "place.admin.0",
-         "other.dupe" = "place.admin.0",
-         "dist.pop" = "ctry",
-         "prov.pop" = "ctry",
-         "ctry.pop" = "ctry",
-         "global.ctry" = "ADM0_NAME",
-         "global.prov" = "ADM0_NAME",
-         "global.dist" = "ADM0_NAME",
+         "afp" = "yronset",
+         "afp.dupe" = "yronset",
+         "afp.epi" = "yronset",
+         "para.case" = "yronset",
+         "es" = "collect.yr",
+         "es.dupe" = "collect.yr",
+         "sia" = "yr.sia",
+         "sia.dupe" = "yr.sia",
+         "pos" = "yronset",
+         "pos.dupe" = "yronset",
+         "other" = "yronset",
+         "other.dupe" = "yronset",
+         "dist.pop" = "year",
+         "prov.pop" = "year",
+         "ctry.pop" = "year",
+         "global.ctry" = "WHO_REGION",
+         "global.prov" = "WHO_REGION",
+         "global.dist" = "WHO_REGION",
          "ctry.coverage" = "year",
          "prov.coverage" = "year",
          "dist.coverage" = "year",
@@ -210,7 +208,9 @@ build_parquet_raw_data_local <- function(path = NULL) {
   valid_values <- c("afp", "afp.dupe", "afp.epi", "para.case", "es", "es.dupe",
                     "sia", "sia.dupe", "pos", "pos.dupe", "other", "other.dupe",
                     "dist.pop", "prov.pop", "ctry.pop", "global.ctry",
-                    "global.prov", "global.dist", "roads" , "cities", "metadata"
+                    "global.prov", "global.dist", 
+                    "ctry.coverage", "prov.coverage", "dist.coverage",
+                    "roads" , "cities", "metadata"
                     )
   data <- list.files(path)
   data <- intersect(data, valid_values)
@@ -255,19 +255,46 @@ build_parquet_raw_data_edav <- function(path = NULL, container = NULL, ...) {
 
   raw_data <- NULL
   # Download files locally in the temp directory first
-  dest <- tempdir()
-  local_pq <- file.path(dest, basename(path))
-  AzureStor::storage_multidownload(container,
-                                     src = paste0(path, "/*"),
-                                     dest = local_pq,
-                                     recursive = TRUE,
-                                     overwrite = TRUE
-                                     )
+  withr::with_tempdir({
+    local_pq <- file.path(getwd(), basename(path))
+    AzureStor::storage_multidownload(container,
+                                      src = paste0(path, "/*"),
+                                      dest = local_pq,
+                                      recursive = TRUE,
+                                      overwrite = TRUE
+                                      )
 
-  raw_data <- build_parquet_raw_data_local(local_pq)
-  cli::cli_process_done()
+    raw_data <- build_parquet_raw_data_local(local_pq)
+    cli::cli_process_done()
+  })
+  
   cli::cli_process_start(paste0("Built in ", difftime(Sys.time(), start, "mins"), " mins."))
 
   return(raw_data)
 
+}
+
+#' Drop Shape column and convert to binary
+#'
+#' @param x `sf` or `data.frame` Geodata.
+#' @param geom_col `str` Name of the geometry column.
+#'
+#' @returns `tibble` Data without any Shape column.
+#'
+#' @keywords internal
+#' 
+to_wkb_drop_sf <- function(x, geom_col) {
+  # Works whether x is sf or a plain data.frame with an sfc column
+  geom <- if (inherits(x, "sf")) {
+    sf::st_geometry(x)
+  } else {
+    x[[geom_col]]
+  } 
+
+  x[[paste0(geom_col, "_wkb")]] <- sf::st_as_binary(geom)
+  x[[geom_col]] <- NULL
+  if (inherits(x, "sf")) {
+     x <- sf::st_drop_geometry(x)
+  }
+  return(x)
 }
