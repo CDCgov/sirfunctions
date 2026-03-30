@@ -184,6 +184,9 @@ get_partition_cols <- function(name) {
          "global.ctry" = "ADM0_NAME",
          "global.prov" = "ADM0_NAME",
          "global.dist" = "ADM0_NAME",
+         "ctry.coverage" = "year",
+         "prov.coverage" = "year",
+         "dist.coverage" = "year",
          "roads" = "continent",
          "cities" = "CNTRY_NAME",
          "metadata" = "download_time"
