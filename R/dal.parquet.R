@@ -17,6 +17,7 @@ create_raw_data_parquet <- function(raw_data, path){
   start <- Sys.time()
   df_names <- names(raw_data)
 
+  old_threads <- getOption("arrow.use_threads")
   options(arrow.use_threads = TRUE)
   on.exit(options(arrow.use_threads = old_threads), add = TRUE)
 
@@ -29,15 +30,15 @@ create_raw_data_parquet <- function(raw_data, path){
   for (i in df_names) {
     cli::cli_alert_info(paste0("Now processing: ", i))
 
+    data <- 
+
     if (i %in% c("global.ctry", "global.prov", "global.dist")) {
-      raw_data[[i]] |>
-        dplyr::mutate(Shape = sf::st_as_text(Shape)) |>
+      to_wkb_drop_sf(raw_data[[i]], "Shape") |>
         arrow::write_dataset(path = file.path(path, i),
                              partitioning = get_partition_cols(i))
 
     } else if (i %in% c("cities", "roads")) {
-      raw_data[[i]] |>
-        dplyr::mutate(geometry = sf::st_as_text(geometry)) |>
+      to_wkb_drop_sf(raw_data[[i]], "geometry") |>
         arrow::write_dataset(path = file.path(path, i),
                              partitioning = get_partition_cols(i))
 
@@ -186,7 +187,7 @@ get_partition_cols <- function(name) {
          "prov.coverage" = "year",
          "dist.coverage" = "year",
          "roads" = "continent",
-         "cities" = "CNTRY_NAME",
+         "cities" = "POP_CLASS",
          "metadata" = "download_time"
          )
 }
