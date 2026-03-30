@@ -102,7 +102,7 @@ build_parquet_raw_data <- function(
   if (from_edav) {
     # Default values
     if (is.null(path)) {
-      path <- "GID/PEB/SIR/Sandbox/parquet_sandbox"
+      cli::cli_abort("Please pass a file path to the parquet folder")
     }
     if (is.null(container)) {
       container <- get_azure_storage_connection()
