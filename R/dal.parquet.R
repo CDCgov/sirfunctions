@@ -13,8 +13,7 @@
 #' raw_data <- get_all_polio_data()
 #' create_raw_data_parquet(raw_data, "C:/Users/ABC1/Desktop/raw_data_parquet")
 #' }
-create_raw_data_parquet <- function(raw_data, path){
-
+create_raw_data_parquet <- function(raw_data, path) {
   df_names <- names(raw_data)
 
   old_threads <- getOption("arrow.use_threads")
@@ -30,29 +29,35 @@ create_raw_data_parquet <- function(raw_data, path){
   for (i in df_names) {
     cli::cli_alert_info(paste0("Now processing: ", i))
 
-    data <- 
-
-    if (i %in% c("global.ctry", "global.prov", "global.dist")) {
-      raw_data[[i]] |>
-        to_wkb_drop_sf() |>
-        arrow::write_dataset(path = file.path(path, i),
-                             partitioning = get_partition_cols(i))
-
-    } else if (i %in% c("cities", "roads")) {
-      raw_data[[i]] |>
-        to_wkb_drop_sf() |>
-        arrow::write_dataset(path = file.path(path, i),
-                             partitioning = get_partition_cols(i))
-
-    } else if (i == "metadata") {
-      raw_data[[i]] |>
-        dplyr::as_tibble() |>
-        arrow::write_dataset(path = file.path(path, i),
-                             partitioning = get_partition_cols(i))
-    } else {
-      raw_data[[i]] |> arrow::write_dataset(path = file.path(path, i),
-                                            partitioning = get_partition_cols(i))
-    }
+    data <-
+      if (i %in% c("global.ctry", "global.prov", "global.dist")) {
+        raw_data[[i]] |>
+          to_wkb_drop_sf() |>
+          arrow::write_dataset(
+            path = file.path(path, i),
+            partitioning = get_partition_cols(i)
+          )
+      } else if (i %in% c("cities", "roads")) {
+        raw_data[[i]] |>
+          to_wkb_drop_sf() |>
+          arrow::write_dataset(
+            path = file.path(path, i),
+            partitioning = get_partition_cols(i)
+          )
+      } else if (i == "metadata") {
+        raw_data[[i]] |>
+          dplyr::as_tibble() |>
+          arrow::write_dataset(
+            path = file.path(path, i),
+            partitioning = get_partition_cols(i)
+          )
+      } else {
+        raw_data[[i]] |>
+          arrow::write_dataset(
+            path = file.path(path, i),
+            partitioning = get_partition_cols(i)
+          )
+      }
 
     cli::cli_alert_info(paste0(iter, "/", length(df_names), " processed."))
     iter <- iter + 1
@@ -72,7 +77,7 @@ create_raw_data_parquet <- function(raw_data, path){
 #' @param container `azcontainer` An instance of an Azure container to connect
 #' to. Pass [get_azure_storage_connection()] using defaults if not accessing
 #' using a service principal.
-#' 
+#'
 #' @details
 #' For tibbles with Shapes, pass to [from_wkb_to_sf()] first before creating maps.
 #'
@@ -89,8 +94,11 @@ create_raw_data_parquet <- function(raw_data, path){
 #' # Build raw_data from EDAV
 #' raw_data <- build_parquet_raw_data()
 #' }
-build_parquet_raw_data <- function(path = NULL, from_edav = F, container = NULL) {
-
+build_parquet_raw_data <- function(
+  path = NULL,
+  from_edav = F,
+  container = NULL
+) {
   if (from_edav) {
     # Default values
     if (is.null(path)) {
@@ -130,21 +138,18 @@ upload_parquet_to_edav <- function(src, dest, container = NULL) {
     container <- get_azure_storage_connection()
   }
 
-  while (TRUE) {
-    cli::cli_alert_info(paste0("Confirm upload to: ", dest, "/", basename(src), " (y/n)"))
-    response <- stringr::str_to_lower(stringr::str_trim(readline("> ")))
-    if (!response %in% c("y", "n")) {
-      cli::cli_alert_warning("Invalid response. Try again.")
-    } else if (response == "n") {
-      cli::cli_alert("Upload cancelled.")
-    } else if (response == "y") {
-      break
-    }
+  dir_exists <- edav_io("exists.dir", NULL, dest)
+  if (!dir_exists) {
+    cli::cli_abort("Folder doesn't exist on EDAV. Unable to upload")
   }
 
   cli::cli_process_start("Uploading parquet folder to EDAV")
-  AzureStor::multiupload_adls_file(container, paste0(src, "/*"), file.path(dest, basename(src)),
-                                   recursive = TRUE)
+  AzureStor::multiupload_adls_file(
+    container,
+    paste0(src, "/*"),
+    file.path(dest, basename(src)),
+    recursive = TRUE
+  )
   cli::cli_process_done()
 }
 
@@ -156,9 +161,7 @@ upload_parquet_to_edav <- function(src, dest, container = NULL) {
 #'
 #' @export
 from_wkb_to_sf <- function(sf_data) {
-
-
-  # Ensure that global shapefiles have Shape and city/roads as geometry. 
+  # Ensure that global shapefiles have Shape and city/roads as geometry.
   # Otherwise, need to modify this function.
   if ("Shape" %in% names(sf_data)) {
     wkb_col <- "Shape"
@@ -172,9 +175,8 @@ from_wkb_to_sf <- function(sf_data) {
     dplyr::mutate(dplyr::across(dplyr::any_of(wkb_col), \(x) {
       sf::st_as_sf(x, EWKB = TRUE, crs = 4326)
     }))
-  
-  return(sf_data)
 
+  return(sf_data)
 }
 
 # Private functions ----
@@ -191,32 +193,33 @@ from_wkb_to_sf <- function(sf_data) {
 #' get_partition_cols("afp")
 #' }
 get_partition_cols <- function(name) {
-  switch(name,
-         "afp" = "yronset",
-         "afp.dupe" = "yronset",
-         "afp.epi" = "yronset",
-         "para.case" = "yronset",
-         "es" = "collect.yr",
-         "es.dupe" = "collect.yr",
-         "sia" = "yr.sia",
-         "sia.dupe" = "yr.sia",
-         "pos" = "yronset",
-         "pos.dupe" = "yronset",
-         "other" = "yronset",
-         "other.dupe" = "yronset",
-         "dist.pop" = "year",
-         "prov.pop" = "year",
-         "ctry.pop" = "year",
-         "global.ctry" = "WHO_REGION",
-         "global.prov" = "WHO_REGION",
-         "global.dist" = "WHO_REGION",
-         "ctry.coverage" = "year",
-         "prov.coverage" = "year",
-         "dist.coverage" = "year",
-         "roads" = "continent",
-         "cities" = "POP_CLASS",
-         "metadata" = "download_time"
-         )
+  switch(
+    name,
+    "afp" = "yronset",
+    "afp.dupe" = "yronset",
+    "afp.epi" = "yronset",
+    "para.case" = "yronset",
+    "es" = "collect.yr",
+    "es.dupe" = "collect.yr",
+    "sia" = "yr.sia",
+    "sia.dupe" = "yr.sia",
+    "pos" = "yronset",
+    "pos.dupe" = "yronset",
+    "other" = "yronset",
+    "other.dupe" = "yronset",
+    "dist.pop" = "year",
+    "prov.pop" = "year",
+    "ctry.pop" = "year",
+    "global.ctry" = "WHO_REGION",
+    "global.prov" = "WHO_REGION",
+    "global.dist" = "WHO_REGION",
+    "ctry.coverage" = "year",
+    "prov.coverage" = "year",
+    "dist.coverage" = "year",
+    "roads" = "continent",
+    "cities" = "POP_CLASS",
+    "metadata" = "download_time"
+  )
 }
 
 #' Build raw_data using local parquet files
@@ -228,18 +231,36 @@ get_partition_cols <- function(name) {
 #' @keywords internal
 #'
 build_parquet_raw_data_local <- function(path = NULL) {
-
   if (!dir.exists(path)) {
     cli::cli_abort("Not a valid directory.")
   }
 
-  valid_values <- c("afp", "afp.dupe", "afp.epi", "para.case", "es", "es.dupe",
-                    "sia", "sia.dupe", "pos", "pos.dupe", "other", "other.dupe",
-                    "dist.pop", "prov.pop", "ctry.pop", "global.ctry",
-                    "global.prov", "global.dist", 
-                    "ctry.coverage", "prov.coverage", "dist.coverage",
-                    "roads" , "cities", "metadata"
-                    )
+  valid_values <- c(
+    "afp",
+    "afp.dupe",
+    "afp.epi",
+    "para.case",
+    "es",
+    "es.dupe",
+    "sia",
+    "sia.dupe",
+    "pos",
+    "pos.dupe",
+    "other",
+    "other.dupe",
+    "dist.pop",
+    "prov.pop",
+    "ctry.pop",
+    "global.ctry",
+    "global.prov",
+    "global.dist",
+    "ctry.coverage",
+    "prov.coverage",
+    "dist.coverage",
+    "roads",
+    "cities",
+    "metadata"
+  )
   data <- list.files(path)
   data <- intersect(data, valid_values)
 
@@ -249,7 +270,6 @@ build_parquet_raw_data_local <- function(path = NULL) {
   }
 
   return(raw_data)
-
 }
 
 #' Build raw_data using EDAV files
@@ -265,14 +285,12 @@ build_parquet_raw_data_local <- function(path = NULL) {
 #' @keywords internal
 #'
 build_parquet_raw_data_edav <- function(path = NULL, container = NULL, ...) {
-
   if (is.null(container)) {
     container <- get_azure_storage_connection()
   }
 
-  exist <- edav_io("exists.dir", NULL,
-                   file_loc = path, azcontainer = container)
-  
+  exist <- edav_io("exists.dir", NULL, file_loc = path, azcontainer = container)
+
   if (!exist) {
     cli::cli_abort("The directory does not exist on EDAV.")
   } else {
@@ -284,32 +302,31 @@ build_parquet_raw_data_edav <- function(path = NULL, container = NULL, ...) {
   raw_data <- NULL
 
   local_pq <- file.path(rappdirs::user_data_dir("sirfunctions"), basename(path))
-  AzureStor::storage_multidownload(container,
-                                    src = paste0(path, "/*"),
-                                    dest = local_pq,
-                                    recursive = TRUE,
-                                    overwrite = TRUE
-                                    )
+  AzureStor::storage_multidownload(
+    container,
+    src = paste0(path, "/*"),
+    dest = local_pq,
+    recursive = TRUE,
+    overwrite = TRUE
+  )
 
   raw_data <- build_parquet_raw_data_local(local_pq)
   cli::cli_process_done()
 
   return(raw_data)
-
 }
 
 #' Drop Shape column and convert to binary
 #'
 #' @param x `sf` or `data.frame` Geodata.
-#' 
+#'
 #' @details
 #' This function was written using the CDC EDAV Chatbot using the model GPT-5.2.
 #' @returns `tibble` dData without any Shape column.
 #'
 #' @keywords internal
-#' 
+#'
 to_wkb_drop_sf <- function(sf_data) {
-
   if ("Shape" %in% names(sf_data)) {
     geom_col <- "Shape"
   } else if ("geometry" %in% names(sf_data)) {
@@ -323,15 +340,15 @@ to_wkb_drop_sf <- function(sf_data) {
     sf::st_geometry(sf_data)
   } else {
     sf_data[[geom_col]]
-  } 
+  }
 
   # Convert to WKB (list of raw vectors), then drop the "WKB" class
   wkb <- sf::st_as_binary(geom)
-  wkb <- unclass(wkb)   # <- key line: makes it a plain list Arrow can infer
+  wkb <- unclass(wkb) # <- key line: makes it a plain list Arrow can infer
 
   sf_data[[geom_col]] <- wkb
   if (inherits(sf_data, "sf")) {
-     sf_data <- sf::st_drop_geometry(sf_data)
+    sf_data <- sf::st_drop_geometry(sf_data)
   }
   return(sf_data)
 }
