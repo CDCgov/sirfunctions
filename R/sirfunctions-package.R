@@ -44,6 +44,7 @@
 #' @importFrom lifecycle deprecate_warn
 #' @importFrom lifecycle deprecated
 #' @importFrom lifecycle is_present
+#' @importFrom pins board_azure
 #' @importFrom purrr map
 #' @importFrom rappdirs user_data_dir
 #' @importFrom readr read_csv
