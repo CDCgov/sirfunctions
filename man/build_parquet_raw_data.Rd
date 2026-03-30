@@ -23,6 +23,9 @@ individual datasets in the original output of \code{\link[=get_all_polio_data]{g
 Recreates an output of \code{\link[=get_all_polio_data]{get_all_polio_data()}} from a folder housing
 data in parquet format.
 }
+\details{
+For tibbles with Shapes, pass to \code{\link[=from_wkb_to_sf]{from_wkb_to_sf()}} first before creating maps.
+}
 \examples{
 \dontrun{
 # Building raw_data locally
