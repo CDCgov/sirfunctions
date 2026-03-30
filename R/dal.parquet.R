@@ -14,7 +14,7 @@
 #' create_raw_data_parquet(raw_data, "C:/Users/ABC1/Desktop/raw_data_parquet")
 #' }
 create_raw_data_parquet <- function(raw_data, path){
-  start <- Sys.time()
+
   df_names <- names(raw_data)
 
   old_threads <- getOption("arrow.use_threads")
@@ -57,10 +57,6 @@ create_raw_data_parquet <- function(raw_data, path){
   }
 
   cli::cli_process_done()
-  cli::cli_alert_success("raw_data parquet folder created!")
-  cli::cli_alert_info(paste0("Data processed in: ",
-                             round(difftime(Sys.time(), start, "mins"), 2),
-                             " mins."))
 }
 
 #' Recreate raw data from local parquet folder
@@ -292,7 +288,11 @@ to_wkb_drop_sf <- function(x, geom_col) {
     x[[geom_col]]
   } 
 
-  x[[paste0(geom_col, "_wkb")]] <- sf::st_as_binary(geom)
+  # Convert to WKB (list of raw vectors), then drop the "WKB" class
+  wkb <- sf::st_as_binary(geom)
+  wkb <- unclass(wkb)   # <- key line: makes it a plain list Arrow can infer
+
+  x[[paste0(geom_col, "_wkb")]] <- wkb
   x[[geom_col]] <- NULL
   if (inherits(x, "sf")) {
      x <- sf::st_drop_geometry(x)
