@@ -33,12 +33,14 @@ create_raw_data_parquet <- function(raw_data, path){
     data <- 
 
     if (i %in% c("global.ctry", "global.prov", "global.dist")) {
-      to_wkb_drop_sf(raw_data[[i]], "Shape") |>
+      raw_data[[i]] |>
+        to_wkb_drop_sf() |>
         arrow::write_dataset(path = file.path(path, i),
                              partitioning = get_partition_cols(i))
 
     } else if (i %in% c("cities", "roads")) {
-      to_wkb_drop_sf(raw_data[[i]], "geometry") |>
+      raw_data[[i]] |>
+        to_wkb_drop_sf() |>
         arrow::write_dataset(path = file.path(path, i),
                              partitioning = get_partition_cols(i))
 
@@ -91,10 +93,10 @@ build_parquet_raw_data <- function(path = NULL, from_edav = F, container = NULL)
 
   if (from_edav) {
     # Default values
-    if (!is.null(path)) {
+    if (is.null(path)) {
       path <- "GID/PEB/SIR/Sandbox/parquet_sandbox"
     }
-    if (!is.null(container)) {
+    if (is.null(container)) {
       container <- get_azure_storage_connection()
     }
 
@@ -141,13 +143,38 @@ upload_parquet_to_edav <- function(src, dest, container = NULL) {
   }
 
   cli::cli_process_start("Uploading parquet folder to EDAV")
-  start <- Sys.time()
-  AzureStor::multiupload_adls_file(container, paste0(src, "/*"), dest,
+  AzureStor::multiupload_adls_file(container, paste0(src, "/*"), file.path(dest, basename(src)),
                                    recursive = TRUE)
   cli::cli_process_done()
-  cli::cli_alert_success(c("Uploaded in: ",
-                           round(difftime(Sys.time(), start, "mins"), 2),
-                           " mins"))
+}
+
+#' Convert WKB back to sf column
+#'
+#' @param sf_data `arrow connection` Geodata arrow connection.
+#'
+#' @returns `tibble` Geodata with `sf`.
+#'
+#' @export
+from_wkb_to_sf <- function(sf_data) {
+
+
+  # Ensure that global shapefiles have Shape and city/roads as geometry. 
+  # Otherwise, need to modify this function.
+  if ("Shape" %in% names(sf_data)) {
+    wkb_col <- "Shape"
+  } else if ("geometry" %in% names(sf_data)) {
+    wkb_col <- "geometry"
+  } else {
+    cli::cli_abort("Not an sf dataset.")
+  }
+
+  sf_data |>
+    dplyr::mutate(dplyr::across(dplyr::any_of(wkb_col), \(x) {
+      sf::st_as_sf(x, EWKB = TRUE, crs = 4326)
+    }))
+  
+  return(sf_data)
+
 }
 
 # Private functions ----
@@ -243,8 +270,9 @@ build_parquet_raw_data_edav <- function(path = NULL, container = NULL, ...) {
     container <- get_azure_storage_connection()
   }
 
-  exist <- edav_io("exists.dir", default_dir = "",
+  exist <- edav_io("exists.dir", NULL,
                    file_loc = path, azcontainer = container)
+  
   if (!exist) {
     cli::cli_abort("The directory does not exist on EDAV.")
   } else {
@@ -252,24 +280,19 @@ build_parquet_raw_data_edav <- function(path = NULL, container = NULL, ...) {
   }
 
   cli::cli_process_start("Building raw_data from EDAV parquet files")
-  start <- Sys.time()
 
   raw_data <- NULL
-  # Download files locally in the temp directory first
-  withr::with_tempdir({
-    local_pq <- file.path(getwd(), basename(path))
-    AzureStor::storage_multidownload(container,
-                                      src = paste0(path, "/*"),
-                                      dest = local_pq,
-                                      recursive = TRUE,
-                                      overwrite = TRUE
-                                      )
 
-    raw_data <- build_parquet_raw_data_local(local_pq)
-    cli::cli_process_done()
-  })
-  
-  cli::cli_process_start(paste0("Built in ", difftime(Sys.time(), start, "mins"), " mins."))
+  local_pq <- file.path(rappdirs::user_data_dir("sirfunctions"), basename(path))
+  AzureStor::storage_multidownload(container,
+                                    src = paste0(path, "/*"),
+                                    dest = local_pq,
+                                    recursive = TRUE,
+                                    overwrite = TRUE
+                                    )
+
+  raw_data <- build_parquet_raw_data_local(local_pq)
+  cli::cli_process_done()
 
   return(raw_data)
 
@@ -311,33 +334,4 @@ to_wkb_drop_sf <- function(sf_data) {
      sf_data <- sf::st_drop_geometry(sf_data)
   }
   return(sf_data)
-}
-
-#' Convert WKB back to sf column
-#'
-#' @param sf_data `arrow connection` Geodata arrow connection.
-#'
-#' @returns `tibble` Geodata with `sf`.
-#'
-#' @export
-from_wkb_to_sf <- function(sf_data) {
-
-
-  # Ensure that global shapefiles have Shape and city/roads as geometry. 
-  # Otherwise, need to modify this function.
-  if ("Shape" %in% names(sf_data)) {
-    wkb_col <- "Shape"
-  } else if ("geometry" %in% names(sf_data)) {
-    wkb_col <- "geometry"
-  } else {
-    cli::cli_abort("Not an sf dataset.")
-  }
-
-  sf_data |>
-    dplyr::mutate(dplyr::across(dplyr::any_of(wkb_col), \(x) {
-      sf::st_as_sf(x, EWKB = TRUE, crs = 4326)
-    }))
-  
-  return(sf_data)
-
 }
