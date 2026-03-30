@@ -24,7 +24,7 @@ split_concat_raw_data(
 the 'small' dataset, which consists of data from the past 6 years.}
 
 \item{raw.data.medium.pull}{\code{list} A list of data objects to be concatenated. This is
-the 'small' dataset, which consists of data from the past 9 years.}
+the 'small' dataset, which consists of data since 2016.}
 
 \item{raw.data.large.pull}{\code{list} A list of data objects to be concatenated. This is
 the 'small' dataset, which consists of data since 2000.}
