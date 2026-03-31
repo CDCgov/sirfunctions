@@ -4,7 +4,7 @@
 \alias{upload_parquet_to_edav}
 \title{Uploads a local parquet folder to EDAV}
 \usage{
-upload_parquet_to_edav(src, dest, container = NULL)
+upload_parquet_to_edav(src, dest, container = get_azure_storage_connection())
 }
 \arguments{
 \item{src}{\code{str} Local path to the parquet folder.}

@@ -6,8 +6,8 @@
 \usage{
 build_parquet_raw_data(
   path = "GID/PEB/SIR/Data/analytic",
-  from_edav = TRUE,
   dataset = "all",
+  from_edav = TRUE,
   container = get_azure_storage_connection()
 )
 }
