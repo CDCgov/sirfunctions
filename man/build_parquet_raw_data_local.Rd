@@ -8,6 +8,8 @@ build_parquet_raw_data_local(path = NULL, dataset = "all")
 }
 \arguments{
 \item{path}{\code{str} A path to the parquet directory}
+
+\item{dataset}{\code{str} A specific dataset. Defaults to \code{"all"}. Otherwise, can specify any dataset in the list returned by \code{\link[=get_all_polio_data]{get_all_polio_data()}}.}
 }
 \value{
 \code{list} A list containing connections to the folders associated with

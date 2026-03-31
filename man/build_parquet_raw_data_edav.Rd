@@ -4,11 +4,13 @@
 \alias{build_parquet_raw_data_edav}
 \title{Build raw_data using EDAV files}
 \usage{
-build_parquet_raw_data_edav(path = NULL, container = NULL, dataset = "all")
+build_parquet_raw_data_edav(path = NULL, dataset = "all", container = NULL)
 }
 \arguments{
 \item{path}{\code{str} Path to EDAV folder containing parquet files. This must
 be the absolute file path from the Blob endpoint of the container.}
+
+\item{dataset}{\code{str} A specific dataset. Defaults to \code{"all"}. Otherwise, can specify any dataset in the list returned by \code{\link[=get_all_polio_data]{get_all_polio_data()}}.}
 
 \item{container}{\code{azcontainer} An instance of an Azure container to connect
 to. Pass \code{\link[=get_azure_storage_connection]{get_azure_storage_connection()}} using defaults if not accessing

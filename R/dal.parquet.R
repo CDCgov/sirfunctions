@@ -226,7 +226,7 @@ get_partition_cols <- function(name) {
 #' Build raw_data using local parquet files
 #'
 #' @param path `str` A path to the parquet directory
-#' @param dataset `str` A specific dataset. Defaults to `"all"`. Otherwise, can specify any dataset in the list returned by [get_all_polio_data()]. 
+#' @param dataset `str` A specific dataset. Defaults to `"all"`. Otherwise, can specify any dataset in the list returned by [get_all_polio_data()].
 #'
 #' @returns `list` A list containing connections to the folders associated with
 #' individual datasets in the original output of [get_all_polio_data()].
@@ -264,15 +264,52 @@ build_parquet_raw_data_local <- function(path = NULL, dataset = "all") {
     "metadata"
   )
   data <- list.files(path)
-  if (dataset == "all") {
-    data <- intersect(data, valid_values)
-  } else {
-    data <- intersect(data, dataset)
-  }
 
-  raw_data <- list()
-  for (i in data) {
-    raw_data[[i]] <- arrow::open_dataset(file.path(path, i))
+  if (length(dataset) == 1 && dataset == "all") {
+    raw_data <- list()
+
+    for (i in valid_values) {
+      
+      tryCatch({
+        raw_data[[i]] <- arrow::open_dataset(file.path(path, i))
+      }, error = \(e) {
+        cli::cli_alert_info(paste0("Dataset not found and won't be added: ", i))
+        raw_data[[i]] <- NULL
+      })
+      
+    }
+  } else if (length(dataset) > 1) {
+    invalid <- setdiff(dataset, valid_values)
+
+    if (length(invalid) > 0) {
+      cli::cli_alert_info("The following type passed are invalid and won't be loaded: ")
+      cli::cli_li(invalid)
+    }
+
+    valid <- dataset[!dataset %in% invalid]
+
+    if (length(valid) == 0) {
+      cli::cli_abort("All the dataset passed are invalid.")
+    }
+
+    has_all <- sum(stringr::str_detect(valid, "all"))
+
+    if (has_all >= 1) {
+      cli::cli_abort("Please pass only 'all'.")
+    }
+
+    raw_data <- list()
+    
+    for (i in valid) {
+      tryCatch({
+        raw_data[[i]] <- arrow::open_dataset(file.path(path, i))
+      }, error = \(e) {
+        cli::cli_alert_info(paste0("Dataset not found and won't be added: ", i))
+        raw_data[[i]] <- NULL
+      })
+    }
+  } else if (length(dataset) == 1 && dataset %in% valid_values) {
+    raw_data <- arrow::open_dataset(file.path(path, dataset))
   }
 
   return(raw_data)
@@ -296,6 +333,33 @@ build_parquet_raw_data_edav <- function(path = NULL, dataset = "all", container 
     container <- get_azure_storage_connection()
   }
 
+  valid_values <- c(
+    "afp",
+    "afp.dupe",
+    "afp.epi",
+    "para.case",
+    "es",
+    "es.dupe",
+    "sia",
+    "sia.dupe",
+    "pos",
+    "pos.dupe",
+    "other",
+    "other.dupe",
+    "dist.pop",
+    "prov.pop",
+    "ctry.pop",
+    "global.ctry",
+    "global.prov",
+    "global.dist",
+    "ctry.coverage",
+    "prov.coverage",
+    "dist.coverage",
+    "roads",
+    "cities",
+    "metadata"
+  )
+
   exist <- edav_io("exists.dir", NULL, file_loc = path, azcontainer = container)
 
   if (!exist) {
@@ -308,29 +372,73 @@ build_parquet_raw_data_edav <- function(path = NULL, dataset = "all", container 
 
   raw_data <- NULL
 
-  if (dataset == "all") {
-    source_path <- paste0(path, "raw_data_parquet/*")
-  } else {
+  if (length(dataset) == 1 && dataset == "all") {
+    source_path <- file.path(path, "raw_data_parquet/*")
+    local_pq <- file.path(rappdirs::user_data_dir("sirfunctions"), "raw_data_parquet")
+  } else if (length(dataset) > 1) {
+
+    invalid <- setdiff(dataset, valid_values)
+
+    if (length(invalid) > 0) {
+      cli::cli_alert_info(
+        "The following type passed are invalid and won't be loaded: "
+      )
+      cli::cli_li(invalid)
+    }
+
+    valid <- dataset[!dataset %in% invalid]
+
+    if (length(valid) == 0) {
+      cli::cli_abort("All the dataset passed are invalid.")
+    }
+
+    has_all <- sum(stringr::str_detect(valid, "all"))
+
+    if (has_all >= 1) {
+      cli::cli_abort("Please pass only 'all'.")
+    }
+
+    source_path <- paste0(file.path(path, "raw_data_parquet"), "/", valid, "/*")
+    local_pq <- paste0(file.path(rappdirs::user_data_dir("sirfunctions"), "raw_data_parquet"), "/", valid)
+  } else if (length(dataset) == 1 && dataset %in% valid_values) {
     source_path <- paste0(file.path(path, "raw_data_parquet", dataset), "/*")
+    local_pq <- paste0(file.path(rappdirs::user_data_dir("sirfunctions"), "raw_data_parquet"), "/", dataset)
   }
 
-  local_pq <- file.path(rappdirs::user_data_dir("sirfunctions"), basename(path))
-  AzureStor::storage_multidownload(
+  for (i in local_pq) {
+
+
+      unlink(i, recursive = TRUE, force = TRUE)
+      dir.create(i, recursive = TRUE)
+  
+    
+  }
+
+  if (length(source_path) > 1) {
+    for (i in length(source_path)) {
+
+    AzureStor::storage_multidownload(
+    container,
+    src = source_path[i],
+    dest = local_pq[i],
+    recursive = TRUE,
+    overwrite = TRUE
+  )
+    }
+  } else {
+    AzureStor::storage_multidownload(
     container,
     src = source_path,
     dest = local_pq,
     recursive = TRUE,
     overwrite = TRUE
   )
-
-  raw_data <- build_parquet_raw_data_local(local_pq, dataset)
-  cli::cli_process_done()
-  
-  if (length(raw_data) == 1) {
-    return(raw_data[[1]])
-  } else {
-    return(raw_data)
   }
+
+  raw_data <- build_parquet_raw_data_local(file.path(rappdirs::user_data_dir("sirfunctions"), "raw_data_parquet"), dataset)
+  cli::cli_process_done()
+
+  return(raw_data)
 
 }
 
