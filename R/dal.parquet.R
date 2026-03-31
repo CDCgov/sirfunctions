@@ -164,18 +164,22 @@ upload_parquet_to_edav <- function(src, dest, container = NULL) {
 from_wkb_to_sf <- function(sf_data) {
   # Ensure that global shapefiles have Shape and city/roads as geometry.
   # Otherwise, need to modify this function.
+
+  if (inherits(sf_data, "ArrowObject")) {
+    cli::cli_abort("Please run dplyr::collect() first prior to passing to the function.")
+  }
+
   if ("Shape" %in% names(sf_data)) {
-    wkb_col <- "Shape"
+    sf_data <- sf_data |>
+      dplyr::mutate(Shape = sf::st_as_sfc(Shape, EWKB = TRUE, crs = 4326)) |>
+      sf::st_as_sf()
   } else if ("geometry" %in% names(sf_data)) {
-    wkb_col <- "geometry"
+    sf_data <- sf_data |>
+      dplyr::mutate(geometry = sf::st_as_sfc(geometry, EWKB = TRUE, crs = 4326)) |>
+      sf::st_as_sf()
   } else {
     cli::cli_abort("Not an sf dataset.")
   }
-
-  sf_data |>
-    dplyr::mutate(dplyr::across(dplyr::any_of(wkb_col), \(x) {
-      sf::st_as_sf(x, EWKB = TRUE, crs = 4326)
-    }))
 
   return(sf_data)
 }
@@ -473,8 +477,6 @@ to_wkb_drop_sf <- function(sf_data) {
   wkb <- unclass(wkb) # <- key line: makes it a plain list Arrow can infer
 
   sf_data[[geom_col]] <- wkb
-  if (inherits(sf_data, "sf")) {
-    sf_data <- sf::st_drop_geometry(sf_data)
-  }
+
   return(sf_data)
 }
