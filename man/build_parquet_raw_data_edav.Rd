@@ -4,7 +4,11 @@
 \alias{build_parquet_raw_data_edav}
 \title{Build raw_data using EDAV files}
 \usage{
-build_parquet_raw_data_edav(path = NULL, dataset = "all", container = NULL)
+build_parquet_raw_data_edav(
+  path = NULL,
+  dataset = "all",
+  container = get_azure_storage_connection()
+)
 }
 \arguments{
 \item{path}{\code{str} Path to EDAV folder containing parquet files. This must

@@ -96,8 +96,8 @@ create_raw_data_parquet <- function(raw_data, path) {
 #' }
 build_parquet_raw_data <- function(
   path = "GID/PEB/SIR/Data/analytic",
-  from_edav = TRUE,
   dataset = "all",
+  from_edav = TRUE,
   container = get_azure_storage_connection()
 ) {
   if (from_edav) {
@@ -131,10 +131,7 @@ build_parquet_raw_data <- function(
 #' edav_dir <- "ABC/parquet_folder"
 #' upload_parquet_to_edav(local_dir, edav_dir)
 #' }
-upload_parquet_to_edav <- function(src, dest, container = NULL) {
-  if (is.null(container)) {
-    container <- get_azure_storage_connection()
-  }
+upload_parquet_to_edav <- function(src, dest, container = get_azure_storage_connection()) {
 
   dir_exists <- edav_io("exists.dir", NULL, dest)
   if (!dir_exists) {
