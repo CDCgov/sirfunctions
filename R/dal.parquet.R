@@ -72,9 +72,9 @@ create_raw_data_parquet <- function(raw_data, path) {
 #' Recreates an output of [get_all_polio_data()] from a folder housing
 #' data in parquet format.
 #'
-#' @param path `str` Local path to the parquet folder
-#' @param from_edav `bool` Build using local files or files in EDAV?
-#' @param container `azcontainer` An instance of an Azure container to connect
+#' @param path `str` Absolute path to the parquet folder.
+#' @param from_edav `bool` Build using local files or files in EDAV? Defaults to TRUE.
+#' @param container `azcontainer` An instance of an Azure container to connect.
 #' to. Pass [get_azure_storage_connection()] using defaults if not accessing
 #' using a service principal.
 #'
@@ -95,18 +95,15 @@ create_raw_data_parquet <- function(raw_data, path) {
 #' raw_data <- build_parquet_raw_data()
 #' }
 build_parquet_raw_data <- function(
-  path = NULL,
-  from_edav = F,
+  path = "GID/PEB/SIR/Data/analytic",
+  from_edav = TRUE,
   dataset = "all",
-  container = NULL
+  container = get_azure_storage_connection()
 ) {
   if (from_edav) {
     # Default values
     if (is.null(path)) {
       cli::cli_abort("Please pass a file path to the parquet folder")
-    }
-    if (is.null(container)) {
-      container <- get_azure_storage_connection()
     }
 
     raw_data <- build_parquet_raw_data_edav(path, dataset, container)
@@ -162,7 +159,7 @@ upload_parquet_to_edav <- function(src, dest, container = NULL) {
 #'
 #' @export
 #' @examples
-#' \dontrun {
+#' \dontrun{
 #' raw_data <- build_parquet_raw_data()
 #' kenya_ctry_sf <- raw_data$global.ctry |> 
 #'     dplyr::filter(ctry == "KENYA") |> 
@@ -340,10 +337,7 @@ build_parquet_raw_data_local <- function(path = NULL, dataset = "all") {
 #' individual datasets in the original output of [get_all_polio_data()].
 #' @keywords internal
 #'
-build_parquet_raw_data_edav <- function(path = NULL, dataset = "all", container = NULL) {
-  if (is.null(container)) {
-    container <- get_azure_storage_connection()
-  }
+build_parquet_raw_data_edav <- function(path = NULL, dataset = "all", container = get_azure_storage_connection()) {
 
   valid_values <- c(
     "afp",

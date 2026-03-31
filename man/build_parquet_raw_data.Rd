@@ -5,18 +5,18 @@
 \title{Recreate raw data from local parquet folder}
 \usage{
 build_parquet_raw_data(
-  path = NULL,
-  from_edav = F,
+  path = "GID/PEB/SIR/Data/analytic",
+  from_edav = TRUE,
   dataset = "all",
-  container = NULL
+  container = get_azure_storage_connection()
 )
 }
 \arguments{
-\item{path}{\code{str} Local path to the parquet folder}
+\item{path}{\code{str} Absolute path to the parquet folder.}
 
-\item{from_edav}{\code{bool} Build using local files or files in EDAV?}
+\item{from_edav}{\code{bool} Build using local files or files in EDAV? Defaults to TRUE.}
 
-\item{container}{\code{azcontainer} An instance of an Azure container to connect
+\item{container}{\code{azcontainer} An instance of an Azure container to connect.
 to. Pass \code{\link[=get_azure_storage_connection]{get_azure_storage_connection()}} using defaults if not accessing
 using a service principal.}
 }
