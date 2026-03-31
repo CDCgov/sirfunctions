@@ -15,3 +15,12 @@ from_wkb_to_sf(sf_data)
 \description{
 Convert WKB back to sf column
 }
+\examples{
+\dontrun {
+raw_data <- build_parquet_raw_data()
+kenya_ctry_sf <- raw_data$global.ctry |> 
+    dplyr::filter(ctry == "KENYA") |> 
+    dplyr::collect() |> 
+    from_wkb_to_sf()
+}
+}

@@ -161,6 +161,14 @@ upload_parquet_to_edav <- function(src, dest, container = NULL) {
 #' @returns `tibble` Geodata with `sf`.
 #'
 #' @export
+#' @examples
+#' \dontrun {
+#' raw_data <- build_parquet_raw_data()
+#' kenya_ctry_sf <- raw_data$global.ctry |> 
+#'     dplyr::filter(ctry == "KENYA") |> 
+#'     dplyr::collect() |> 
+#'     from_wkb_to_sf()
+#' }
 from_wkb_to_sf <- function(sf_data) {
   # Ensure that global shapefiles have Shape and city/roads as geometry.
   # Otherwise, need to modify this function.
