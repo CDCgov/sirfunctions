@@ -142,7 +142,7 @@ upload_parquet_to_edav <- function(src, dest, container = get_azure_storage_conn
   AzureStor::multiupload_adls_file(
     container,
     paste0(src, "/*"),
-    file.path(dest, basename(src)),
+    file.path(dest, "raw_data_parquet"),
     recursive = TRUE
   )
   cli::cli_process_done()

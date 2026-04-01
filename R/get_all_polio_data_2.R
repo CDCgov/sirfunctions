@@ -511,7 +511,7 @@ create_raw_data_tags <- function(data_folders_paths, use_edav) {
   if (use_edav) {
     # Create raw data file tag for future comparisons
     sirfunctions_io("write", NULL,
-                    file_loc = file.path(data_folders_paths$analytic_folder, paste0("raw_data_timestamp.parquet")),
+                    file_loc = file.path(data_folders_paths$analytic_folder, paste0("raw_data_timestamp.rds")),
                     obj = Sys.time())
 
     # Create spatial data file tag for future comparisons
@@ -529,7 +529,7 @@ create_raw_data_tags <- function(data_folders_paths, use_edav) {
     sirfunctions_io(
       "write",
       NULL,
-      file.path(data_folder_paths$analytic_folder, paste0("spatial_timestamp", output_format)),
+      file.path(data_folder_paths$analytic_folder, paste0("spatial_timestamp.rds")),
       obj = edav_spatial_timestamp,
       edav = use_edav
     )
