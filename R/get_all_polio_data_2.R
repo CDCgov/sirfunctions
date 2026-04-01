@@ -529,7 +529,7 @@ create_raw_data_tags <- function(data_folders_paths, use_edav) {
     sirfunctions_io(
       "write",
       NULL,
-      file.path(data_folder_paths$analytic_folder, paste0("spatial_timestamp.rds")),
+      file.path(data_folders_paths$analytic_folder, paste0("spatial_timestamp.rds")),
       obj = edav_spatial_timestamp,
       edav = use_edav
     )
