@@ -550,6 +550,7 @@ create_raw_data_tags <- function(data_folders_paths, use_edav) {
 #' @keywords internal
 reprocess_polio_data <- function(data_folder, polis_folder, core_ready_folder, use_edav, cache) {
 
+  raw_data <- list()
   # NOTE: we will need to add mechanism for retrieving and loading archived parquet folders
   data_folders_paths <- check_data_folder(data_folder, polis_folder, core_ready_folder, use_edav, cache)
 
