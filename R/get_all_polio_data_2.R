@@ -523,7 +523,7 @@ create_raw_data_tags <- function(data_folders_paths, use_edav) {
 
     edav_spatial_timestamp <- spatial_files |>
       dplyr::filter(stringr::str_detect(name, "global."),
-                    stringr::str_ends(name, output_format)) |>
+                    stringr::str_ends(name, "parquet")) |>
       dplyr::select(name, lastModified)
 
     sirfunctions_io(
