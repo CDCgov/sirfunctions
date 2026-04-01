@@ -590,8 +590,6 @@ reprocess_polio_data <- function(data_folder, polis_folder, core_ready_folder, u
   # Cache processed data only if we aren't using the archived version
   cache_raw_data(raw_data,data_folders_paths$analytic_folder, use_edav)
 
-  browser()
-
   # Create data tags only if we aren't using the archived version
   create_raw_data_tags(data_folders_paths, use_edav)
 
