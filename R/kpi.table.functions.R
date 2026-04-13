@@ -908,7 +908,7 @@ generate_c1_table <- function(raw_data, start_date, end_date,
 
   # Manual edit to reflect Indonesia WPRO change in May 23, 2025
   combine <- combine |>
-    dplyr::mutate(Region = ifelse(ctry == "INDONESIA" & 
+    dplyr::mutate(Region = ifelse(ctry == "INDONESIA" &
       analysis_year_start >= lubridate::as_date("2025-05-23"), "WPRO", Region))
 
   cli::cli_progress_update()
@@ -1036,11 +1036,7 @@ generate_c2_table <- function(afp_data, pop_data, start_date, end_date,
     dateinvest = "date.invest",
     cdc.classification.all = "cdc.class"
   )
-  pop_data <- dplyr::rename_with(pop_data, recode,
-    ADM0_GUID = "adm0guid",
-    u15pop.prov = "u15pop",
-    WHO_REGION = "who.region"
-  )
+
   cli::cli_progress_update()
 
   # Add required columns
@@ -1411,7 +1407,7 @@ generate_c2_table <- function(afp_data, pop_data, start_date, end_date,
 
   # Manual edit to reflect Indonesia WPRO change in May 23, 2025
   results <- results |>
-    dplyr::mutate(Region = ifelse(ctry == "INDONESIA" & 
+    dplyr::mutate(Region = ifelse(ctry == "INDONESIA" &
       analysis_year_start >= lubridate::as_date("2025-05-23"), "WPRO", Region))
 
   cli::cli_progress_done()
