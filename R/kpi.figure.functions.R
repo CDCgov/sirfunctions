@@ -531,7 +531,7 @@ generate_kpi_npafp_bar <- function(c1, afp_data,
     dplyr::left_join(ctry_abbrev,
                      by = c("ctry" = "place.admin.0")) |>
     dplyr::filter(.data$`SG Priority Level` == "HIGH") |>
-    # Remove whoregion from ctry_abbrev and use Region since 
+    # Remove whoregion from ctry_abbrev and use Region since
     # c1 already accounts for Indonesia change and it's not used here
     dplyr::select(-whoregion) |>
     dplyr::mutate(prop_met_npafp = .data$prop_met_npafp)
@@ -591,10 +591,11 @@ generate_kpi_evdetect_bar <- function(c1, afp_data,
   priority_ctry <- c1 |>
     dplyr::left_join(ctry_abbrev,
                      by = c("ctry" = "place.admin.0")) |>
-    # Remove whoregion from ctry_abbrev and use Region since 
+    # Remove whoregion from ctry_abbrev and use Region since
     # c1 already accounts for Indonesia change and it's not used here
     dplyr::select(-whoregion) |>
-    dplyr::mutate(prop_met_ev = .data$prop_met_ev)
+    dplyr::mutate(prop_met_ev = .data$prop_met_ev) |>
+    dplyr::filter(`SG Priority Level` == "HIGH")
 
   if (!is.null(who_region)) {
     priority_ctry <- priority_ctry |> dplyr::filter(Region %in% who_region)
@@ -642,7 +643,7 @@ generate_kpi_stoolad_bar <- function(c1, afp_data,
   priority_ctry <- c1 |>
     dplyr::left_join(ctry_abbrev,
                      by = c("ctry" = "place.admin.0")) |>
-    # Remove whoregion from ctry_abbrev and use Region since 
+    # Remove whoregion from ctry_abbrev and use Region since
     # c1 already accounts for Indonesia change and it's not used here
     dplyr::select(-whoregion) |>
     dplyr::filter(.data$`SG Priority Level` == "HIGH") |>
@@ -766,7 +767,7 @@ generate_timely_det_violin <- function(raw_data,
                                        priority_level = c("HIGH", "MEDIUM", "LOW (WATCHLIST)", "LOW"),
                                        who_region = NULL,
                                        rolling = TRUE,
-                                       risk_table = NULL, 
+                                       risk_table = NULL,
                                        lab_locs = NULL,
                                        output_path = Sys.getenv("KPI_FIGURES"),
                                        y_max = 250) {
@@ -800,7 +801,7 @@ generate_timely_det_violin <- function(raw_data,
     # Manually change the region of Indonesia based on change
     # since get_region() defaults to WPRO now, we have to do the opposite
     # to assign Indonesia samples to SEARO prior to May 23, 2025
-    dplyr::mutate(whoregion = ifelse(place.admin.0 == "INDONESIA" & 
+    dplyr::mutate(whoregion = ifelse(place.admin.0 == "INDONESIA" &
       analysis_year_start < lubridate::as_date("2025-05-23"), "SEARO", whoregion)) |>
     dplyr::mutate(seq_lab = case_when(
       .data$seq.capacity == "no" ~ "No sequencing capacity",
