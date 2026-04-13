@@ -1394,15 +1394,10 @@ generate_c2_table <- function(afp_data, pop_data, start_date, end_date,
     # NPAFP is only NA if it's missing population
     dplyr::mutate(npafp_rate = dplyr::if_else(npafp_cat != "Missing Pop" & is.nan(npafp_rate), 0, npafp_rate))
 
-  # Add region and risk levels
-  region_lookup_table <- pop_data |>
-    dplyr::select(dplyr::any_of(c("ctry", "prov", "dist", "who.region"))) |>
-    dplyr::distinct()
-
   results <- add_risk_category(results, risk_table) |>
-    dplyr::left_join(region_lookup_table) |>
+    dplyr::mutate(whoregion = get_region(ctry)) |>
     dplyr::select(-Region) |>
-    dplyr::rename(Region = who.region) |>
+    dplyr::rename(Region = whoregion) |>
     tidyr::replace_na(list(`SG Priority Level` = "LOW"))
 
   # Manual edit to reflect Indonesia WPRO change in May 23, 2025

@@ -218,13 +218,14 @@ get_ctry_abbrev <- function(afp_data) {
       !(place.admin.0 == "GHANA" & ctry.short == "TOG"),
       !(place.admin.0 == "INDIA" & ctry.short == "PAK"),
       !(place.admin.0 == "PAKISTAN" & ctry.short == "IND"),
-      !(place.admin.0 == "ZAMBIA" & ctry.short == "TAN")
+      !(place.admin.0 == "ZAMBIA" & ctry.short == "TAN"),
+      !(place.admin.0 == "PARAGUAY" & ctry.short == "TTO")
     ) |>
     dplyr::mutate(ctry.short = dplyr::case_when(
       ctry.short == "IND" & place.admin.0 == "INDONESIA" ~ "IDN",
       .default = ctry.short
     ))
-  
+
   ctry_abbrev <- ctry_abbrev |>
     dplyr::mutate(whoregion = get_region(place.admin.0))
 
@@ -235,7 +236,7 @@ get_ctry_abbrev <- function(afp_data) {
     dplyr::ungroup()
 
   if (nrow(summarize_ctry_abbrev) > 0) {
-    cli::cli_alert_warning("Some values in the country lookup table are not unique for the following countries: ")
+    cli::cli_alert_warning("Some values in the country lookup table are not unique for the following countries, please updated code in get_ctry_abbrev: ")
     non_unique <- ctry_abbrev |>
       dplyr::filter(place.admin.0 %in% summarize_ctry_abbrev$place.admin.0)
 
