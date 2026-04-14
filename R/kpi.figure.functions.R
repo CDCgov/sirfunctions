@@ -533,8 +533,7 @@ generate_kpi_npafp_bar <- function(c1, afp_data,
     dplyr::filter(.data$`SG Priority Level` == "HIGH") |>
     # Remove whoregion from ctry_abbrev and use Region since
     # c1 already accounts for Indonesia change and it's not used here
-    dplyr::select(-whoregion) |>
-    dplyr::mutate(prop_met_npafp = .data$prop_met_npafp)
+    dplyr::select(-whoregion)
 
   bar_plot <- generate_kpi_barchart(priority_ctry,
                         "prop_met_npafp",
@@ -594,7 +593,6 @@ generate_kpi_evdetect_bar <- function(c1, afp_data,
     # Remove whoregion from ctry_abbrev and use Region since
     # c1 already accounts for Indonesia change and it's not used here
     dplyr::select(-whoregion) |>
-    dplyr::mutate(prop_met_ev = .data$prop_met_ev) |>
     dplyr::filter(`SG Priority Level` == "HIGH")
 
   if (!is.null(who_region)) {
@@ -646,8 +644,7 @@ generate_kpi_stoolad_bar <- function(c1, afp_data,
     # Remove whoregion from ctry_abbrev and use Region since
     # c1 already accounts for Indonesia change and it's not used here
     dplyr::select(-whoregion) |>
-    dplyr::filter(.data$`SG Priority Level` == "HIGH") |>
-    dplyr::mutate(prop_met_stool = .data$prop_met_stool)
+    dplyr::filter(.data$`SG Priority Level` == "HIGH")
 
   bar_plot <- generate_kpi_barchart(priority_ctry,
                                     "prop_met_stool",
@@ -770,7 +767,7 @@ generate_timely_det_violin <- function(raw_data,
                                        risk_table = NULL,
                                        lab_locs = NULL,
                                        output_path = Sys.getenv("KPI_FIGURES"),
-                                       y_max = 250) {
+                                       y_max = NULL) {
 
   start_date <- lubridate::as_date(start_date)
   end_date <- lubridate::as_date(end_date)
@@ -801,17 +798,20 @@ generate_timely_det_violin <- function(raw_data,
     # Manually change the region of Indonesia based on change
     # since get_region() defaults to WPRO now, we have to do the opposite
     # to assign Indonesia samples to SEARO prior to May 23, 2025
-    dplyr::mutate(whoregion = ifelse(place.admin.0 == "INDONESIA" &
-      analysis_year_start < lubridate::as_date("2025-05-23"), "SEARO", whoregion)) |>
-    dplyr::mutate(seq_lab = case_when(
-      .data$seq.capacity == "no" ~ "No sequencing capacity",
-      .data$seq.capacity == "yes" ~ "Sequencing capacity"
-    )) |>
+    # dplyr::mutate(whoregion = ifelse(place.admin.0 == "INDONESIA" &
+    #   analysis_year_start < lubridate::as_date("2025-05-23"), "SEARO", whoregion)) |>
+    dplyr::mutate(seq_lab = stringr::str_to_lower(seq.capacity),
+                  seq_lab = ifelse(seq_lab == "yes",
+                                   "Sequencing capacity",
+                                   "No sequencing capacity"
+                  ))  |>
     dplyr::filter(!is.na(.data$seq_lab)) |>
     dplyr::mutate(
       sg_priority_level = factor(.data$`SG Priority Level`, levels = c(
         "LOW", "LOW (WATCHLIST)", "MEDIUM", "HIGH"))
     )
+
+  y_max <- max(pos_filtered$ontonothq, na.rm = T)
 
   if (rolling) {
     facets <- ggh4x::facet_nested(rolling_period~seq_lab+whoregion,
@@ -836,7 +836,7 @@ generate_timely_det_violin <- function(raw_data,
   plot_mock_legend <- ggpubr::get_legend(plot_mock)
 
   plot_1 <- generate_kpi_violin(pos_filtered |>
-                                  filter(seq.capacity == "no"), "ctry.short", "ontonothq",
+                                  filter(seq_lab == "No sequencing capacity"), "ctry.short", "ontonothq",
                               "sg_priority_level",
                               facets,
                               46, y.max = y_max)
@@ -845,7 +845,7 @@ generate_timely_det_violin <- function(raw_data,
                                name = "Priority Level",
                                na.value = "white")
 
-  plot_2 <- generate_kpi_violin(pos_filtered |> filter(seq.capacity == "yes"), "ctry.short", "ontonothq",
+  plot_2 <- generate_kpi_violin(pos_filtered |> filter(seq_lab == "Sequencing capacity"), "ctry.short", "ontonothq",
                                 "sg_priority_level",
                                 facets,
                                 35, y.max = y_max)
@@ -1326,7 +1326,7 @@ generate_lab_seqres_violin <- function(lab_data, afp_data,
                                               who_region = NULL,
                                               rolling = TRUE,
                                               output_path = Sys.getenv("KPI_FIGURES"),
-                                              y_max = 60) {
+                                              y_max = NULL) {
 
   start_date <- lubridate::as_date(start_date)
   end_date <- lubridate::as_date(end_date)
@@ -1360,6 +1360,8 @@ generate_lab_seqres_violin <- function(lab_data, afp_data,
       sg_priority_level = factor(.data$`SG Priority Level`, levels = c(
         "LOW", "LOW (WATCHLIST)", "MEDIUM", "HIGH"))
     )
+
+  y_max <- as.numeric(max(lab_filtered$days.seq.rec.res, na.rm = T))
 
   if (!is.null(who_region)) {
     lab_filtered <- lab_filtered |>
