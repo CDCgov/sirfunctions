@@ -251,9 +251,8 @@ update_data <-
                                        polis_folder = .polis_folder,
                                        use_edav = .use_edav
                                        )
-    country_name <- stringr::str_replace_all(country_name, ", ", ",") |>
-      stringr::str_split(",") |>
-      unlist()
+
+
     country_data <- sirfunctions::extract_country_data(country_name, raw_data)
     readr::write_rds(country_data, path_to_save)
     message(paste0("Data saved at:\n", dr_data_path))
@@ -479,7 +478,7 @@ fetch_dr_data <- function(country, year, local_dr_repo) {
 #' environmental variables (i.e., [Sys.getenv()], where values for `x` related to
 #' the desk review is prefixed with `"DR"`) . The function only supports running one country at a time.
 #'
-#' @param country_name `str` Name of the country.
+#' @param country_name `str` Name of the country. You may pass multiple countries as a vector of strings.
 #' @param start_date `str` Start date of the desk review. If `NULL`, defaults to four years
 #' from when the function was ran on January 1st.
 #' @param end_date `str` End date of the desk review. If `NULL`, defaults to six weeks from when
@@ -500,6 +499,7 @@ fetch_dr_data <- function(country, year, local_dr_repo) {
 #' \dontrun{
 #' ctry.data <- init_dr("algeria", source = F) # Sets up folder in the current working directory
 #' ctry.data <- init_dr("algeria", branch = "dev") # Use functions from the dev branch
+#' ctry.data <- init_dr(c("algeria", "nigeria"), source = F) # Multiple countries.
 #' }
 #'
 #' @export
@@ -540,13 +540,14 @@ init_dr <-
 
     # Set up local directory for storing for data and metadata
     df_name <-
-      stringr::str_c(stringr::str_to_lower(country_name))
+      stringr::str_c(stringr::str_to_lower(country_name)) |>
+      paste(collapse = ", ")
 
     # Relative path of where data and metadata is stored
     dr_path <-
       file.path(
         local_dr_folder,
-        stringr::str_to_lower(country_name),
+        stringr::str_to_lower(df_name),
         year
       )
 
