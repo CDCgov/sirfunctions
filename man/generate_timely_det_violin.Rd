@@ -14,7 +14,7 @@ generate_timely_det_violin(
   risk_table = NULL,
   lab_locs = NULL,
   output_path = Sys.getenv("KPI_FIGURES"),
-  y_max = 250
+  y_max = NULL
 )
 }
 \arguments{
@@ -41,7 +41,8 @@ directly from EDAV.}
 
 \item{output_path}{\code{str} Where to output the figure to.}
 
-\item{y_max}{\code{num} The maximum y-axis value.}
+\item{y_max}{\code{num} The maximum y-axis value. Defaults to \code{NULL}, which will compute the
+y_max as the max value of days to notify hq.}
 }
 \value{
 \code{ggplot} A violin plot showing timeliness of detection.
