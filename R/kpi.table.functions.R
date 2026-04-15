@@ -158,6 +158,26 @@ generate_pos_timeliness <- function(raw_data, start_date, end_date,
   pos <- add_rolling_years(pos, start_date, end_date, "dateonset")
   pos <- add_seq_capacity(pos, ctry_col = "place.admin.0", lab_locs)
 
+  # Manual edit based on changes to the sequencing lab list in Feb 2025
+  # There is no collection date, so will use dateonset to classify
+  pos <- pos |>
+    mutate(seq.lab = case_when(
+    seq.lab == "CDC-Atlanta" & dateonset >= as_date("2025-02-01") & culture.itd.lab == "Cameroon" ~ "NICD-South Africa",
+    seq.lab == "CDC-Atlanta" & dateonset >= as_date("2025-02-01") & culture.itd.lab == "ETHIOPIA/ KEMRI-Kenya" ~ "UVRI-Uganda",
+    seq.lab == "CDC-Atlanta" & dateonset >= as_date("2025-02-01") & culture.itd.lab %in% c("Ibadan-Nigeria, Maiduguri-Nigeria", "Nigeria") ~ "Ibadan-Nigeria",
+    seq.lab == "CDC-Atlanta" & dateonset >= as_date("2025-02-01") & culture.itd.lab == "KEMRI-Kenya" ~ "UVRI-Uganda",
+    place.admin.0 == "UGANDA" & dateonset >= as_date("2025-02-01") ~ "UVRI-Uganda",
+    seq.lab == "CDC-Atlanta" & dateonset >= as_date("2025-02-01") & culture.itd.lab == "Senegal" ~ "NICD-South Africa",
+    seq.lab == "CDC-Atlanta" & dateonset >= as_date("2025-02-01") & culture.itd.lab == "Varied (KEMRI-Kenya/ Oman/ Jordan)" ~ "Varied (UVRI/ Oman/ Jordan)",
+    .default = seq.lab
+  )) |>
+  mutate(seq.cat = case_when(
+    dateonset >= as_date("2025-02-01") & culture.itd.lab %in% c("Ibadan-Nigeria, Maiduguri-Nigeria", "Nigeria") & seq.lab == "Ibadan-Nigeria" ~ "Not shipped for sequencing",
+    place.admin.0 == "UGANDA" & dateonset >= as_date("2025-02-01") ~ "Not shipped for sequencing",
+    .default = seq.cat
+  )) |>
+  mutate(seq.capacity = if_else(place.admin.0 %in% c("NIGERIA", "UGANDA") & dateonset >= as_date("2025-02-01"), "yes", seq.capacity))
+
   pos_summary <- pos |>
     dplyr::mutate(
       ontonothq = as.numeric(lubridate::as_date(.data$datenotificationtohq) -
@@ -718,7 +738,7 @@ generate_c1_table <- function(raw_data, start_date, end_date,
 
   # Calculate meeting indicators
   dist_lookup_table <- raw_data$dist.pop |>
-    dplyr::select(ctry = ADM0_NAME, prov = ADM1_NAME, dist = ADM2_NAME, adm2guid) |>
+    dplyr::select(ctry, prov, dist, adm2guid) |>
     dplyr::distinct()
 
   # Flag any inconsistent GUIDs to say any calculations are invalid
@@ -886,6 +906,11 @@ generate_c1_table <- function(raw_data, start_date, end_date,
     dplyr::mutate(dplyr::across(dplyr::ends_with("label"), \(x) tidyr::replace_na(x, "0/0"))) |>
     dplyr::rename(Region = whoregion)
 
+  # Manual edit to reflect Indonesia WPRO change in May 23, 2025
+  combine <- combine |>
+    dplyr::mutate(Region = ifelse(ctry == "INDONESIA" &
+      analysis_year_start >= lubridate::as_date("2025-05-23"), "WPRO", Region))
+
   cli::cli_progress_update()
   cli::cli_progress_done()
 
@@ -1011,14 +1036,7 @@ generate_c2_table <- function(afp_data, pop_data, start_date, end_date,
     dateinvest = "date.invest",
     cdc.classification.all = "cdc.class"
   )
-  pop_data <- dplyr::rename_with(pop_data, recode,
-    ADM0_NAME = "ctry",
-    ADM1_NAME = "prov",
-    ADM2_NAME = "dist",
-    ADM0_GUID = "adm0guid",
-    u15pop.prov = "u15pop",
-    WHO_REGION = "who_region"
-  )
+
   cli::cli_progress_update()
 
   # Add required columns
@@ -1376,16 +1394,16 @@ generate_c2_table <- function(afp_data, pop_data, start_date, end_date,
     # NPAFP is only NA if it's missing population
     dplyr::mutate(npafp_rate = dplyr::if_else(npafp_cat != "Missing Pop" & is.nan(npafp_rate), 0, npafp_rate))
 
-  # Add region and risk levels
-  region_lookup_table <- pop_data |>
-    dplyr::select(dplyr::any_of(c("ctry", "prov", "dist", "who_region"))) |>
-    dplyr::distinct()
-
   results <- add_risk_category(results, risk_table) |>
-    dplyr::left_join(region_lookup_table) |>
+    dplyr::mutate(whoregion = get_region(ctry)) |>
     dplyr::select(-Region) |>
-    dplyr::rename(Region = who_region) |>
+    dplyr::rename(Region = whoregion) |>
     tidyr::replace_na(list(`SG Priority Level` = "LOW"))
+
+  # Manual edit to reflect Indonesia WPRO change in May 23, 2025
+  results <- results |>
+    dplyr::mutate(Region = ifelse(ctry == "INDONESIA" &
+      analysis_year_start >= lubridate::as_date("2025-05-23"), "WPRO", Region))
 
   cli::cli_progress_done()
 
