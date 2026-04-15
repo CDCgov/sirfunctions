@@ -305,11 +305,12 @@ generate_kpi_template <- function(output_path, name, edav) {
   stool_bar <- "generate_kpi_stoolad_bar(c1, raw_data$afp)"
   ev_bar <- "generate_kpi_evdetect_bar(c1, raw_data$afp)"
 
-  timely_violin <- 'generate_timely_det_violin(raw_data, start_date, end_date)'
+
   culture_violin <- 'generate_lab_culture_violin(lab_data, raw_data$afp, start_date, end_date)'
   itd_violin <- 'generate_lab_itd_violin(lab_data, raw_data$afp, start_date, end_date)'
   seqship_violin <- 'generate_lab_seqship_violin(lab_data, raw_data$afp, start_date, end_date)'
   seqres_violin <- 'generate_lab_seqres_violin(lab_data, raw_data$afp, start_date, end_date)'
+  timely_violin <- 'generate_timely_det_violin(raw_data, start_date, end_date)'
 
   kpi_tile <- 'generate_kpi_tile(c1)'
 
@@ -341,9 +342,44 @@ generate_kpi_template <- function(output_path, name, edav) {
     "# and may take a while to complete.",
     sg_priority_map, npafp_kpi_loop, stool_kpi_loop, ev_kpi_loop, "\n",
     npafp_bar, stool_bar, ev_bar, "\n",
-    "# Adjust the y_max as needed via the 'y_max' parameter",
-    timely_violin, culture_violin, itd_violin, seqship_violin,
-    seqres_violin, "\n",
+    "# Violin plots ----",
+    "# Check the indicator ranges below before setting y_max manually.",
+    "# Note these are approximations; ranges reflect the full dataset before additional filtering in plots.",
+    "# Examine plots carefully to finalize y_max.",
+    "# Example to change y_max: generate_lab_seqres_violin(lab_data, raw_data$afp, start_date, end_date, y_max = 250)",
+    "",
+    "# Build base dataset for lab violin date checks",
+    'lab_kpi_check <- generate_kpi_lab_timeliness(lab_data, start_date, end_date, raw_data$afp)',
+    "",
+    "# For generate_lab_culture_violin()",
+    "# Default y_max is 60",
+    'range(lab_kpi_check$days.lab.culture, na.rm = TRUE)',
+    'summary(lab_kpi_check$days.lab.culture)',
+    "",
+    "# For generate_lab_itd_violin()",
+    "# Default y_max is 30",
+    'range(lab_kpi_check$days.culture.itd, na.rm = TRUE)',
+    'summary(lab_kpi_check$days.culture.itd)',
+    "",
+    "# For generate_lab_seqship_violin()",
+    "# Default y_max is 50",
+    'range(lab_kpi_check$days.seq.ship, na.rm = TRUE)',
+    'summary(lab_kpi_check$days.seq.ship)',
+    "",
+    "# For generate_lab_seqres_violin()",
+    "# Default y_max is dynamic to the max of days.seq.rec.res",
+    'range(as.numeric(lab_kpi_check$days.seq.rec.res), na.rm = TRUE)',
+    'summary(as.numeric(lab_kpi_check$days.seq.rec.res))',
+    "",
+    "# For generate_timely_det_violin()",
+    "# Default y_max is dynamic to the max of ontonothq",
+    "# Uses internal processing; this check approximates the plotted data.",
+    'pos_timeliness_check <- sirfunctions:::generate_pos_timeliness(raw_data, start_date, end_date)',
+    'range(pos_timeliness_check$ontonothq, na.rm = TRUE)',
+    'summary(pos_timeliness_check$ontonothq)',
+    "",
+    "",
+    culture_violin, itd_violin, seqship_violin, seqres_violin, timely_violin, "\n",
     "# Generate C1 KPI tile ----",
     kpi_tile, "\n",
     "# Export GPSAP tables ----",
@@ -351,4 +387,5 @@ generate_kpi_template <- function(output_path, name, edav) {
   )
 
   writeLines(output_string, conn)
+  close(conn)
 }
