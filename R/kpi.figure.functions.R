@@ -749,7 +749,8 @@ generate_kpi_violin <- function(
 #' Output of [get_lab_locs()]. Defaults to `NULL`, which will download the information
 #' directly from EDAV.
 #' @param output_path `str` Where to output the figure to.
-#' @param y_max `num` The maximum y-axis value.
+#' @param y_max `num` The maximum y-axis value. Defaults to `NULL`, which will compute the
+#' y_max as the max value of days to notify hq.
 #'
 #' @returns `ggplot` A violin plot showing timeliness of detection.
 #' @export
@@ -811,7 +812,9 @@ generate_timely_det_violin <- function(raw_data,
         "LOW", "LOW (WATCHLIST)", "MEDIUM", "HIGH"))
     )
 
-  y_max <- max(pos_filtered$ontonothq, na.rm = T)
+  if (is.null(y_max)) {
+  y_max <- max(pos_filtered$ontonothq, na.rm = TRUE)
+  }
 
   if (rolling) {
     facets <- ggh4x::facet_nested(rolling_period~seq_lab+whoregion,
@@ -1343,7 +1346,6 @@ generate_lab_seqres_violin <- function(lab_data, afp_data,
   lab_filtered <- lab_data |> dplyr::left_join(ctry_abbrev,
                                                by = c("country" = "place.admin.0",
                                                       "whoregion")) |>
-    dplyr::mutate(whoregion = get_region(country)) |>
     # Remove other who region columns because it's confusing
     dplyr::select(-dplyr::any_of(c("who.region", "Region"))) |>
     add_risk_category(ctry_col = "country") |>
@@ -1361,11 +1363,14 @@ generate_lab_seqres_violin <- function(lab_data, afp_data,
         "LOW", "LOW (WATCHLIST)", "MEDIUM", "HIGH"))
     )
 
-  y_max <- as.numeric(max(lab_filtered$days.seq.rec.res, na.rm = T))
 
   if (!is.null(who_region)) {
     lab_filtered <- lab_filtered |>
       dplyr::filter(.data$whoregion %in% who_region)
+  }
+
+  if (is.null(y_max)) {
+    y_max <- as.numeric(max(lab_filtered$days.seq.rec.res, na.rm = TRUE))
   }
 
   if (rolling) {
