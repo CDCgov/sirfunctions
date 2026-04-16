@@ -196,7 +196,7 @@ get_ctry_abbrev <- function(afp_data) {
         .data$whoregion != "AFRO" ~ .data$country.iso3
       )
     ) |>
-    dplyr::select("ctry.short", "place.admin.0", "whoregion") |>
+    dplyr::select("ctry.short", "place.admin.0") |>
     # fixing bad abbreviation in Gabon and turning all to upper case to eliminate dupes
     dplyr::mutate(
       ctry.short = ifelse(.data$place.admin.0 == "GABON" & .data$ctry.short == "BUU",
@@ -218,12 +218,16 @@ get_ctry_abbrev <- function(afp_data) {
       !(place.admin.0 == "GHANA" & ctry.short == "TOG"),
       !(place.admin.0 == "INDIA" & ctry.short == "PAK"),
       !(place.admin.0 == "PAKISTAN" & ctry.short == "IND"),
-      !(place.admin.0 == "ZAMBIA" & ctry.short == "TAN")
+      !(place.admin.0 == "ZAMBIA" & ctry.short == "TAN"),
+      !(place.admin.0 == "PARAGUAY" & ctry.short == "TTO")
     ) |>
     dplyr::mutate(ctry.short = dplyr::case_when(
       ctry.short == "IND" & place.admin.0 == "INDONESIA" ~ "IDN",
       .default = ctry.short
     ))
+
+  ctry_abbrev <- ctry_abbrev |>
+    dplyr::mutate(whoregion = get_region(place.admin.0))
 
   summarize_ctry_abbrev <- ctry_abbrev |>
     dplyr::group_by(place.admin.0) |>
@@ -232,7 +236,7 @@ get_ctry_abbrev <- function(afp_data) {
     dplyr::ungroup()
 
   if (nrow(summarize_ctry_abbrev) > 0) {
-    cli::cli_alert_warning("Some values in the country lookup table are not unique for the following countries: ")
+    cli::cli_alert_warning("Some values in the country lookup table are not unique for the following countries, please updated code in get_ctry_abbrev: ")
     non_unique <- ctry_abbrev |>
       dplyr::filter(place.admin.0 %in% summarize_ctry_abbrev$place.admin.0)
 
@@ -301,11 +305,12 @@ generate_kpi_template <- function(output_path, name, edav) {
   stool_bar <- "generate_kpi_stoolad_bar(c1, raw_data$afp)"
   ev_bar <- "generate_kpi_evdetect_bar(c1, raw_data$afp)"
 
-  timely_violin <- 'generate_timely_det_violin(raw_data, start_date, end_date)'
+
   culture_violin <- 'generate_lab_culture_violin(lab_data, raw_data$afp, start_date, end_date)'
   itd_violin <- 'generate_lab_itd_violin(lab_data, raw_data$afp, start_date, end_date)'
   seqship_violin <- 'generate_lab_seqship_violin(lab_data, raw_data$afp, start_date, end_date)'
   seqres_violin <- 'generate_lab_seqres_violin(lab_data, raw_data$afp, start_date, end_date)'
+  timely_violin <- 'generate_timely_det_violin(raw_data, start_date, end_date)'
 
   kpi_tile <- 'generate_kpi_tile(c1)'
 
@@ -337,9 +342,46 @@ generate_kpi_template <- function(output_path, name, edav) {
     "# and may take a while to complete.",
     sg_priority_map, npafp_kpi_loop, stool_kpi_loop, ev_kpi_loop, "\n",
     npafp_bar, stool_bar, ev_bar, "\n",
-    "# Adjust the y_max as needed via the 'y_max' parameter",
-    timely_violin, culture_violin, itd_violin, seqship_violin,
-    seqres_violin, "\n",
+    "# Violin plots ----",
+    "",
+    "# Before running plots, check the indicator ranges below to determine if you need to change y_max.",
+    "# Note these data are approximations; ranges reflect the full dataset before additional filtering in plots.",
+    "# Note: some range checks use internal helper functions from sirfunctions.",
+    "# Examine plots carefully to finalize y_max.",
+    "# Example to change y_max: generate_lab_seqres_violin(lab_data, raw_data$afp, start_date, end_date, y_max = 250)",
+    "",
+    "# Build base dataset for lab violin range checks",
+    'lab_kpi_check <- sirfunctions:::generate_kpi_lab_timeliness(lab_data, start_date, end_date, raw_data$afp)',
+    "",
+    "# For generate_lab_culture_violin()",
+    "# Default y_max is 60",
+    'range(lab_kpi_check$days.lab.culture, na.rm = TRUE)',
+    'summary(lab_kpi_check$days.lab.culture)',
+    "",
+    "# For generate_lab_itd_violin()",
+    "# Default y_max is 30",
+    'range(lab_kpi_check$days.culture.itd, na.rm = TRUE)',
+    'summary(lab_kpi_check$days.culture.itd)',
+    "",
+    "# For generate_lab_seqship_violin()",
+    "# Default y_max is 50",
+    'range(lab_kpi_check$days.seq.ship, na.rm = TRUE)',
+    'summary(lab_kpi_check$days.seq.ship)',
+    "",
+    "# For generate_lab_seqres_violin()",
+    "# Default y_max is dynamic to the max of days.seq.rec.res",
+    'range(as.numeric(lab_kpi_check$days.seq.rec.res), na.rm = TRUE)',
+    'summary(as.numeric(lab_kpi_check$days.seq.rec.res))',
+    "",
+    "# For generate_timely_det_violin()",
+    "# Default y_max is dynamic to the max of ontonothq",
+    'pos_timeliness_check <- sirfunctions:::generate_pos_timeliness(raw_data, start_date, end_date)',
+    'range(pos_timeliness_check$ontonothq, na.rm = TRUE)',
+    'summary(pos_timeliness_check$ontonothq)',
+    "",
+    "",
+    "# Build plots ----",
+    culture_violin, itd_violin, seqship_violin, seqres_violin, timely_violin, "\n",
     "# Generate C1 KPI tile ----",
     kpi_tile, "\n",
     "# Export GPSAP tables ----",
@@ -347,4 +389,5 @@ generate_kpi_template <- function(output_path, name, edav) {
   )
 
   writeLines(output_string, conn)
+  close(conn)
 }

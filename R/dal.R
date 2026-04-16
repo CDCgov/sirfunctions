@@ -3695,7 +3695,7 @@ force_load_polio_data_cache <- function(attach.spatial.data, output_format = ".r
     # Check if spatial data exists in the cache
     if (sirfunctions_io("exists.file", NULL, spatial_data_path, edav = FALSE)) {
       cli::cli_alert_info("Loading spatial data from cache")
-      spatial_data <- sirfunctions_io("read", NULL, spatial_data_path, edav = FALSE)
+      spatial.data <- sirfunctions_io("read", NULL, spatial_data_path, edav = FALSE)
 
       raw.data$global.ctry <- spatial.data$global.ctry
       raw.data$global.prov <- spatial.data$global.prov

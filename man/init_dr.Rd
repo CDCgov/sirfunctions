@@ -20,7 +20,7 @@ init_dr(
 )
 }
 \arguments{
-\item{country_name}{\code{str} Name of the country.}
+\item{country_name}{\code{str} Name of the country. You may pass multiple countries as a vector of strings.}
 
 \item{start_date}{\code{str} Start date of the desk review. If \code{NULL}, defaults to four years
 from when the function was ran on January 1st.}
@@ -63,6 +63,7 @@ the desk review is prefixed with \code{"DR"}) . The function only supports runni
 \dontrun{
 ctry.data <- init_dr("algeria", source = F) # Sets up folder in the current working directory
 ctry.data <- init_dr("algeria", branch = "dev") # Use functions from the dev branch
+ctry.data <- init_dr(c("algeria", "nigeria"), source = F) # Multiple countries.
 }
 
 }

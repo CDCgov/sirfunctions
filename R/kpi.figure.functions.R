@@ -529,9 +529,11 @@ generate_kpi_npafp_bar <- function(c1, afp_data,
   ctry_abbrev <- get_ctry_abbrev(afp_data)
   priority_ctry <- c1 |>
     dplyr::left_join(ctry_abbrev,
-                     by = c("ctry" = "place.admin.0", "Region" = "whoregion")) |>
+                     by = c("ctry" = "place.admin.0")) |>
     dplyr::filter(.data$`SG Priority Level` == "HIGH") |>
-    dplyr::mutate(prop_met_npafp = .data$prop_met_npafp)
+    # Remove whoregion from ctry_abbrev and use Region since
+    # c1 already accounts for Indonesia change and it's not used here
+    dplyr::select(-whoregion)
 
   bar_plot <- generate_kpi_barchart(priority_ctry,
                         "prop_met_npafp",
@@ -587,8 +589,11 @@ generate_kpi_evdetect_bar <- function(c1, afp_data,
   ctry_abbrev <- get_ctry_abbrev(afp_data)
   priority_ctry <- c1 |>
     dplyr::left_join(ctry_abbrev,
-                     by = c("ctry" = "place.admin.0", "Region" = "whoregion")) |>
-    dplyr::mutate(prop_met_ev = .data$prop_met_ev)
+                     by = c("ctry" = "place.admin.0")) |>
+    # Remove whoregion from ctry_abbrev and use Region since
+    # c1 already accounts for Indonesia change and it's not used here
+    dplyr::select(-whoregion) |>
+    dplyr::filter(`SG Priority Level` == "HIGH")
 
   if (!is.null(who_region)) {
     priority_ctry <- priority_ctry |> dplyr::filter(Region %in% who_region)
@@ -635,9 +640,11 @@ generate_kpi_stoolad_bar <- function(c1, afp_data,
   ctry_abbrev <- get_ctry_abbrev(afp_data)
   priority_ctry <- c1 |>
     dplyr::left_join(ctry_abbrev,
-                     by = c("ctry" = "place.admin.0", "Region" = "whoregion")) |>
-    dplyr::filter(.data$`SG Priority Level` == "HIGH") |>
-    dplyr::mutate(prop_met_stool = .data$prop_met_stool)
+                     by = c("ctry" = "place.admin.0")) |>
+    # Remove whoregion from ctry_abbrev and use Region since
+    # c1 already accounts for Indonesia change and it's not used here
+    dplyr::select(-whoregion) |>
+    dplyr::filter(.data$`SG Priority Level` == "HIGH")
 
   bar_plot <- generate_kpi_barchart(priority_ctry,
                                     "prop_met_stool",
@@ -736,8 +743,14 @@ generate_kpi_violin <- function(
 #' @param rolling `logical` Using rolling periods or year-to-year? Defaults to `TRUE`.
 #' @param who_region `list` Regions to display. Defaults to `NULL`, which shows
 #' all of the regions.
+#' @param risk_table `tibble` Priority level of each country. Defaults to `NULL`,
+#' which will download the information directly from EDAV.
+#' @param lab_locs `tibble` Summary of the sequencing capacities of labs.
+#' Output of [get_lab_locs()]. Defaults to `NULL`, which will download the information
+#' directly from EDAV.
 #' @param output_path `str` Where to output the figure to.
-#' @param y_max `num` The maximum y-axis value.
+#' @param y_max `num` The maximum y-axis value. Defaults to `NULL`, which will compute the
+#' y_max as the max value of days to notify hq.
 #'
 #' @returns `ggplot` A violin plot showing timeliness of detection.
 #' @export
@@ -752,12 +765,14 @@ generate_timely_det_violin <- function(raw_data,
                                        priority_level = c("HIGH", "MEDIUM", "LOW (WATCHLIST)", "LOW"),
                                        who_region = NULL,
                                        rolling = TRUE,
+                                       risk_table = NULL,
+                                       lab_locs = NULL,
                                        output_path = Sys.getenv("KPI_FIGURES"),
-                                       y_max = 250) {
+                                       y_max = NULL) {
 
   start_date <- lubridate::as_date(start_date)
   end_date <- lubridate::as_date(end_date)
-  pos <- generate_pos_timeliness(raw_data, start_date, end_date)
+  pos <- generate_pos_timeliness(raw_data, start_date, end_date, risk_table, lab_locs)
   ctry_abbrev <- get_ctry_abbrev(raw_data$afp)
   color.risk.cat <- c(
     "HIGH" = "#d73027",
@@ -774,27 +789,40 @@ generate_timely_det_violin <- function(raw_data,
   }
 
   pos_filtered <- pos |>
+    dplyr::mutate(whoregion = get_region(place.admin.0)) |>
+    # Remove other who region columns because it's confusing
+    dplyr::select(-dplyr::any_of(c("who.region", "Region"))) |>
     dplyr::filter(.data$`SG Priority Level` %in% priority_level,
                   .data$whoregion %in% who_region) |>
     dplyr::left_join(ctry_abbrev,
                      by = c("place.admin.0", "whoregion")) |>
-    dplyr::mutate(seq_lab = case_when(
-      .data$seq.capacity == "no" ~ "No sequencing capacity",
-      .data$seq.capacity == "yes" ~ "Sequencing capacity"
-    )) |>
+    # Manually change the region of Indonesia based on change
+    # since get_region() defaults to WPRO now, we have to do the opposite
+    # to assign Indonesia samples to SEARO prior to May 23, 2025
+    # dplyr::mutate(whoregion = ifelse(place.admin.0 == "INDONESIA" &
+    #   analysis_year_start < lubridate::as_date("2025-05-23"), "SEARO", whoregion)) |>
+    dplyr::mutate(seq_lab = stringr::str_to_lower(seq.capacity),
+                  seq_lab = ifelse(seq_lab == "yes",
+                                   "Sequencing capacity",
+                                   "No sequencing capacity"
+                  ))  |>
     dplyr::filter(!is.na(.data$seq_lab)) |>
     dplyr::mutate(
       sg_priority_level = factor(.data$`SG Priority Level`, levels = c(
         "LOW", "LOW (WATCHLIST)", "MEDIUM", "HIGH"))
     )
 
+  if (is.null(y_max)) {
+  y_max <- max(pos_filtered$ontonothq, na.rm = TRUE)
+  }
+
   if (rolling) {
-    facets <- ggh4x::facet_nested(rolling_period~seq_lab+who.region,
+    facets <- ggh4x::facet_nested(rolling_period~seq_lab+whoregion,
                                     scales = "free", space = "free",
                                     labeller = ggplot2::label_wrap_gen(13),
                                     switch = "y")
   } else {
-    facets <- ggh4x::facet_nested(year~seq_lab+who.region,
+    facets <- ggh4x::facet_nested(year~seq_lab+whoregion,
                                     scales = "free", space = "free",
                                     labeller = ggplot2::label_wrap_gen(13),
                                     switch = "y")
@@ -811,7 +839,7 @@ generate_timely_det_violin <- function(raw_data,
   plot_mock_legend <- ggpubr::get_legend(plot_mock)
 
   plot_1 <- generate_kpi_violin(pos_filtered |>
-                                  filter(seq.capacity == "no"), "ctry.short", "ontonothq",
+                                  filter(seq_lab == "No sequencing capacity"), "ctry.short", "ontonothq",
                               "sg_priority_level",
                               facets,
                               46, y.max = y_max)
@@ -820,7 +848,7 @@ generate_timely_det_violin <- function(raw_data,
                                name = "Priority Level",
                                na.value = "white")
 
-  plot_2 <- generate_kpi_violin(pos_filtered |> filter(seq.capacity == "yes"), "ctry.short", "ontonothq",
+  plot_2 <- generate_kpi_violin(pos_filtered |> filter(seq_lab == "Sequencing capacity"), "ctry.short", "ontonothq",
                                 "sg_priority_level",
                                 facets,
                                 35, y.max = y_max)
@@ -917,6 +945,9 @@ generate_timely_ship_violin <- function(afp_data,
   afp_filtered <- afp_data |>
     dplyr::filter(.data$`SG Priority Level` %in% priority_level,
                   .data$whoregion %in% who_region) |>
+    dplyr::mutate(whoregion = get_region(place.admin.0)) |>
+    # Remove other who region columns because it's confusing
+    dplyr::select(-dplyr::any_of(c("who.region", "Region"))) |>
     dplyr::left_join(ctry_abbrev,
                      by = c("ctry" = "place.admin.0", "whoregion")) |>
     dplyr::mutate(
@@ -1038,10 +1069,16 @@ generate_lab_culture_violin <- function(lab_data, afp_data,
   lab_filtered <- lab_data |> dplyr::left_join(ctry_abbrev,
                                            by = c("country" = "place.admin.0",
                                                   "whoregion")) |>
+    dplyr::mutate(whoregion = get_region(country)) |>
+    # Remove other who region columns because it's confusing
+    dplyr::select(-dplyr::any_of(c("who.region", "Region"))) |>
     add_risk_category(ctry_col = "country") |>
     dplyr::mutate(
       year = lubridate::year(.data$DateStoolCollected)
     ) |>
+    # Filter out "incorrect" lab data where the date onset doesn't match
+    # the stool collection date
+    dplyr::filter(dplyr::between(DateStoolCollected, analysis_year_start, analysis_year_end)) |>
     dplyr::filter(.data$`SG Priority Level` %in% priority_level,
                   !is.na(.data$culture.itd.cat),
                   dplyr::between(DateStoolCollected, start_date, end_date)) |>
@@ -1124,7 +1161,13 @@ generate_lab_itd_violin <- function(lab_data, afp_data,
   lab_filtered <- lab_data |> dplyr::left_join(ctry_abbrev,
                                                by = c("country" = "place.admin.0",
                                                       "whoregion")) |>
+    dplyr::mutate(whoregion = get_region(country)) |>
+    # Remove other who region columns because it's confusing
+    dplyr::select(-dplyr::any_of(c("who.region", "Region"))) |>
     add_risk_category(ctry_col = "country") |>
+    # Filter out "incorrect" lab data where the date onset doesn't match
+    # the stool collection date
+    dplyr::filter(dplyr::between(DateStoolCollected, analysis_year_start, analysis_year_end)) |>
     dplyr::mutate(
       year = lubridate::year(.data$DateStoolCollected)
     ) |>
@@ -1210,7 +1253,13 @@ generate_lab_seqship_violin <- function(lab_data, afp_data,
   lab_filtered <- lab_data |> dplyr::left_join(ctry_abbrev,
                                                by = c("country" = "place.admin.0",
                                                       "whoregion")) |>
+    dplyr::mutate(whoregion = get_region(country)) |>
+    # Remove other who region columns because it's confusing
+    dplyr::select(-dplyr::any_of(c("who.region", "Region"))) |>
     add_risk_category(ctry_col = "country") |>
+    # Filter out "incorrect" lab data where the date onset doesn't match
+    # the stool collection date
+    dplyr::filter(dplyr::between(DateStoolCollected, analysis_year_start, analysis_year_end)) |>
     dplyr::mutate(
       year = lubridate::year(.data$DateStoolCollected)
     ) |>
@@ -1280,7 +1329,7 @@ generate_lab_seqres_violin <- function(lab_data, afp_data,
                                               who_region = NULL,
                                               rolling = TRUE,
                                               output_path = Sys.getenv("KPI_FIGURES"),
-                                              y_max = 60) {
+                                              y_max = NULL) {
 
   start_date <- lubridate::as_date(start_date)
   end_date <- lubridate::as_date(end_date)
@@ -1297,7 +1346,12 @@ generate_lab_seqres_violin <- function(lab_data, afp_data,
   lab_filtered <- lab_data |> dplyr::left_join(ctry_abbrev,
                                                by = c("country" = "place.admin.0",
                                                       "whoregion")) |>
+    # Remove other who region columns because it's confusing
+    dplyr::select(-dplyr::any_of(c("who.region", "Region"))) |>
     add_risk_category(ctry_col = "country") |>
+    # Filter out "incorrect" lab data where the date onset doesn't match
+    # the stool collection date
+    dplyr::filter(dplyr::between(DateStoolCollected, analysis_year_start, analysis_year_end)) |>
     dplyr::mutate(
       year = lubridate::year(.data$DateStoolCollected)
     ) |>
@@ -1309,9 +1363,14 @@ generate_lab_seqres_violin <- function(lab_data, afp_data,
         "LOW", "LOW (WATCHLIST)", "MEDIUM", "HIGH"))
     )
 
+
   if (!is.null(who_region)) {
     lab_filtered <- lab_filtered |>
       dplyr::filter(.data$whoregion %in% who_region)
+  }
+
+  if (is.null(y_max)) {
+    y_max <- as.numeric(max(lab_filtered$days.seq.rec.res, na.rm = TRUE))
   }
 
   if (rolling) {
@@ -1410,7 +1469,13 @@ generate_lab_itdres_seqres_violin <- function(lab_data, afp_data,
   lab_filtered <- lab_data |> dplyr::left_join(ctry_abbrev,
                                                by = c("country" = "place.admin.0",
                                                       "whoregion")) |>
+    dplyr::mutate(whoregion = get_region(country)) |>
+    # Remove other who region columns because it's confusing
+    dplyr::select(-dplyr::any_of(c("who.region", "Region"))) |>
     add_risk_category(ctry_col = "country") |>
+    # Filter out "incorrect" lab data where the date onset doesn't match
+    # the stool collection date
+    dplyr::filter(dplyr::between(DateStoolCollected, analysis_year_start, analysis_year_end)) |>
     dplyr::mutate(
       year = lubridate::year(.data$DateStoolCollected)
     ) |>

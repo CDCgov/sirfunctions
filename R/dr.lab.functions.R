@@ -1232,7 +1232,7 @@ clean_lab_data <- function(lab_data, start_date, end_date,
   )) |>
   mutate(seq.capacity = if_else(country %in% c("NIGERIA", "UGANDA") & DateStoolCollected >= as_date("2025-02-01"), "Sequencing capacity", seq.capacity))
 
-  return(lab_data)
+  return(lab_data_man)
 }
 
 
