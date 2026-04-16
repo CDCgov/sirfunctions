@@ -13,7 +13,7 @@ the desk review is prefixed with "DR") . The function only supports running one 
 
     <a class="navbar-brand me-2" href="../index.html">sirfunctions</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.1.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.1.7</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -72,7 +72,7 @@ the desk review is prefixed with <code>"DR"</code>) . The function only supports
 
 
 <dl><dt id="arg-country-name">country_name<a class="anchor" aria-label="anchor" href="#arg-country-name"></a></dt>
-<dd><p><code>str</code> Name of the country.</p></dd>
+<dd><p><code>str</code> Name of the country. You may pass multiple countries as a vector of strings.</p></dd>
 
 
 <dt id="arg-start-date">start_date<a class="anchor" aria-label="anchor" href="#arg-start-date"></a></dt>
@@ -135,6 +135,7 @@ spatial files, coverage data, and population data. Defaults to <code>"GID/PEB/SI
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
 <span class="r-in"><span><span class="va">ctry.data</span> <span class="op">&lt;-</span> <span class="fu">init_dr</span><span class="op">(</span><span class="st">"algeria"</span>, source <span class="op">=</span> <span class="cn">F</span><span class="op">)</span> <span class="co"># Sets up folder in the current working directory</span></span></span>
 <span class="r-in"><span><span class="va">ctry.data</span> <span class="op">&lt;-</span> <span class="fu">init_dr</span><span class="op">(</span><span class="st">"algeria"</span>, branch <span class="op">=</span> <span class="st">"dev"</span><span class="op">)</span> <span class="co"># Use functions from the dev branch</span></span></span>
+<span class="r-in"><span><span class="va">ctry.data</span> <span class="op">&lt;-</span> <span class="fu">init_dr</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"algeria"</span>, <span class="st">"nigeria"</span><span class="op">)</span>, source <span class="op">=</span> <span class="cn">F</span><span class="op">)</span> <span class="co"># Multiple countries.</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

@@ -17,7 +17,7 @@ generate_lab_seqres_violin(
   who_region = NULL,
   rolling = TRUE,
   output_path = Sys.getenv("KPI_FIGURES"),
-  y_max = 60
+  y_max = NULL
 )
 ```
 

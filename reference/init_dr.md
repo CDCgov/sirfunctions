@@ -30,7 +30,8 @@ init_dr(
 
 - country_name:
 
-  `str` Name of the country.
+  `str` Name of the country. You may pass multiple countries as a vector
+  of strings.
 
 - start_date:
 
@@ -95,5 +96,6 @@ init_dr(
 if (FALSE) { # \dontrun{
 ctry.data <- init_dr("algeria", source = F) # Sets up folder in the current working directory
 ctry.data <- init_dr("algeria", branch = "dev") # Use functions from the dev branch
+ctry.data <- init_dr(c("algeria", "nigeria"), source = F) # Multiple countries.
 } # }
 ```

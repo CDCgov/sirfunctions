@@ -321,6 +321,9 @@
 - [`get_diff_cols()`](https://cdcgov.github.io/sirfunctions/reference/get_diff_cols.md)
   : Get the columns where records differ in a group
 
+- [`get_edav_pins_board()`](https://cdcgov.github.io/sirfunctions/reference/get_edav_pins_board.md)
+  : Obtain a pins board from EDAV
+
 - [`get_lab_date_col_missingness()`](https://cdcgov.github.io/sirfunctions/reference/get_lab_date_col_missingness.md)
   : Get missingness of date variables in the lab dataset
 
