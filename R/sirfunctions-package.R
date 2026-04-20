@@ -232,6 +232,8 @@ utils::globalVariables(c(
   "median_wild_vdpv_det_label", "median_wild_vdpv_det_n", "median_wpv_vdpv_det",
   "median_wpv_vdpv_det_label", "median_wpv_vdpv_samples", "min_date",
   "spatial.data", "u15pop.x", "u15pop.y", "updated", "vacc", "values", "x",
-  "lab_data", "ctry.data"
+  "lab_data", "ctry.data",
+
+  "dest", "excel_file", "ft_file", "gg_file", "parquet_file", "qs2_file", "tif_file"
 
 ))
