@@ -228,8 +228,7 @@ generate_afp_epicurve <- function(ctry.data,
 
   afp.epi.date.filter <- ctry.data$afp.all.2 %>%
     dplyr::filter(
-      dplyr::between(date, start_date, end_date),
-      cdc.classification.all2 != "NOT-AFP"
+      dplyr::between(date, start_date, end_date)
     ) |>
     dplyr::mutate(epi.week = epiweek(date),
                   epiweek.year = paste0(year, "-", epi.week)) |>
