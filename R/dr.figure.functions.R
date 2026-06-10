@@ -2769,7 +2769,7 @@ generate_timeliness_maps <- function(ctry.data,
       values = f.color.schemes("mapval"),
       drop = T
     ) +
-    ggplot2::ggtitle("Proportion of stool shipped to lab within 3 days of collection") +
+    ggplot2::ggtitle("Proportion of stools arriving at the lab within 3 days of collection") +
     sirfunctions::f.plot.looks("epicurve")
 
 
