@@ -818,12 +818,17 @@ generate_case_num_dose_g <- function(ctry.data,
   dcat.yr.prov <- ctry.data$afp.all.2 |>
     dplyr::filter(
       dplyr::between(date, start_date, end_date),
-      cdc.classification.all2 == "NPAFP",
-      dplyr::between(age.months, 6, 59)
+
+      # Exclude NOT-AFP, Compatible, VDPV and WPV
+      !cdc.classification.all2 %in% c("NOT-AFP", "COMPATIBLE"),
+      !grepl("VDPV|WPV", cdc.classification.all2, ignore.case = TRUE),
+
+      # Include children 6-59 months and those with unknown age
+      dplyr::between(age.months, 6, 59) | is.na(age.months)
     ) |>
     dplyr::mutate(year = factor(year)) |>
     dplyr::group_by(dose.cat, year, prov) |>
-    dplyr::summarise(freq = dplyr::n())
+    dplyr::summarise(freq = dplyr::n(), .groups = "drop")
 
   if (nrow(dcat.yr.prov) == 0) {
     return(output_empty_image(output_path, "case.num.dose.g.png"))
