@@ -119,10 +119,8 @@ For ISS/eSURV data, it is advisable to take a look at the data before cleaning, 
 
 ```{r data.cleaning}
 ctry.data <- clean_ctry_data(ctry.data)
-lab_data <- clean_lab_data(lab_data, start_date, end_date, 
-                                     ctry.data$afp.all.2, Sys.getenv("DR_COUNTRY")
-                                     )
-# NOTE: if lab data is cleaned, you may need to manually filter to the countries of interest
+lab_data <- sirfunctions::edav_io("read", file_loc = get_constant("CLEANED_LAB_DATA")) |>
+  dplyr::filter(!is.na(EPID))
 ctry.data$iss.data <- clean_iss_data(ctry.data$iss.data, start_date, end_date)
 ```
 

@@ -313,10 +313,9 @@ generate_wild_vdpv_summary <- function(raw_data, start_date, end_date,
 #' @returns `tibble` lab data with timeliness columns.
 #'
 #' @keywords internal
-generate_kpi_lab_timeliness <- function(lab_data, start_date, end_date, afp_data) {
+generate_kpi_lab_timeliness <- function(lab_data, start_date, end_date, afp_data = NULL) {
   start_date <- lubridate::as_date(start_date)
   end_date <- lubridate::as_date(end_date)
-  lab_data <- clean_lab_data(lab_data, start_date, end_date, afp_data)
 
   lab_data <- lab_data |>
     dplyr::mutate(
