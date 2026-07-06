@@ -578,7 +578,9 @@ clean_lab_data_regional <- function(lab_data,
   cli::cli_process_start("Filtering nonsensical dates")
   lab_data5 <- lab_data5 |>
     dplyr::filter(
-      (DateStoolCollected >= ParalysisOnsetDate | is.na(ParalysisOnsetDate)),
+      (is.na(DateStoolCollected) |
+         DateStoolCollected >= ParalysisOnsetDate |
+         is.na(ParalysisOnsetDate)),
       # (lubridate::year(DateFinalCellCultureResult) <= 2023 | is.na(DateFinalCellCultureResult)),
       # remove a blank specimen row
       !is.na(EPID)
