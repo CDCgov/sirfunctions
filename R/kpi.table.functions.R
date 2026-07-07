@@ -853,10 +853,6 @@ generate_c1_table <- function(raw_data, start_date, end_date,
     ) |>
     dplyr::left_join(dist_lookup_table) |>
     dplyr::mutate(whoregion = get_region(ctry)) |>
-    # invalid GUIDS will have consistnet_guid = FALSE while
-    # valid ones will be NA
-    dplyr::left_join(inconsistent_guids) |>
-    dplyr::filter(is.na(consistent_guid)) |>
     dplyr::group_by(
       year_label, rolling_period,
       analysis_year_start, analysis_year_end,
