@@ -818,17 +818,12 @@ generate_case_num_dose_g <- function(ctry.data,
   dcat.yr.prov <- ctry.data$afp.all.2 |>
     dplyr::filter(
       dplyr::between(date, start_date, end_date),
-
-      # Exclude NOT-AFP, Compatible, VDPV and WPV
-      !cdc.classification.all2 %in% c("NOT-AFP", "COMPATIBLE"),
-      !grepl("VDPV|WPV", cdc.classification.all2, ignore.case = TRUE),
-
-      # Include children 6-59 months and those with unknown age
+      cdc.classification.all2 %in% c("NPAFP", "PENDING", "LAB PENDING"),
       dplyr::between(age.months, 6, 59) | is.na(age.months)
     ) |>
     dplyr::mutate(year = factor(year)) |>
     dplyr::group_by(dose.cat, year, prov) |>
-    dplyr::summarise(freq = dplyr::n(), .groups = "drop")
+    dplyr::summarise(freq = dplyr::n())
 
   if (nrow(dcat.yr.prov) == 0) {
     return(output_empty_image(output_path, "case.num.dose.g.png"))
@@ -845,11 +840,11 @@ generate_case_num_dose_g <- function(ctry.data,
     ggplot2::xlab("") +
     ggplot2::ylab("Percent of Cases") +
     ggplot2::scale_fill_manual("Number of doses - IPV/OPV",
-      values = dose.num.cols,
-      drop = F
+                               values = dose.num.cols,
+                               drop = F
     ) +
     ggplot2::scale_y_continuous(labels = scales::percent) +
-    ggplot2::labs(title = "OPV/IPV Status of NP AFP cases, 6-59 months") +
+    ggplot2::labs(title = "OPV/IPV Status of AFP cases, 6-59 months") +
     ggplot2::geom_text(
       data = dcat.yr.prov |> dplyr::group_by(year) |> dplyr::summarize(freq = sum(freq)),
       ggplot2::aes(
