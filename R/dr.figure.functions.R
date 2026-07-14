@@ -791,6 +791,7 @@ generate_es_timely <- function(es.data,
 #' }
 #'
 #' @export
+
 generate_case_num_dose_g <- function(ctry.data,
                                      start_date,
                                      end_date,
@@ -813,51 +814,95 @@ generate_case_num_dose_g <- function(ctry.data,
     "Missing" = "#A5A5A5"
   )
 
-  ### Create zero dose graphs
-  # Cats - 0, 1-2, 3, 4+
+  ### Create dose-status graph
   dcat.yr.prov <- ctry.data$afp.all.2 |>
     dplyr::filter(
       dplyr::between(date, start_date, end_date),
-      cdc.classification.all2 == "NPAFP",
-      dplyr::between(age.months, 6, 59)
+      cdc.classification.all2 %in% c(
+        "NPAFP",
+        "PENDING",
+        "LAB PENDING"
+      ),
+      dplyr::between(age.months, 6, 59) | is.na(age.months)
     ) |>
-    dplyr::mutate(year = factor(year)) |>
+    dplyr::mutate(
+      year = factor(year),
+      dose.cat = dplyr::if_else(
+        is.na(dose.cat),
+        "Missing",
+        as.character(dose.cat)
+      ),
+      dose.cat = factor(
+        dose.cat,
+        levels = c("0", "1-2", "3", "4+", "Missing")
+      )
+    ) |>
     dplyr::group_by(dose.cat, year, prov) |>
-    dplyr::summarise(freq = dplyr::n())
+    dplyr::summarise(
+      freq = dplyr::n(),
+      .groups = "drop"
+    )
 
   if (nrow(dcat.yr.prov) == 0) {
-    return(output_empty_image(output_path, "case.num.dose.g.png"))
+    return(
+      output_empty_image(
+        output_path,
+        "case.num.dose.g.png"
+      )
+    )
   }
 
-  # case num by year and province by vaccination status
-  case.num.dose.g <- ggplot2::ggplot() +
+  case.totals <- dcat.yr.prov |>
+    dplyr::group_by(year) |>
+    dplyr::summarise(
+      freq = sum(freq),
+      .groups = "drop"
+    )
+
+  # Case numbers by year and vaccination status
+  case.num.dose.g <- ggplot2::ggplot(
+    data = dcat.yr.prov,
+    ggplot2::aes(
+      x = year,
+      y = freq,
+      fill = dose.cat
+    )
+  ) +
     ggplot2::geom_bar(
-      data = dcat.yr.prov,
-      ggplot2::aes(x = year, y = freq, fill = dose.cat),
       stat = "identity",
       position = "fill"
     ) +
     ggplot2::xlab("") +
     ggplot2::ylab("Percent of Cases") +
-    ggplot2::scale_fill_manual("Number of doses - IPV/OPV",
+    ggplot2::scale_fill_manual(
+      name = "Number of doses - IPV/OPV",
       values = dose.num.cols,
-      drop = F
+      drop = FALSE
     ) +
-    ggplot2::scale_y_continuous(labels = scales::percent) +
-    ggplot2::labs(title = "OPV/IPV Status of NP AFP cases, 6-59 months") +
+    ggplot2::scale_y_continuous(
+      labels = scales::percent,
+      expand = ggplot2::expansion(mult = c(0, 0.08))
+    ) +
+    ggplot2::labs(
+      title = paste0(
+        "OPV/IPV Status of NP AFP, Pending, and Lab-Pending Cases, ",
+        "6–59 Months or Age Missing"
+      )
+    ) +
     ggplot2::geom_text(
-      data = dcat.yr.prov |> dplyr::group_by(year) |> dplyr::summarize(freq = sum(freq)),
+      data = case.totals,
       ggplot2::aes(
-        label = paste0("n = ", freq),
         x = year,
-        y = 1.02
+        y = 1.02,
+        label = paste0("n = ", freq)
       ),
+      inherit.aes = FALSE,
       check_overlap = TRUE
     ) +
     ggpubr::theme_pubr()
 
   ggplot2::ggsave(
-    "case.num.dose.g.png",
+    filename = "case.num.dose.g.png",
     plot = case.num.dose.g,
     path = output_path,
     width = 9,
@@ -866,6 +911,7 @@ generate_case_num_dose_g <- function(ctry.data,
 
   return(case.num.dose.g)
 }
+```
 
 
 #' Visits to health clinics per year
