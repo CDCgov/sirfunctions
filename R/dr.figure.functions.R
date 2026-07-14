@@ -791,7 +791,6 @@ generate_es_timely <- function(es.data,
 #' }
 #'
 #' @export
-
 generate_case_num_dose_g <- function(ctry.data,
                                      start_date,
                                      end_date,
@@ -911,8 +910,6 @@ generate_case_num_dose_g <- function(ctry.data,
 
   return(case.num.dose.g)
 }
-```
-
 
 #' Visits to health clinics per year
 #'
