@@ -806,11 +806,12 @@ generate_case_num_dose_g <- function(ctry.data,
   end_date <- lubridate::as_date(end_date)
 
   dose.num.cols <- c(
-    "0" = "#C00000",
-    "1-2" = "#FFC000",
-    "3" = "#92D050",
     "4+" = "#548235",
-    "Missing" = "#A5A5A5"
+    "3" = "#92D050",
+    "1-2" = "#FFC000",
+    "0" = "#C00000",
+    "Unknown" = "#4F81BD",
+    "Missing" = "#7F7F7F"
   )
 
   ### Create dose-status graph
@@ -826,17 +827,30 @@ generate_case_num_dose_g <- function(ctry.data,
     ) |>
     dplyr::mutate(
       year = factor(year),
-      dose.cat = dplyr::if_else(
-        is.na(dose.cat),
-        "Missing",
-        as.character(dose.cat)
+
+      # Keep Unknown and classify missing values separately
+      dose.cat = dplyr::case_when(
+        is.na(dose.cat) ~ "Missing",
+        as.character(dose.cat) %in% c(
+          "0",
+          "1-2",
+          "3",
+          "4+",
+          "Unknown"
+        ) ~ as.character(dose.cat),
+        TRUE ~ "Unknown"
       ),
+
       dose.cat = factor(
         dose.cat,
-        levels = c("0", "1-2", "3", "4+", "Missing")
+        levels = names(dose.num.cols)
       )
     ) |>
-    dplyr::group_by(dose.cat, year, prov) |>
+    dplyr::group_by(
+      dose.cat,
+      year,
+      prov
+    ) |>
     dplyr::summarise(
       freq = dplyr::n(),
       .groups = "drop"
@@ -858,7 +872,16 @@ generate_case_num_dose_g <- function(ctry.data,
       .groups = "drop"
     )
 
-  # Case numbers by year and vaccination status
+  # Dummy data force every category to have a colored legend key
+  legend.data <- data.frame(
+    dose.cat = factor(
+      names(dose.num.cols),
+      levels = names(dose.num.cols)
+    ),
+    stringsAsFactors = FALSE
+  )
+
+  ### Case numbers by year and vaccination status
   case.num.dose.g <- ggplot2::ggplot(
     data = dcat.yr.prov,
     ggplot2::aes(
@@ -871,23 +894,64 @@ generate_case_num_dose_g <- function(ctry.data,
       stat = "identity",
       position = "fill"
     ) +
+
+    # Invisible layer used only to create all colored legend keys
+    ggplot2::geom_point(
+      data = legend.data,
+      mapping = ggplot2::aes(
+        fill = dose.cat
+      ),
+      x = -Inf,
+      y = -Inf,
+      shape = 22,
+      size = 0,
+      alpha = 0,
+      inherit.aes = FALSE,
+      show.legend = TRUE
+    ) +
+
     ggplot2::xlab("") +
     ggplot2::ylab("Percent of Cases") +
+
     ggplot2::scale_fill_manual(
       name = "Number of doses - IPV/OPV",
       values = dose.num.cols,
+      limits = names(dose.num.cols),
+      breaks = names(dose.num.cols),
       drop = FALSE
     ) +
-    ggplot2::scale_y_continuous(
-      labels = scales::percent,
-      expand = ggplot2::expansion(mult = c(0, 0.08))
-    ) +
-    ggplot2::labs(
-      title = paste0(
-        "OPV/IPV Status of NP AFP, Pending, and Lab-Pending Cases, ",
-        "6–59 Months or Age Missing"
+
+    # Horizontal legend in one row
+    ggplot2::guides(
+      fill = ggplot2::guide_legend(
+        nrow = 1,
+        byrow = TRUE,
+        title.position = "top",
+        label.position = "right",
+        override.aes = list(
+          shape = 22,
+          size = 6,
+          alpha = 1,
+          colour = NA
+        )
       )
     ) +
+
+    ggplot2::scale_y_continuous(
+      labels = scales::percent,
+      expand = ggplot2::expansion(
+        mult = c(0, 0.08)
+      )
+    ) +
+
+    ggplot2::labs(
+      title = "OPV/IPV Status of NPAFP Cases",
+      caption = paste(
+        "Note: Includes NPAFP, Pending, and Lab Pending cases.",
+        "Cases with missing age are included."
+      )
+    ) +
+
     ggplot2::geom_text(
       data = case.totals,
       ggplot2::aes(
@@ -898,7 +962,25 @@ generate_case_num_dose_g <- function(ctry.data,
       inherit.aes = FALSE,
       check_overlap = TRUE
     ) +
-    ggpubr::theme_pubr()
+
+    ggpubr::theme_pubr() +
+
+    ggplot2::theme(
+      legend.position = "top",
+      legend.direction = "horizontal",
+      legend.box = "horizontal",
+      legend.title = ggplot2::element_text(
+        face = "bold"
+      ),
+      legend.text = ggplot2::element_text(
+        size = 10
+      ),
+      plot.caption = ggplot2::element_text(
+        size = 9,
+        hjust = 0,
+        margin = ggplot2::margin(t = 10)
+      )
+    )
 
   ggplot2::ggsave(
     filename = "case.num.dose.g.png",
@@ -910,6 +992,7 @@ generate_case_num_dose_g <- function(ctry.data,
 
   return(case.num.dose.g)
 }
+
 
 #' Visits to health clinics per year
 #'
