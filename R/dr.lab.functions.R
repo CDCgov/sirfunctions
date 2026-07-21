@@ -685,13 +685,13 @@ get_lab_locs <- function(lab_locs_path = NULL, use_edav = TRUE) {
   lab.locs.edited <- lab.locs |>
     dplyr::filter(!is.na(country)) |>
     dplyr::mutate(seq.capacity = stringr::str_to_lower(seq.capacity)) |>
-    dplyr::mutate(`wgs.lab*` = stringr::str_replace_all(`wgs.lab*`, "- ", "-"),
+    dplyr::mutate(`wgs.lab` = stringr::str_replace_all(`wgs.lab`, "- ", "-"),
                   seq.lab = stringr::str_replace_all(seq.lab, "- ", "-"),
                   culture.itd.lab = stringr::str_replace_all(culture.itd.lab, "- ", "-")) |>
-    dplyr::mutate(`wgs.lab*` = dplyr::case_when(
+    dplyr::mutate(`wgs.lab` = dplyr::case_when(
       country == "OCCUPIED PALESTINIAN TERRITORY, INCLUDING EAST JERUSALEM" ~ "Unknown",
-      `wgs.lab*` %in% c("-", NA) ~ "Unknown",
-      .default = `wgs.lab*`)) |>
+      `wgs.lab` %in% c("-", NA) ~ "Unknown",
+      .default = `wgs.lab`)) |>
     dplyr::mutate(culture.itd.lab = dplyr::case_when(
       country == "OCCUPIED PALESTINIAN TERRITORY, INCLUDING EAST JERUSALEM" ~ "Jordan",
       culture.itd.lab %in% c("-", NA) ~ "Unknown",
