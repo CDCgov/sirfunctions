@@ -827,11 +827,11 @@ generate_case_num_dose_g <- function(ctry.data,
     ) |>
     dplyr::mutate(
       year = factor(year),
-
       # Keep Unknown and classify missing values separately
       dose.cat = dplyr::case_when(
         is.na(dose.cat) ~ "Missing",
         as.character(dose.cat) %in% c(
+          "Missing",
           "0",
           "1-2",
           "3",

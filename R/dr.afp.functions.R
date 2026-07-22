@@ -234,6 +234,7 @@ add_zero_dose_col <- function(afp.data) {
   afp.data <- afp.data |>
     dplyr::mutate(
       dose.cat = dplyr::case_when(
+        doses.total == 99 ~ "Unknown",
         doses.total == 0 ~ "0",
         doses.total > 0 & doses.total < 3 ~ "1-2",
         doses.total == 3 ~ "3",
