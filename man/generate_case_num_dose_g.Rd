@@ -27,8 +27,9 @@ via \code{\link[=clean_ctry_data]{clean_ctry_data()}} prior to running the funct
 }
 \description{
 Generates a stacked percent bar plot displaying immunization rates per year for the country.
-Note that this function only graphs immunization rates for children aged 6-59 months that have
-the classification of NPAFP.
+Note that this function only graphs immunization rates for children aged 6-59 months.
+The "Missing" category is cases that have no value (i.e. NA) for doses.total.
+The "Unknown" category has "99" for doses.total.
 }
 \examples{
 \dontrun{
