@@ -85,10 +85,6 @@ add_seq_capacity <- function(df, ctry_col = "ctry", lab_locs = NULL) {
       by = setNames("country", ctry_col)
     )
 
-  df <- df |>
-    dplyr::mutate(seq.capacity = dplyr::if_else(!!dplyr::sym(ctry_col) == "NEPAL", "no",
-                                                seq.capacity))
-
   cli::cli_process_done()
   return(df)
 }
