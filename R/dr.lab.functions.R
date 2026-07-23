@@ -685,13 +685,13 @@ get_lab_locs <- function(lab_locs_path = NULL, use_edav = TRUE) {
   lab.locs.edited <- lab.locs |>
     dplyr::filter(!is.na(country)) |>
     dplyr::mutate(seq.capacity = stringr::str_to_lower(seq.capacity)) |>
-    dplyr::mutate(`wgs.lab*` = stringr::str_replace_all(`wgs.lab*`, "- ", "-"),
+    dplyr::mutate(`wgs.lab` = stringr::str_replace_all(`wgs.lab`, "- ", "-"),
                   seq.lab = stringr::str_replace_all(seq.lab, "- ", "-"),
                   culture.itd.lab = stringr::str_replace_all(culture.itd.lab, "- ", "-")) |>
-    dplyr::mutate(`wgs.lab*` = dplyr::case_when(
+    dplyr::mutate(`wgs.lab` = dplyr::case_when(
       country == "OCCUPIED PALESTINIAN TERRITORY, INCLUDING EAST JERUSALEM" ~ "Unknown",
-      `wgs.lab*` %in% c("-", NA) ~ "Unknown",
-      .default = `wgs.lab*`)) |>
+      `wgs.lab` %in% c("-", NA) ~ "Unknown",
+      .default = `wgs.lab`)) |>
     dplyr::mutate(culture.itd.lab = dplyr::case_when(
       country == "OCCUPIED PALESTINIAN TERRITORY, INCLUDING EAST JERUSALEM" ~ "Jordan",
       culture.itd.lab %in% c("-", NA) ~ "Unknown",
@@ -1213,24 +1213,19 @@ clean_lab_data <- function(lab_data, start_date, end_date,
     lab_data <- add_rolling_years(lab_data, start_date, end_date, "CaseDate")
   }
 
-  # Add lab cleaning step to correct lab data
+  #list of labs that sent samples to CDC for sequencing prior to February 2025, Nigeria and Uganda started doing their own sequencing.
+  #Adding in redundancy for Nigeria in case lines above get deleted, lab locs file gets changed
   lab_data_man <- lab_data |>
-  mutate(seq.lab = case_when(
-    seq.lab == "CDC-Atlanta" & DateStoolCollected >= as_date("2025-02-01") & culture.itd.lab == "Cameroon" ~ "NICD-South Africa",
-    seq.lab == "CDC-Atlanta" & DateStoolCollected >= as_date("2025-02-01") & culture.itd.lab == "ETHIOPIA/ KEMRI-Kenya" ~ "UVRI-Uganda",
-    seq.lab == "CDC-Atlanta" & DateStoolCollected >= as_date("2025-02-01") & culture.itd.lab %in% c("Ibadan-Nigeria, Maiduguri-Nigeria", "Nigeria") ~ "Ibadan-Nigeria",
-    seq.lab == "CDC-Atlanta" & DateStoolCollected >= as_date("2025-02-01") & culture.itd.lab == "KEMRI-Kenya" ~ "UVRI-Uganda",
-    country == "UGANDA" & DateStoolCollected >= as_date("2025-02-01") ~ "UVRI-Uganda",
-    seq.lab == "CDC-Atlanta" & DateStoolCollected >= as_date("2025-02-01") & culture.itd.lab == "Senegal" ~ "NICD-South Africa",
-    seq.lab == "CDC-Atlanta" & DateStoolCollected >= as_date("2025-02-01") & culture.itd.lab == "Varied (KEMRI-Kenya/ Oman/ Jordan)" ~ "Varied (UVRI/ Oman/ Jordan)",
-    .default = seq.lab
-  )) |>
-  mutate(seq.cat = case_when(
-    DateStoolCollected >= as_date("2025-02-01") & culture.itd.lab %in% c("Ibadan-Nigeria, Maiduguri-Nigeria", "Nigeria") & seq.lab == "Ibadan-Nigeria" ~ "Not shipped for sequencing",
-    country == "UGANDA" & DateStoolCollected >= as_date("2025-02-01") ~ "Not shipped for sequencing",
-    .default = seq.cat
-  )) |>
-  mutate(seq.capacity = if_else(country %in% c("NIGERIA", "UGANDA") & DateStoolCollected >= as_date("2025-02-01"), "Sequencing capacity", seq.capacity))
+    dplyr::mutate(
+      seq.lab = dplyr::case_when(
+        # labs that previously shipped to Atlanta for sequencing
+        DateStoolCollected < as_date("2025-02-01") & culture.itd.lab %in% c("Cameroon","KEMRI-Kenya","IBADAN-Nigeria","Ibadan-Nigeria","Nigeria","Senegal","Ethiopia","Oman/Jordan") ~ "CDC-Atlanta",
+        # lab that used to sequence Uganda before UVRI was accredited
+        DateStoolCollected < as_date("2025-02-01") & country == "UGANDA" ~ "Noguchi-Ghana",
+        .default = seq.lab),
+      seq.cat = if_else(country %in% c("NIGERIA", "UGANDA") & DateStoolCollected < as_date("2025-02-01"), "Shipped for sequencing", seq.cat),
+      seq.capacity = if_else(country %in% c("NIGERIA", "UGANDA") & DateStoolCollected < as_date("2025-02-01"), "No sequencing capacity", seq.capacity))
+
 
   return(lab_data_man)
 }
