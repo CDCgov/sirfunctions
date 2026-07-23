@@ -773,6 +773,8 @@ generate_es_timely <- function(es.data,
 #'
 #' Generates a stacked percent bar plot displaying immunization rates per year for the country.
 #' Note that this function only graphs immunization rates for children aged 6-59 months.
+#' The "Missing" category is cases that have no value (i.e. NA) for doses.total.
+#' The "Unknown" category has "99" for doses.total.
 #'
 #' @param ctry.data `list` A large list containing polio data of country.
 #' This is the output of [extract_country_data()] or [init_dr()]. Note that `ctry_data` needs to be cleaned
