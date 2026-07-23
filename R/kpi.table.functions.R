@@ -159,8 +159,8 @@ generate_pos_timeliness <- function(raw_data, start_date, end_date,
   #list of labs that sent samples to CDC for sequencing prior to February 2025, Nigeria and Uganda started doing their own sequencing.
   #Adding in redundancy for Nigeria in case lines above get deleted, lab locs file gets changed
   pos <- pos |>
-    mutate(seq.lab = case_when(dateonset< as_date("2025-02-01") & culture.itd.lab %in% c("Cameroon","KEMRI-Kenya","IBADAN-Nigeria","Ibadan-Nigeria","Nigeria","Senegal","Ethiopia","Oman/Jordan")~"CDC-Atlanta",
-                               dateonset< as_date("2025-02-01") & place.admin.0=="UGANDA"~"Noguchi-Ghana",
+    mutate(seq.lab = case_when(dateonset < as_date("2025-02-01") & culture.itd.lab %in% c("Cameroon","KEMRI-Kenya","IBADAN-Nigeria","Ibadan-Nigeria","Nigeria","Senegal","Ethiopia","Oman/Jordan") ~ "CDC-Atlanta",
+                               dateonset < as_date("2025-02-01") & place.admin.0 == "UGANDA" ~ "Noguchi-Ghana",
                                .default = seq.lab),
            seq.cat = if_else(place.admin.0 %in% c("NIGERIA", "UGANDA") & dateonset < as_date("2025-02-01"), "Shipped for sequencing", seq.cat),
            seq.capacity = if_else(place.admin.0 %in% c("NIGERIA", "UGANDA") & dateonset < as_date("2025-02-01"), "no", seq.capacity))
