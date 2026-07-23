@@ -85,10 +85,6 @@ add_seq_capacity <- function(df, ctry_col = "ctry", lab_locs = NULL) {
       by = setNames("country", ctry_col)
     )
 
-  df <- df |>
-    dplyr::mutate(seq.capacity = dplyr::if_else(!!dplyr::sym(ctry_col) == "NEPAL", "no",
-                                                seq.capacity))
-
   cli::cli_process_done()
   return(df)
 }
@@ -160,23 +156,14 @@ generate_pos_timeliness <- function(raw_data, start_date, end_date,
 
   # Manual edit based on changes to the sequencing lab list in Feb 2025
   # There is no collection date, so will use dateonset to classify
+  #list of labs that sent samples to CDC for sequencing prior to February 2025, Nigeria and Uganda started doing their own sequencing.
+  #Adding in redundancy for Nigeria in case lines above get deleted, lab locs file gets changed
   pos <- pos |>
-    mutate(seq.lab = case_when(
-    seq.lab == "CDC-Atlanta" & dateonset >= as_date("2025-02-01") & culture.itd.lab == "Cameroon" ~ "NICD-South Africa",
-    seq.lab == "CDC-Atlanta" & dateonset >= as_date("2025-02-01") & culture.itd.lab == "ETHIOPIA/ KEMRI-Kenya" ~ "UVRI-Uganda",
-    seq.lab == "CDC-Atlanta" & dateonset >= as_date("2025-02-01") & culture.itd.lab %in% c("Ibadan-Nigeria, Maiduguri-Nigeria", "Nigeria") ~ "Ibadan-Nigeria",
-    seq.lab == "CDC-Atlanta" & dateonset >= as_date("2025-02-01") & culture.itd.lab == "KEMRI-Kenya" ~ "UVRI-Uganda",
-    place.admin.0 == "UGANDA" & dateonset >= as_date("2025-02-01") ~ "UVRI-Uganda",
-    seq.lab == "CDC-Atlanta" & dateonset >= as_date("2025-02-01") & culture.itd.lab == "Senegal" ~ "NICD-South Africa",
-    seq.lab == "CDC-Atlanta" & dateonset >= as_date("2025-02-01") & culture.itd.lab == "Varied (KEMRI-Kenya/ Oman/ Jordan)" ~ "Varied (UVRI/ Oman/ Jordan)",
-    .default = seq.lab
-  )) |>
-  mutate(seq.cat = case_when(
-    dateonset >= as_date("2025-02-01") & culture.itd.lab %in% c("Ibadan-Nigeria, Maiduguri-Nigeria", "Nigeria") & seq.lab == "Ibadan-Nigeria" ~ "Not shipped for sequencing",
-    place.admin.0 == "UGANDA" & dateonset >= as_date("2025-02-01") ~ "Not shipped for sequencing",
-    .default = seq.cat
-  )) |>
-  mutate(seq.capacity = if_else(place.admin.0 %in% c("NIGERIA", "UGANDA") & dateonset >= as_date("2025-02-01"), "yes", seq.capacity))
+    mutate(seq.lab = case_when(dateonset < as_date("2025-02-01") & culture.itd.lab %in% c("Cameroon","KEMRI-Kenya","IBADAN-Nigeria","Ibadan-Nigeria","Nigeria","Senegal","Ethiopia","Oman/Jordan") ~ "CDC-Atlanta",
+                               dateonset < as_date("2025-02-01") & place.admin.0 == "UGANDA" ~ "Noguchi-Ghana",
+                               .default = seq.lab),
+           seq.cat = if_else(place.admin.0 %in% c("NIGERIA", "UGANDA") & dateonset < as_date("2025-02-01"), "Shipped for sequencing", seq.cat),
+           seq.capacity = if_else(place.admin.0 %in% c("NIGERIA", "UGANDA") & dateonset < as_date("2025-02-01"), "no", seq.capacity))
 
   pos_summary <- pos |>
     dplyr::mutate(
@@ -853,10 +840,6 @@ generate_c1_table <- function(raw_data, start_date, end_date,
     ) |>
     dplyr::left_join(dist_lookup_table) |>
     dplyr::mutate(whoregion = get_region(ctry)) |>
-    # invalid GUIDS will have consistnet_guid = FALSE while
-    # valid ones will be NA
-    dplyr::left_join(inconsistent_guids) |>
-    dplyr::filter(is.na(consistent_guid)) |>
     dplyr::group_by(
       year_label, rolling_period,
       analysis_year_start, analysis_year_end,

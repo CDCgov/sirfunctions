@@ -224,7 +224,7 @@ utils::globalVariables(c(
   "sg_priority_level", "SG Priority Level", "site_age",  "stool_collection_date",  "stool_denom",
   "stool_label",  "t1",  "t2",  "t3",  "t4",  "t5",  "timely_cat",  "timely_det",  "timely_isolation",
   "timely_itd",  "timely_itdres_seqres",  "timely_seqres",  "timely_seqship",
-  "timely_ship",  "timely_wpv_vdpv_detections",  "wgs.lab*",  "who_region",  "whoregion",
+  "timely_ship",  "timely_wpv_vdpv_detections",  "wgs.lab",  "who_region",  "whoregion",
   "wild_vdpv",  "wpv_vdpv_detections",  "y",  "year_label",  "year_num",  "year_number",
 
   "GUIDs", "adm_level", "cases", "cg_label",
