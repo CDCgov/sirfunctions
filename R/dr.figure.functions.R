@@ -806,58 +806,184 @@ generate_case_num_dose_g <- function(ctry.data,
   end_date <- lubridate::as_date(end_date)
 
   dose.num.cols <- c(
-    "0" = "#C00000",
-    "1-2" = "#FFC000",
-    "3" = "#92D050",
     "4+" = "#548235",
-    "Missing" = "#A5A5A5"
+    "3" = "#92D050",
+    "1-2" = "#FFC000",
+    "0" = "#C00000",
+    "Unknown" = "#4F81BD",
+    "Missing" = "#7F7F7F"
   )
 
-  ### Create zero dose graphs
-  # Cats - 0, 1-2, 3, 4+
+  ### Create dose-status graph
   dcat.yr.prov <- ctry.data$afp.all.2 |>
     dplyr::filter(
       dplyr::between(date, start_date, end_date),
-      cdc.classification.all2 == "NPAFP",
-      dplyr::between(age.months, 6, 59)
+      cdc.classification.all2 %in% c(
+        "NPAFP",
+        "PENDING",
+        "LAB PENDING"
+      ),
+      dplyr::between(age.months, 6, 59) | is.na(age.months)
     ) |>
-    dplyr::mutate(year = factor(year)) |>
-    dplyr::group_by(dose.cat, year, prov) |>
-    dplyr::summarise(freq = dplyr::n())
+    dplyr::mutate(
+      year = factor(year),
+      # Keep Unknown and classify missing values separately
+      dose.cat = dplyr::case_when(
+        is.na(dose.cat) ~ "Missing",
+        as.character(dose.cat) %in% c(
+          "Missing",
+          "0",
+          "1-2",
+          "3",
+          "4+",
+          "Unknown"
+        ) ~ as.character(dose.cat),
+        TRUE ~ "Unknown"
+      ),
+
+      dose.cat = factor(
+        dose.cat,
+        levels = names(dose.num.cols)
+      )
+    ) |>
+    dplyr::group_by(
+      dose.cat,
+      year,
+      prov
+    ) |>
+    dplyr::summarise(
+      freq = dplyr::n(),
+      .groups = "drop"
+    )
 
   if (nrow(dcat.yr.prov) == 0) {
-    return(output_empty_image(output_path, "case.num.dose.g.png"))
+    return(
+      output_empty_image(
+        output_path,
+        "case.num.dose.g.png"
+      )
+    )
   }
 
-  # case num by year and province by vaccination status
-  case.num.dose.g <- ggplot2::ggplot() +
+  case.totals <- dcat.yr.prov |>
+    dplyr::group_by(year) |>
+    dplyr::summarise(
+      freq = sum(freq),
+      .groups = "drop"
+    )
+
+  # Dummy data force every category to have a colored legend key
+  legend.data <- data.frame(
+    dose.cat = factor(
+      names(dose.num.cols),
+      levels = names(dose.num.cols)
+    ),
+    stringsAsFactors = FALSE
+  )
+
+  ### Case numbers by year and vaccination status
+  case.num.dose.g <- ggplot2::ggplot(
+    data = dcat.yr.prov,
+    ggplot2::aes(
+      x = year,
+      y = freq,
+      fill = dose.cat
+    )
+  ) +
     ggplot2::geom_bar(
-      data = dcat.yr.prov,
-      ggplot2::aes(x = year, y = freq, fill = dose.cat),
       stat = "identity",
       position = "fill"
     ) +
+
+    # Invisible layer used only to create all colored legend keys
+    ggplot2::geom_point(
+      data = legend.data,
+      mapping = ggplot2::aes(
+        fill = dose.cat
+      ),
+      x = -Inf,
+      y = -Inf,
+      shape = 22,
+      size = 0,
+      alpha = 0,
+      inherit.aes = FALSE,
+      show.legend = TRUE
+    ) +
+
     ggplot2::xlab("") +
     ggplot2::ylab("Percent of Cases") +
-    ggplot2::scale_fill_manual("Number of doses - IPV/OPV",
+
+    ggplot2::scale_fill_manual(
+      name = "Number of doses - IPV/OPV",
       values = dose.num.cols,
-      drop = F
+      limits = names(dose.num.cols),
+      breaks = names(dose.num.cols),
+      drop = FALSE
     ) +
-    ggplot2::scale_y_continuous(labels = scales::percent) +
-    ggplot2::labs(title = "OPV/IPV Status of NP AFP cases, 6-59 months") +
+
+    # Horizontal legend in one row
+    ggplot2::guides(
+      fill = ggplot2::guide_legend(
+        nrow = 1,
+        byrow = TRUE,
+        title.position = "top",
+        label.position = "right",
+        override.aes = list(
+          shape = 22,
+          size = 6,
+          alpha = 1,
+          colour = NA
+        )
+      )
+    ) +
+
+    ggplot2::scale_y_continuous(
+      labels = scales::percent,
+      expand = ggplot2::expansion(
+        mult = c(0, 0.08)
+      )
+    ) +
+
+    ggplot2::labs(
+      title = "OPV/IPV Status of NPAFP Cases",
+      caption = paste(
+        "Note: Includes NPAFP, Pending, and Lab Pending cases.",
+        "Cases with missing age are included."
+      )
+    ) +
+
     ggplot2::geom_text(
-      data = dcat.yr.prov |> dplyr::group_by(year) |> dplyr::summarize(freq = sum(freq)),
+      data = case.totals,
       ggplot2::aes(
-        label = paste0("n = ", freq),
         x = year,
-        y = 1.02
+        y = 1.02,
+        label = paste0("n = ", freq)
       ),
+      inherit.aes = FALSE,
       check_overlap = TRUE
     ) +
-    ggpubr::theme_pubr()
+
+    ggpubr::theme_pubr() +
+
+    ggplot2::theme(
+      legend.position = "top",
+      legend.direction = "horizontal",
+      legend.box = "horizontal",
+      legend.title = ggplot2::element_text(
+        face = "bold"
+      ),
+      legend.text = ggplot2::element_text(
+        size = 10
+      ),
+      plot.caption = ggplot2::element_text(
+        size = 9,
+        hjust = 0,
+        margin = ggplot2::margin(t = 10)
+      )
+    )
 
   ggplot2::ggsave(
-    "case.num.dose.g.png",
+    filename = "case.num.dose.g.png",
     plot = case.num.dose.g,
     path = output_path,
     width = 9,
