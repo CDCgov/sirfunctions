@@ -230,10 +230,18 @@ generate_afp_epicurve <- function(ctry.data,
     dplyr::filter(
       dplyr::between(date, start_date, end_date)
     ) |>
-    dplyr::mutate(epi.week = epiweek(date),
-                  epiweek.year = paste0(year, "-", epi.week)) |>
-    dplyr::select(place.admin.0 = ctry, epi.week,
-                  yronset = year, cdc.classification.all2, epiweek.year) |>
+    dplyr::mutate(
+      epi.week = lubridate::epiweek(date),
+      epi.year = lubridate::epiyear(date),
+      epiweek.year = paste0(epi.year, "-", epi.week)
+    ) |>
+    dplyr::select(
+      place.admin.0 = ctry,
+      epi.week,
+      yronset = epi.year,
+      cdc.classification.all2,
+      epiweek.year
+    ) |>
     dplyr::group_by(place.admin.0, epi.week, yronset,
                     cdc.classification.all2, epiweek.year) |>
     dplyr::summarize(afp.cases = dplyr::n())
