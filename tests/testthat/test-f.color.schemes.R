@@ -82,7 +82,7 @@ test_that("testing f.color.schemes() work", {
     "cVDPV 3" = "#08519C",
     "VDPV 3" = "#00A6A6",
     "cVDPV 1" = "#377eb8",
-    "VDPV 1" = "#80b1d3",
+    "VDPV 1" = "#80b1d3"
   )
   expect_equal(f.color.schemes("cases"), cases, info = "did not match color scheme")
 
