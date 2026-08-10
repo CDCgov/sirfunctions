@@ -8,6 +8,10 @@ test_that("testing f.color.schemes() work", {
     "WILD 1" = "#e41a1c",
     "cVDPV 2" = "#4daf4a",
     "VDPV 2" = "#a6d854",
+    "cVDPV 3" = "#08519C",
+    "cVDPV3" = "#08519C",
+    "VDPV 3" = "#00A6A6",
+    "VDPV3" = "#00A6A6",
     "cVDPV 1" = "#377eb8",
     "VDPV 1" = "#80b1d3",
     "COMPATIBLE" = "#ff7f00",
@@ -22,6 +26,10 @@ test_that("testing f.color.schemes() work", {
     "WILD 1" = "#e41a1c",
     "cVDPV 2" = "#4daf4a",
     "VDPV 2" = "#a6d854",
+    "cVDPV 3" = "#08519C",
+    "cVDPV3" = "#08519C",
+    "VDPV 3" = "#00A6A6",
+    "VDPV3" = "#00A6A6",
     "cVDPV 1" = "#377eb8",
     "VDPV 1" = "#80b1d3",
     "COMPATIBLE" = "#ff7f00"
@@ -75,6 +83,8 @@ test_that("testing f.color.schemes() work", {
     "WILD 1" = "red",
     "cVDPV 2" = "dark green",
     "VDPV 2" = "light green",
+    "cVDPV 3" = "#08519C",
+    "VDPV 3" = "#00A6A6",
     "VDPV 1" = "light blue",
     "cVDPV 1" = "dark blue"
   )
@@ -87,4 +97,5 @@ test_that("testing f.color.schemes() work", {
     "<5 samples" = "black"
   )
   expect_equal(f.color.schemes("es"), es, info = "did not match color scheme")
+  expect_identical(f.color.schemes("es.detections")[["VDPV3"]], "#00A6A6")
 })
