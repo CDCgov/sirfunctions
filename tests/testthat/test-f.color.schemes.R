@@ -8,6 +8,8 @@ test_that("testing f.color.schemes() work", {
     "WILD 1" = "#e41a1c",
     "cVDPV 2" = "#4daf4a",
     "VDPV 2" = "#a6d854",
+    "cVDPV 3" = "#08519C",
+    "VDPV 3" = "#00A6A6",
     "cVDPV 1" = "#377eb8",
     "VDPV 1" = "#80b1d3",
     "COMPATIBLE" = "#ff7f00",
@@ -22,6 +24,8 @@ test_that("testing f.color.schemes() work", {
     "WILD 1" = "#e41a1c",
     "cVDPV 2" = "#4daf4a",
     "VDPV 2" = "#a6d854",
+    "cVDPV 3" = "#08519C",
+    "VDPV 3" = "#00A6A6",
     "cVDPV 1" = "#377eb8",
     "VDPV 1" = "#80b1d3",
     "COMPATIBLE" = "#ff7f00"
@@ -73,10 +77,12 @@ test_that("testing f.color.schemes() work", {
   cases <- c(
     "COMPATIBLE" = "black",
     "WILD 1" = "red",
-    "cVDPV 2" = "dark green",
-    "VDPV 2" = "light green",
-    "VDPV 1" = "light blue",
-    "cVDPV 1" = "dark blue"
+    "cVDPV 2" = "#4daf4a",
+    "VDPV 2" = "#a6d854",
+    "cVDPV 3" = "#08519C",
+    "VDPV 3" = "#00A6A6",
+    "cVDPV 1" = "#377eb8",
+    "VDPV 1" = "#80b1d3"
   )
   expect_equal(f.color.schemes("cases"), cases, info = "did not match color scheme")
 
