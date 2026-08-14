@@ -246,6 +246,34 @@ generate_afp_epicurve <- function(ctry.data,
       cdc.classification.all2,
       epiweek.year
     ) |>
+    dplyr::mutate(
+      # position_stack(reverse = TRUE) uses factor levels from bottom to top.
+      cdc.classification.all2 = factor(
+        cdc.classification.all2,
+        levels = c(
+          "PENDING",
+          "LAB PENDING",
+          "NPAFP",
+          "NOT-AFP",
+          "COMPATIBLE",
+          "cVDPV 1",
+          "VDPV 1",
+          "cVDPV 2",
+          "VDPV 2",
+          "cVDPV 3",
+          "VDPV 3",
+          "WILD 1",
+          setdiff(
+            names(sirfunctions::f.color.schemes(type = "epicurve")),
+            c(
+              "PENDING", "LAB PENDING", "NPAFP", "NOT-AFP", "COMPATIBLE",
+              "cVDPV 1", "VDPV 1", "cVDPV 2", "VDPV 2", "cVDPV 3", "VDPV 3",
+              "WILD 1"
+            )
+          )
+        )
+      )
+    ) |>
     dplyr::group_by(place.admin.0, epi.week, year,
                     cdc.classification.all2, epiweek.year) |>
     dplyr::summarize(afp.cases = dplyr::n())
@@ -271,11 +299,15 @@ generate_afp_epicurve <- function(ctry.data,
     afp.epi.date.filter1,
     ggplot2::aes(fill = cdc.classification.all2, y = afp.cases, x = epi.week)
   ) +
-    ggplot2::geom_bar(position = "stack", stat = "identity") +
+    ggplot2::geom_bar(
+      position = ggplot2::position_stack(reverse = TRUE),
+      stat = "identity"
+    ) +
     ggplot2::scale_fill_manual(
       values = sirfunctions::f.color.schemes(type = "epicurve"),
       name = "Classification",
-      drop = T
+      drop = T,
+      na.translate = FALSE
     ) +
     sirfunctions::f.plot.looks(type = "epicurve") +
     ggplot2::facet_wrap(~labs, ncol = 3, drop = F) +
