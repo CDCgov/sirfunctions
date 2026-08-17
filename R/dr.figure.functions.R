@@ -226,27 +226,69 @@ generate_afp_epicurve <- function(ctry.data,
   start_date <- lubridate::as_date(start_date)
   end_date <- lubridate::as_date(end_date)
 
-  afp.epi.date.filter <- ctry.data$afp.all.2 %>%
+  afp.epi.date.filter <- ctry.data$afp.all.2 |>
     dplyr::filter(
       dplyr::between(date, start_date, end_date)
     ) |>
-    dplyr::mutate(epi.week = epiweek(date),
-                  epiweek.year = paste0(year, "-", epi.week)) |>
-    dplyr::select(place.admin.0 = ctry, epi.week,
-                  yronset = year, cdc.classification.all2, epiweek.year) |>
-    dplyr::group_by(place.admin.0, epi.week, yronset,
+    dplyr::mutate(
+      epi.week = lubridate::isoweek(date),
+      epi.year = lubridate::isoyear(date),
+      epiweek.year = paste0(epi.year, "-", epi.week)
+    ) |>
+    # need to remove cases with isoyears that fall outside the report window
+    dplyr::filter(
+      dplyr::between(epi.year, lubridate::year(start_date), lubridate::year(end_date))
+    ) |>
+    dplyr::select(
+      place.admin.0 = ctry,
+      epi.week,
+      year = epi.year,
+      cdc.classification.all2,
+      epiweek.year
+    ) |>
+    dplyr::mutate(
+      # position_stack(reverse = TRUE) uses factor levels from bottom to top.
+      cdc.classification.all2 = factor(
+        cdc.classification.all2,
+        levels = c(
+          "PENDING",
+          "LAB PENDING",
+          "NPAFP",
+          "NOT-AFP",
+          "COMPATIBLE",
+          "cVDPV 1",
+          "VDPV 1",
+          "cVDPV 2",
+          "VDPV 2",
+          "cVDPV 3",
+          "VDPV 3",
+          "WILD 1",
+          setdiff(
+            names(sirfunctions::f.color.schemes(type = "epicurve")),
+            c(
+              "PENDING", "LAB PENDING", "NPAFP", "NOT-AFP", "COMPATIBLE",
+              "cVDPV 1", "VDPV 1", "cVDPV 2", "VDPV 2", "cVDPV 3", "VDPV 3",
+              "WILD 1"
+            )
+          )
+        )
+      )
+    ) |>
+    dplyr::group_by(place.admin.0, epi.week, year,
                     cdc.classification.all2, epiweek.year) |>
     dplyr::summarize(afp.cases = dplyr::n())
 
+  # get total case counts by calendar year
   case.num.labs <- dplyr::reframe(
-    dplyr::group_by(afp.epi.date.filter, yronset),
-    labs = paste0(yronset, " (N = ", sum(afp.cases), ")")
+    dplyr::group_by(ctry.data$afp.all.2, year),
+    labs = paste0(year, " (N = ", n(), ")")
   ) %>%
     dplyr::distinct(.)
 
+
   afp.epi.date.filter1 <- dplyr::left_join(afp.epi.date.filter,
     case.num.labs,
-    by = c("yronset" = "yronset")
+    by = c("year" = "year")
   )
 
   if (nrow(afp.epi.date.filter1) == 0) {
@@ -257,14 +299,24 @@ generate_afp_epicurve <- function(ctry.data,
     afp.epi.date.filter1,
     ggplot2::aes(fill = cdc.classification.all2, y = afp.cases, x = epi.week)
   ) +
-    ggplot2::geom_bar(position = "stack", stat = "identity") +
+    ggplot2::geom_bar(
+      position = ggplot2::position_stack(reverse = TRUE),
+      stat = "identity"
+    ) +
     ggplot2::scale_fill_manual(
       values = sirfunctions::f.color.schemes(type = "epicurve"),
       name = "Classification",
-      drop = T
+      drop = T,
+      na.translate = FALSE
     ) +
     sirfunctions::f.plot.looks(type = "epicurve") +
-    ggplot2::facet_wrap(~labs, ncol = 3, drop = F)
+    ggplot2::facet_wrap(~labs, ncol = 3, drop = F) +
+    ggplot2::labs(
+      caption = paste(
+        "Note: Bars represent total cases by ISO weeks (starts on Monday).",
+        "Ns displayed above represent calendar year totals."
+      )
+    )
 
   ggplot2::ggsave(
     "afp.epi.curve.png",
