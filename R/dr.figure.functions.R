@@ -4151,7 +4151,7 @@ generate_60_day_tab <- function(cases.need60day) {
         "** Defined as inadequate cases with: ",
         "1) FU finding (Residual weakness, Lost to FU, Died) or no FU visit; ",
         "2) Discarded or Pending Lab / Pending Classification; ",
-        '3) Filtered for "OPV/IPV status: <3 doses, or Unknown"'
+        '3) Filtered for "OPV/IPV status: 0 Routine OPV doses and 0 SIA OPV doses, < 3 total doses, or Unknown doses"'
       ),
       colwidths = ncol(comp.by.year)
     )
