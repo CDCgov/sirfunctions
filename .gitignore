@@ -8,6 +8,7 @@
 
 # User-specific files
 .Ruserdata
+.Rprofile
 
 # Example code in package build process
 *-Ex.R
@@ -48,8 +49,9 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 
-#files 
+#files
 R/nish_sandbox.R
 inst/doc
 .DS_Store
 docs
+.positai
