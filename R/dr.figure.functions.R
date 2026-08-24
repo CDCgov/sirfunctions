@@ -821,13 +821,13 @@ generate_es_timely <- function(es.data,
   return(es.timely)
 }
 
-#' Immunization rates per year
+#' Immunization case status per year
 #'
-#' Generates a stacked percent bar plot displaying immunization rates per year for the country.
+#' Generates 4 stacked percent bar plots displaying immunization status of NPAFP cases per year for the country.
 #' Note that this function only graphs immunization rates for children aged 6-59 months.
 #' The "Missing" category is cases that have no value (i.e. NA) for doses.total.
 #' The "Unknown" category has "99" for doses.total.
-#'
+#' 4 plots: 1 by total number of doses (combined OPV and IPV), 1 by SIA OPV, 1 by Routine OPV, 1 by IPV
 #' @param ctry.data `list` A large list containing polio data of country.
 #' This is the output of [extract_country_data()] or [init_dr()]. Note that `ctry_data` needs to be cleaned
 #' via [clean_ctry_data()] prior to running the function.
@@ -835,7 +835,7 @@ generate_es_timely <- function(es.data,
 #' @param end_date `str` End date of analysis.
 #' @param output_path `str` Local path of where to save the figure to.
 #'
-#' @returns `ggplot` A percent bar plot displaying immunization rates per year by immunization status.
+#' @returns `ggplot` A percent bar plot displaying NPAFP cases per year by immunization status.
 #' @examples
 #' \dontrun{
 #' ctry.data <- init_dr("algeria")
@@ -862,6 +862,24 @@ generate_case_num_dose_g <- function(ctry.data,
     "4+" = "#548235",
     "3" = "#92D050",
     "1-2" = "#FFC000",
+    "0" = "#C00000",
+    "Unknown" = "#4F81BD",
+    "Missing" = "#7F7F7F"
+  )
+  opv.dose.num.cols <- c(
+    "4+" = "#548235",
+    "3" = "#92D050",
+    "2" = "#FFC000",
+    "1" = "#F29122",
+    "0" = "#C00000",
+    "Unknown" = "#4F81BD",
+    "Missing" = "#7F7F7F"
+  )
+
+  ipv.dose.num.cols <- c(
+    "3+" = "#548235",
+    "2" = "#92D050",
+    "1" = "#FFC000",
     "0" = "#C00000",
     "Unknown" = "#4F81BD",
     "Missing" = "#7F7F7F"
@@ -898,7 +916,9 @@ generate_case_num_dose_g <- function(ctry.data,
         dose.cat,
         levels = names(dose.num.cols)
       )
-    ) |>
+    )
+
+  tot.dcat.yr.prov <- dcat.yr.prov |>
     dplyr::group_by(
       dose.cat,
       year,
@@ -909,7 +929,40 @@ generate_case_num_dose_g <- function(ctry.data,
       .groups = "drop"
     )
 
-  if (nrow(dcat.yr.prov) == 0) {
+  ipv_totals <- dcat.yr.prov |>
+    dplyr::group_by(year, ipv_cat) |>
+    dplyr::summarise(
+      freq = dplyr::n(),
+      .groups = "drop"
+    ) |>
+    dplyr::mutate(ipv_cat=factor(ipv_cat,
+                                 names(ipv.dose.num.cols),
+                                 levels = names(ipv.dose.num.cols)
+    ))
+
+  opv_sia_totals <- dcat.yr.prov |>
+    dplyr::group_by(year, opv_sia_cat) |>
+    dplyr::summarise(
+      freq = dplyr::n(),
+      .groups = "drop"
+    ) |>
+    dplyr::mutate(opv_sia_cat=factor(opv_sia_cat,
+                                     names(opv.dose.num.cols),
+                                     levels = names(opv.dose.num.cols)
+    ))
+
+  opv_routine_totals <- dcat.yr.prov |>
+    dplyr::group_by(year, opv_routine_cat) |>
+    dplyr::summarise(
+      freq = dplyr::n(),
+      .groups = "drop"
+    ) |>
+    dplyr::mutate(opv_routine_cat=factor(opv_routine_cat,
+                                         names(opv.dose.num.cols),
+                                         levels = names(opv.dose.num.cols)
+    ))
+
+  if (nrow(tot.dcat.yr.prov) == 0) {
     return(
       output_empty_image(
         output_path,
@@ -918,10 +971,37 @@ generate_case_num_dose_g <- function(ctry.data,
     )
   }
 
+  if (nrow(ipv_totals) == 0) {
+    return(
+      output_empty_image(
+        output_path,
+        "case.num.ipv.dose.g.png"
+      )
+    )
+  }
+
+  if (nrow(opv_sia_totals) == 0) {
+    return(
+      output_empty_image(
+        output_path,
+        "case.num.opv.sia.dose.g.png"
+      )
+    )
+  }
+
+  if (nrow(opv_routine_totals) == 0) {
+    return(
+      output_empty_image(
+        output_path,
+        "case.num.opv.routine.dose.g.png"
+      )
+    )
+  }
+
   case.totals <- dcat.yr.prov |>
     dplyr::group_by(year) |>
     dplyr::summarise(
-      freq = sum(freq),
+      freq = dplyr::n(),
       .groups = "drop"
     )
 
@@ -933,10 +1013,24 @@ generate_case_num_dose_g <- function(ctry.data,
     ),
     stringsAsFactors = FALSE
   )
+  opv.legend.data <- data.frame(
+    opv.dose.cat = factor(
+      names(opv.dose.num.cols),
+      levels = names(opv.dose.num.cols)
+    ),
+    stringsAsFactors = FALSE
+  )
+  ipv.legend.data <- data.frame(
+    ipv.dose.cat = factor(
+      names(ipv.dose.num.cols),
+      levels = names(ipv.dose.num.cols)
+    ),
+    stringsAsFactors = FALSE
+  )
 
   ### Case numbers by year and vaccination status
   case.num.dose.g <- ggplot2::ggplot(
-    data = dcat.yr.prov,
+    data = tot.dcat.yr.prov,
     ggplot2::aes(
       x = year,
       y = freq,
@@ -1038,6 +1132,312 @@ generate_case_num_dose_g <- function(ctry.data,
   ggplot2::ggsave(
     filename = "case.num.dose.g.png",
     plot = case.num.dose.g,
+    path = output_path,
+    width = 9,
+    height = 8
+  )
+
+  # OPV Routine plot
+  case.num.opv.routine.dose.g <- ggplot2::ggplot(
+    data = opv_routine_totals,
+    ggplot2::aes(
+      x = year,
+      y = freq,
+      fill = opv_routine_cat
+    )
+  ) +
+    ggplot2::geom_bar(
+      stat = "identity",
+      position = "fill"
+    ) +
+    ggplot2::xlab("") +
+    ggplot2::ylab("Percent of Cases") +
+    ggplot2::scale_fill_manual(
+      name = "Number of doses - Routine OPV",
+      values = opv.dose.num.cols,
+      limits = names(opv.dose.num.cols),
+      breaks = names(opv.dose.num.cols),
+      drop = FALSE
+    ) +
+    # Invisible layer used only to create all colored legend keys
+    ggplot2::geom_point(
+      data = opv.legend.data,
+      mapping = ggplot2::aes(
+        fill = opv.dose.cat
+      ),
+      x = -Inf,
+      y = -Inf,
+      shape = 22,
+      size = 0,
+      alpha = 0,
+      inherit.aes = FALSE,
+      show.legend = TRUE
+    ) +
+    # Horizontal legend in one row
+    ggplot2::guides(
+      fill = ggplot2::guide_legend(
+        nrow = 1,
+        byrow = TRUE,
+        title.position = "top",
+        label.position = "right",
+        override.aes = list(
+          shape = 22,
+          size = 6,
+          alpha = 1,
+          colour = NA
+        )
+      )
+    ) +
+    ggplot2::scale_y_continuous(
+      labels = scales::percent,
+      expand = ggplot2::expansion(
+        mult = c(0, 0.08)
+      )
+    ) +
+    ggplot2::labs(
+      title = "OPV Routine Doses of NPAFP/Pending/Lab Pending Cases",
+      caption = paste(
+        "Note: Includes NPAFP, Pending, and Lab Pending cases.",
+        "Cases with missing age are included."
+      )
+    ) +
+    ggplot2::geom_text(
+      data = case.totals,
+      ggplot2::aes(
+        x = year,
+        y = 1.02,
+        label = paste0("n = ", freq)
+      ),
+      inherit.aes = FALSE,
+      check_overlap = TRUE
+    ) +
+
+    ggpubr::theme_pubr() +
+
+    ggplot2::theme(
+      legend.position = "top",
+      legend.direction = "horizontal",
+      legend.box = "horizontal",
+      legend.title = ggplot2::element_text(
+        face = "bold"
+      ),
+      legend.text = ggplot2::element_text(
+        size = 10
+      ),
+      plot.caption = ggplot2::element_text(
+        size = 9,
+        hjust = 0,
+        margin = ggplot2::margin(t = 10)
+      )
+    )
+
+  ggplot2::ggsave(
+    filename = "case.num.opv.routine.dose.g.png",
+    plot = case.num.opv.routine.dose.g,
+    path = output_path,
+    width = 9,
+    height = 8
+  )
+
+  # OPV SIA plot
+  case.num.opv.sia.dose.g <- ggplot2::ggplot(
+    data = opv_sia_totals,
+    ggplot2::aes(
+      x = year,
+      y = freq,
+      fill = opv_sia_cat
+    )
+  ) +
+    ggplot2::geom_bar(
+      stat = "identity",
+      position = "fill"
+    ) +
+    ggplot2::xlab("") +
+    ggplot2::ylab("Percent of Cases") +
+    ggplot2::scale_fill_manual(
+      name = "Number of doses - SIA OPV",
+      values = opv.dose.num.cols,
+      limits = names(opv.dose.num.cols),
+      breaks = names(opv.dose.num.cols),
+      drop = FALSE
+    ) +
+    # Invisible layer used only to create all colored legend keys
+    ggplot2::geom_point(
+      data = opv.legend.data,
+      mapping = ggplot2::aes(
+        fill = opv.dose.cat
+      ),
+      x = -Inf,
+      y = -Inf,
+      shape = 22,
+      size = 0,
+      alpha = 0,
+      inherit.aes = FALSE,
+      show.legend = TRUE
+    ) +
+    # # Horizontal legend in one row
+    ggplot2::guides(
+      fill = ggplot2::guide_legend(
+        nrow = 1,
+        byrow = TRUE,
+        title.position = "top",
+        label.position = "right",
+        override.aes = list(
+          shape = 22,
+          size = 6,
+          alpha = 1,
+          colour = NA
+        )
+      )
+    ) +
+    ggplot2::scale_y_continuous(
+      labels = scales::percent,
+      expand = ggplot2::expansion(
+        mult = c(0, 0.08)
+      )
+    ) +
+    ggplot2::labs(
+      title = "OPV SIA Doses of NPAFP/Pending/Lab Pending Cases",
+      caption = paste(
+        "Note: Includes NPAFP, Pending, and Lab Pending cases.",
+        "Cases with missing age are included."
+      )
+    ) +
+    ggplot2::geom_text(
+      data = case.totals,
+      ggplot2::aes(
+        x = year,
+        y = 1.02,
+        label = paste0("n = ", freq)
+      ),
+      inherit.aes = FALSE,
+      check_overlap = TRUE
+    ) +
+
+    ggpubr::theme_pubr() +
+
+    ggplot2::theme(
+      legend.position = "top",
+      legend.direction = "horizontal",
+      legend.box = "horizontal",
+      legend.title = ggplot2::element_text(
+        face = "bold"
+      ),
+      legend.text = ggplot2::element_text(
+        size = 10
+      ),
+      plot.caption = ggplot2::element_text(
+        size = 9,
+        hjust = 0,
+        margin = ggplot2::margin(t = 10)
+      )
+    )
+
+  ggplot2::ggsave(
+    filename = "case.num.opv.sia.dose.g.png",
+    plot = case.num.opv.sia.dose.g,
+    path = output_path,
+    width = 9,
+    height = 8
+  )
+
+  # IPV doses
+  case.num.ipv.dose.g <- ggplot2::ggplot(
+    data = ipv_totals,
+    ggplot2::aes(
+      x = year,
+      y = freq,
+      fill = ipv_cat
+    )
+  ) +
+    ggplot2::geom_bar(
+      stat = "identity",
+      position = "fill"
+    ) +
+    ggplot2::xlab("") +
+    ggplot2::ylab("Percent of Cases") +
+    ggplot2::scale_fill_manual(
+      name = "Number of doses - IPV",
+      values = ipv.dose.num.cols,
+      limits = names(ipv.dose.num.cols),
+      breaks = names(ipv.dose.num.cols),
+      drop = FALSE
+    ) +
+    # Invisible layer used only to create all colored legend keys
+    ggplot2::geom_point(
+      data = ipv.legend.data,
+      mapping = ggplot2::aes(
+        fill = ipv.dose.cat
+      ),
+      x = -Inf,
+      y = -Inf,
+      shape = 22,
+      size = 0,
+      alpha = 0,
+      inherit.aes = FALSE,
+      show.legend = TRUE
+    ) +
+    # Horizontal legend in one row
+    ggplot2::guides(
+      fill = ggplot2::guide_legend(
+        nrow = 1,
+        byrow = TRUE,
+        title.position = "top",
+        label.position = "right",
+        override.aes = list(
+          shape = 22,
+          size = 6,
+          alpha = 1,
+          colour = NA
+        )
+      )
+    ) +
+    ggplot2::scale_y_continuous(
+      labels = scales::percent,
+      expand = ggplot2::expansion(
+        mult = c(0, 0.08)
+      )
+    ) +
+    ggplot2::labs(
+      title = "IPV Doses of NPAFP/Pending/Lab Pending Cases",
+      caption = paste(
+        "Note: Includes NPAFP, Pending, and Lab Pending cases.",
+        "Cases with missing age are included."
+      )
+    ) +
+    ggplot2::geom_text(
+      data = case.totals,
+      ggplot2::aes(
+        x = year,
+        y = 1.02,
+        label = paste0("n = ", freq)
+      ),
+      inherit.aes = FALSE,
+      check_overlap = TRUE
+    ) +
+
+    ggpubr::theme_pubr() +
+
+    ggplot2::theme(
+      legend.position = "top",
+      legend.direction = "horizontal",
+      legend.box = "horizontal",
+      legend.title = ggplot2::element_text(
+        face = "bold"
+      ),
+      legend.text = ggplot2::element_text(
+        size = 10
+      ),
+      plot.caption = ggplot2::element_text(
+        size = 9,
+        hjust = 0,
+        margin = ggplot2::margin(t = 10)
+      )
+    )
+
+  ggplot2::ggsave(
+    filename = "case.num.ipv.dose.g.png",
+    plot = case.num.ipv.dose.g,
     path = output_path,
     width = 9,
     height = 8
