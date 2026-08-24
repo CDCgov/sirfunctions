@@ -1198,7 +1198,8 @@ generate_case_num_dose_g <- function(ctry.data,
       title = "OPV Routine Doses of NPAFP/Pending/Lab Pending Cases",
       caption = paste(
         "Note: Includes NPAFP, Pending, and Lab Pending cases.",
-        "Cases with missing age are included."
+        "Cases with missing age are included.",
+        "Completeness of dose variables may vary by country and time period."
       )
     ) +
     ggplot2::geom_text(
@@ -1300,7 +1301,8 @@ generate_case_num_dose_g <- function(ctry.data,
       title = "OPV SIA Doses of NPAFP/Pending/Lab Pending Cases",
       caption = paste(
         "Note: Includes NPAFP, Pending, and Lab Pending cases.",
-        "Cases with missing age are included."
+        "Cases with missing age are included.",
+        "Completeness of dose variables may vary by country and time period."
       )
     ) +
     ggplot2::geom_text(
@@ -1402,7 +1404,8 @@ generate_case_num_dose_g <- function(ctry.data,
       title = "IPV Doses of NPAFP/Pending/Lab Pending Cases",
       caption = paste(
         "Note: Includes NPAFP, Pending, and Lab Pending cases.",
-        "Cases with missing age are included."
+        "Cases with missing age are included.",
+        "Completeness of dose variables may vary by country and time period."
       )
     ) +
     ggplot2::geom_text(
