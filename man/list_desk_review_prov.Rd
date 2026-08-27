@@ -9,5 +9,5 @@ list_desk_review_prov(ctry.data)
 \item{ctry.data}{Country data returned by \code{init_dr()}.}
 }
 \value{A sorted character vector of PROV names.}
-\description{Finds available PROV names from country geometry, population, or AFP data.}
+\description{Finds available PROV names from country geometry, population, AFP, or environmental-surveillance data. It supports the \code{ADM1_NAME}, \code{admin1officialname}, and \code{prov} field names.}
 

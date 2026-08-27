@@ -372,24 +372,32 @@ generate_all_prov_desk_review_ppts <- function(
         format(Sys.Date(), "%d%m%Y"), ".pptx"
       )
     )
-    output_files[[i]] <- generate_prov_desk_review_ppt(
-      ctry.data = ctry.data,
-      prov_name = prov_name,
-      dist.extract = dist.extract,
-      pstool = pstool,
-      dstool = dstool,
-      cases.need60day = cases.need60day,
-      prov.shape = prov.shape,
-      dist.shape = dist.shape,
-      start_date = start_date,
-      end_date = end_date,
-      ppt_output_file = output_file,
-      ppt_template_path = ppt_template_path,
-      master = master,
-      title_layout = title_layout,
-      content_layout = content_layout,
-      es_start_date = es_start_date,
-      es_end_date = es_end_date
+    output_files[[i]] <- tryCatch(
+      generate_prov_desk_review_ppt(
+        ctry.data = ctry.data,
+        prov_name = prov_name,
+        dist.extract = dist.extract,
+        pstool = pstool,
+        dstool = dstool,
+        cases.need60day = cases.need60day,
+        prov.shape = prov.shape,
+        dist.shape = dist.shape,
+        start_date = start_date,
+        end_date = end_date,
+        ppt_output_file = output_file,
+        ppt_template_path = ppt_template_path,
+        master = master,
+        title_layout = title_layout,
+        content_layout = content_layout,
+        es_start_date = es_start_date,
+        es_end_date = es_end_date
+      ),
+      error = function(e) {
+        cli::cli_alert_warning(paste0(
+          "Skipping ", prov_name, ": ", conditionMessage(e)
+        ))
+        NA_character_
+      }
     )
   }
 

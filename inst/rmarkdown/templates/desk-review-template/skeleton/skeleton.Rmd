@@ -307,38 +307,65 @@ if (run_prov_analysis) {
   dir.create(prov_ppt_dir, recursive = TRUE, showWarnings = FALSE)
   prov_outputs <- stats::setNames(
     lapply(prov_names, function(prov_name) {
-      generate_prov_desk_review_outputs(
-        ctry.data = ctry.data,
-        prov_name = prov_name,
-        dist.extract = dist.extract,
-        pstool = pstool,
-        dstool = dstool,
-        cases.need60day = cases.need60day,
-        prov.shape = prov.shape,
-        dist.shape = dist.shape,
-        start_date = start_date,
-        end_date = end_date,
-        output_path = prov_figure_dir
+      tryCatch(
+        generate_prov_desk_review_outputs(
+          ctry.data = ctry.data,
+          prov_name = prov_name,
+          dist.extract = dist.extract,
+          pstool = pstool,
+          dstool = dstool,
+          cases.need60day = cases.need60day,
+          prov.shape = prov.shape,
+          dist.shape = dist.shape,
+          start_date = start_date,
+          end_date = end_date,
+          output_path = prov_figure_dir
+        ),
+        error = function(e) {
+          cli::cli_alert_warning(
+            paste0("Skipping ", prov_name, ": ", conditionMessage(e))
+          )
+          NULL
+        }
       )
     }),
     prov_names
   )
+  failed_prov_names <- prov_names[
+    vapply(prov_outputs, is.null, logical(1))
+  ]
+  prov_outputs <- prov_outputs[!vapply(prov_outputs, is.null, logical(1))]
+  prov_names <- names(prov_outputs)
+  if (length(failed_prov_names) > 0) {
+    cli::cli_alert_warning(paste0(
+      "No PowerPoints will be written for: ",
+      paste(failed_prov_names, collapse = ", ")
+    ))
+  }
   prov_ppt_files <- stats::setNames(
     vapply(prov_names, function(prov_name) {
-      write_prov_desk_review_ppt(
-        prov_outputs = prov_outputs[[prov_name]],
-        prov_name = prov_name,
-        start_date = start_date,
-        end_date = end_date,
-        ppt_output_file = file.path(
-          prov_ppt_dir,
-          paste0(
-            "Deskreview_",
-            gsub("(^-+|-+$)", "", gsub("[^a-z0-9]+", "-", tolower(trimws(prov_name)))),
-            ".pptx"
-          )
+      tryCatch(
+        write_prov_desk_review_ppt(
+          prov_outputs = prov_outputs[[prov_name]],
+          prov_name = prov_name,
+          start_date = start_date,
+          end_date = end_date,
+          ppt_output_file = file.path(
+            prov_ppt_dir,
+            paste0(
+              "Deskreview_",
+              gsub("(^-+|-+$)", "", gsub("[^a-z0-9]+", "-", tolower(trimws(prov_name)))),
+              ".pptx"
+            )
+          ),
+          ppt_template_path = NULL
         ),
-        ppt_template_path = NULL
+        error = function(e) {
+          cli::cli_alert_warning(
+            paste0("PowerPoint failed for ", prov_name, ": ", conditionMessage(e))
+          )
+          NA_character_
+        }
       )
     }, character(1)),
     prov_names

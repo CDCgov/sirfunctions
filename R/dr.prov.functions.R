@@ -41,7 +41,7 @@
 }
 
 .dr_filter_prov <- function(data, prov_name,
-                             columns = c("ADM1_NAME", "prov")) {
+                             columns = c("ADM1_NAME", "admin1officialname", "prov")) {
   if (is.null(data)) {
     return(data)
   }
@@ -68,8 +68,8 @@
     ))
   }
 
-  prov_col <- c("ADM1_NAME", "prov")[
-    c("ADM1_NAME", "prov") %in% names(shape)
+  prov_col <- c("ADM1_NAME", "admin1officialname", "prov")[
+    c("ADM1_NAME", "admin1officialname", "prov") %in% names(shape)
   ][1]
   available_geometry_prov_names <- if (!is.na(prov_col)) {
     sort(unique(as.character(shape[[prov_col]])))
@@ -105,8 +105,9 @@
 
 #' List available prov_names in country data
 #'
-#' Uses `ctry.data$prov$ADM1_NAME` as the preferred source, with the province
-#' population and AFP data used as fallbacks for older country-data objects.
+#' Uses `ctry.data$prov$ADM1_NAME` as the preferred source, with
+#' `admin1officialname`, province population, and AFP data used as fallbacks
+#' for country-data objects with alternate naming conventions.
 #'
 #' @param ctry.data Country data returned by `init_dr()`.
 #' @returns A sorted character vector of prov names.
@@ -114,12 +115,15 @@ list_desk_review_prov <- function(ctry.data) {
   candidates <- list(
     if (!is.null(ctry.data$prov)) ctry.data$prov else NULL,
     if (!is.null(ctry.data$prov.pop)) ctry.data$prov.pop else NULL,
-    if (!is.null(ctry.data$afp.all.2)) ctry.data$afp.all.2 else NULL
+    if (!is.null(ctry.data$afp.all.2)) ctry.data$afp.all.2 else NULL,
+    if (!is.null(ctry.data$es)) ctry.data$es else NULL
   )
 
   for (candidate in candidates) {
     if (is.null(candidate)) next
-    prov_col <- c("ADM1_NAME", "prov")[c("ADM1_NAME", "prov") %in% names(candidate)][1]
+    prov_col <- c("ADM1_NAME", "admin1officialname", "prov")[
+      c("ADM1_NAME", "admin1officialname", "prov") %in% names(candidate)
+    ][1]
     if (!is.na(prov_col)) {
       prov_names <- sort(unique(trimws(as.character(candidate[[prov_col]]))))
       return(prov_names[!is.na(prov_names) & nzchar(prov_names)])
@@ -127,7 +131,7 @@ list_desk_review_prov <- function(ctry.data) {
   }
 
   cli::cli_abort(
-    "No prov names found in `ctry.data$prov`, `ctry.data$prov.pop`, or `ctry.data$afp.all.2`."
+    "No prov names found in `ctry.data$prov`, `ctry.data$prov.pop`, `ctry.data$afp.all.2`, or `ctry.data$es`."
   )
 }
 
@@ -159,14 +163,35 @@ generate_prov_population_roads_map <- function(
   end_date <- lubridate::as_date(end_date)
   target_year <- lubridate::year(end_date)
 
+  empty_title <- paste0(
+    prov_name, " PROV/DIST Under-15 Population and Roads - ", target_year
+  )
+  if (is.null(prov.shape) || is.null(dist.shape) ||
+      nrow(prov.shape) == 0 || nrow(dist.shape) == 0) {
+    plot <- .dr_prov_empty_plot(
+      empty_title, "No province or district geometry available"
+    )
+    .dr_prov_save(
+      plot,
+      paste0(.dr_prov_slug(prov_name), "-dist-population-roads-map.png"),
+      output_path, 10, 8
+    )
+    return(plot)
+  }
 
   prov_boundary <- .dr_filter_prov(prov.shape, prov_name)
 
   prov_dists <- .dr_filter_prov(dist.shape, prov_name)
   if (nrow(prov_boundary) == 0 || nrow(prov_dists) == 0) {
-    cli::cli_abort(paste0(
-      "PROV geometry was not found for: ", prov_name, "."
-    ))
+    plot <- .dr_prov_empty_plot(
+      empty_title, "No province or district geometry available"
+    )
+    .dr_prov_save(
+      plot,
+      paste0(.dr_prov_slug(prov_name), "-dist-population-roads-map.png"),
+      output_path, 10, 8
+    )
+    return(plot)
   }
 
   shape_year_column <- function(shape) {
@@ -1246,6 +1271,28 @@ generate_prov_district_timeliness_panel <- function(
       "Proportion of cases with stool shipped within 3 days of collection"
   )
 
+  if (nrow(prov_afp) == 0) {
+    panel_plots <- stats::setNames(
+      lapply(interval_columns, function(interval_name) {
+        plot <- .dr_prov_empty_plot(
+          paste0(prov_name, " - ", interval_titles[[interval_name]]),
+          "No AFP records in the analysis period"
+        )
+        .dr_prov_save(
+          plot,
+          paste0(
+            .dr_prov_slug(prov_name), "-district-timeliness-",
+            gsub("\\.", "-", interval_name), ".png"
+          ),
+          output_path, 14, 8
+        )
+        plot
+      }),
+      unname(interval_titles[interval_columns])
+    )
+    return(panel_plots)
+  }
+
   panel_plots <- stats::setNames(
     lapply(interval_columns, function(interval_name) {
       measure_summary <- interval_summary |>
@@ -1655,6 +1702,17 @@ generate_prov_es_timeliness <- function(
     units = "days"
   )
 
+  if (nrow(dplyr::filter(es_data, timely >= 0)) == 0) {
+    plot <- .dr_prov_empty_plot(
+      empty_title, "No ES records with plottable transport times"
+    )
+    .dr_prov_save(
+      plot, paste0(.dr_prov_slug(prov_name), "-es-timeliness.png"),
+      output_path, 14, 8
+    )
+    return(plot)
+  }
+
   total_samples <- nrow(es_data)
   timely_samples <- sum(es_data$timely <= 3, na.rm = TRUE)
   missing_samples <- sum(is.na(es_data$timely))
@@ -1855,6 +1913,49 @@ generate_prov_es_site_table <- function(
   table
 }
 
+# Validate inputs shared by the complete province output set. This deliberately
+# checks structure and dependencies, not whether a province has observations.
+.dr_prov_preflight <- function(ctry.data, prov.shape, dist.shape,
+                               start_date, end_date) {
+  if (!is.list(ctry.data)) {
+    cli::cli_abort("`ctry.data` must be a country-data list.")
+  }
+
+  required_objects <- c("afp.all", "afp.all.2", "prov.pop", "dist.pop")
+  missing_objects <- required_objects[
+    vapply(required_objects, function(x) is.null(ctry.data[[x]]), logical(1))
+  ]
+  if (length(missing_objects) > 0) {
+    cli::cli_abort(paste0(
+      "`ctry.data` is missing required objects: ",
+      paste(missing_objects, collapse = ", "), "."
+    ))
+  }
+
+  required_afp_columns <- c("date", "cdc.classification.all2")
+  missing_afp_columns <- setdiff(
+    required_afp_columns, names(ctry.data$afp.all.2)
+  )
+  if (length(missing_afp_columns) > 0) {
+    cli::cli_abort(paste0(
+      "`ctry.data$afp.all.2` is missing required columns: ",
+      paste(missing_afp_columns, collapse = ", "), "."
+    ))
+  }
+
+  if (is.null(prov.shape) || is.null(dist.shape)) {
+    cli::cli_abort("Province and district geometry objects must be supplied.")
+  }
+
+  start_date <- lubridate::as_date(start_date)
+  end_date <- lubridate::as_date(end_date)
+  if (is.na(start_date) || is.na(end_date) || start_date > end_date) {
+    cli::cli_abort("`start_date` and `end_date` must be valid and ordered dates.")
+  }
+
+  invisible(TRUE)
+}
+
 #' Generate the complete prov AFP review set
 #'
 #' This convenience function calls all nine prov outputs and returns them in a
@@ -1880,6 +1981,9 @@ generate_prov_desk_review_outputs <- function(
     prov.shape, dist.shape, start_date, end_date, output_path = NULL,
     es_start_date = lubridate::as_date(es_end_date) - lubridate::years(1),
     es_end_date = end_date) {
+  .dr_prov_preflight(
+    ctry.data, prov.shape, dist.shape, start_date, end_date
+  )
   cli::cli_process_start(paste0("Generating province-level outputs for ", prov_name))
   on.exit(cli::cli_process_done(), add = TRUE)
 
