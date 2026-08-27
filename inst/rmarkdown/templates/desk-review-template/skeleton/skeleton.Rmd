@@ -79,8 +79,11 @@ init_dr(country_name,
 4. **(Optional) Attaching lab data from EDAV.** If lab data is not saved locally, then you may access lab data from EDAV.
 
 ```{r edav.lab}
-lab_data <- sirfunctions::edav_io("read", file_loc = get_constant("CLEANED_LAB_DATA")) |> 
+sirfunctions::edav_io("read", file_loc = get_constant("CLEANED_LAB_DATA")) 
+
+lab_data <- lab_data |> 
   filter(!is.na(EPID))
+
 ```
 
 
@@ -113,16 +116,17 @@ iss_data_errors(ctry.data$iss.data)
 
 
 
-2.  **Perform Data Cleaning**. The following will attempt to clean data issues flagged during the error checking process. There are instances where data cleaning, in particular with the lab and ISS data, can fail. This can occur during the imputation of missing data (year, province, district, etc...), which depend on EPIDs. For example, EPIDs from EMRO are separated by `/`, which means that it may be useful to set `delim='/'` in `clean_lab_data()`. 
+2.  **Perform Data Cleaning**. The following will attempt to clean data issues flagged during the error checking process. There are instances where data cleaning, in particular with the lab and ISS data, can fail. This can occur during the imputation of missing data (year, province, district, etc...), which depend on EPIDs. 
+
+As of late 2026, lab data have been pre-cleaned before upload to EDAV/sharing with analysis partners. If any lab data quality issues are identified during this step, please contact CDC so the cleaning process can be updated. If you only have the raw Excel files from WHO, run prep_lab_data() from tidypolis.
 
 For ISS/eSURV data, it is advisable to take a look at the data before cleaning, and ensure the default parameters for `clean_iss_data()` are correct.
 
 ```{r data.cleaning}
 ctry.data <- clean_ctry_data(ctry.data)
-lab_data <- clean_lab_data(lab_data, start_date, end_date, 
-                                     ctry.data$afp.all.2, Sys.getenv("DR_COUNTRY")
-                                     )
-# NOTE: if lab data is cleaned, you may need to manually filter to the countries of interest
+
+lab_data <- clean_lab_data(lab_data, start_date, end_date, ctry.data$afp.all.2, Sys.getenv("DR_COUNTRY"))
+                                     
 ctry.data$iss.data <- clean_iss_data(ctry.data$iss.data, start_date, end_date)
 ```
 

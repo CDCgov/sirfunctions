@@ -330,7 +330,7 @@ generate_kpi_template <- function(output_path, name, edav) {
     "# Obtaining shapefiles in long format ----",
     "# Ensure st.year is the year of your start date.",
     ctry_sf, dist_sf, "\n",
-    "# Cleaning lab data ----",
+    "# Use cleaned lab data ----",
     paste0("start_date <- ", start_date), paste0("end_date <- ", end_date), "\n",
     'lab_data <- clean_lab_data(lab_data, start_date, end_date, raw_data$afp)\n',
     "# Generate GPSAP C1-C4 tables ----",
