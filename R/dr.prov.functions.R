@@ -105,7 +105,7 @@
 
 #' List available prov_names in country data
 #'
-#' Uses `ctry.data$prov$PROV_NAME` as the preferred source, with the province
+#' Uses `ctry.data$prov$ADM1_NAME` as the preferred source, with the province
 #' population and AFP data used as fallbacks for older country-data objects.
 #'
 #' @param ctry.data Country data returned by `init_dr()`.
@@ -211,7 +211,7 @@ generate_prov_population_roads_map <- function(
     c("ADM2_NAME", "dist") %in% names(prov_dists)
   ][1]
   if (is.na(dist_name_column)) {
-    cli::cli_abort("DIST geometry must contain `DIST_NAME` or `dist`.")
+    cli::cli_abort("DIST geometry must contain `ADM2_NAME` or `dist`.")
   }
   prov_dists$.dist_name <- as.character(prov_dists[[dist_name_column]])
 
@@ -226,7 +226,7 @@ generate_prov_population_roads_map <- function(
   prov_population <- .dr_filter_prov(ctry.data$dist.pop, prov_name) |>
     dplyr::filter(year == target_year) |>
     dplyr::mutate(u15pop = suppressWarnings(as.numeric(u15pop))) |>
-    dplyr::group_by(distguid, year) |>
+    dplyr::group_by(adm2guid, year) |>
     dplyr::summarise(
       u15pop = if (all(is.na(u15pop))) NA_real_ else max(u15pop, na.rm = TRUE),
       .groups = "drop"
@@ -658,7 +658,7 @@ generate_prov_afp_epicurve <- function(ctry.data, prov_name, start_date,
     )
     if (value_type == "npafp") {
       annual_labels <- indicator |>
-        dplyr::group_by(year, distguid, dist) |>
+        dplyr::group_by(year, adm2guid, dist) |>
         dplyr::summarise(meets_target = sum(npafp_rate >= 3, na.rm = TRUE),
                          .groups = "drop") |>
         dplyr::group_by(year) |>
@@ -674,7 +674,7 @@ generate_prov_afp_epicurve <- function(ctry.data, prov_name, start_date,
         ))
     } else {
       annual_labels <- indicator |>
-        dplyr::group_by(year, distguid, dist) |>
+        dplyr::group_by(year, adm2guid, dist) |>
         dplyr::summarise(meets_target = sum(per.stool.ad >= 80, na.rm = TRUE),
                          .groups = "drop") |>
         dplyr::group_by(year) |>
@@ -1204,13 +1204,13 @@ generate_prov_district_timeliness_panel <- function(
 
   interval_summary <- prov_afp |>
     dplyr::select(
-      epid, year, dist, distguid, dplyr::all_of(interval_columns)
+      epid, year, dist, adm2guid, dplyr::all_of(interval_columns)
     ) |>
     tidyr::pivot_longer(
       cols = dplyr::all_of(interval_columns),
       names_to = "type", values_to = "value"
     ) |>
-    dplyr::group_by(year, type, dist, distguid) |>
+    dplyr::group_by(year, type, dist, adm2guid) |>
     dplyr::summarise(
 
       case_count = dplyr::n(),
@@ -1422,12 +1422,12 @@ generate_prov_es_detection_chart <- function(
       alpha = 0.5
     ) +
     ggplot2::geom_point(
-      data = es_data |> dplyr::arrange(PROV_NAME),
+      data = es_data |> dplyr::arrange(ADM1_NAME),
       ggplot2::aes(x = collect.date, y = site.name, color = all_dets),
       pch = 19, size = 3
     ) +
     ggplot2::geom_point(
-      data = es_data |> dplyr::arrange(PROV_NAME),
+      data = es_data |> dplyr::arrange(ADM1_NAME),
       ggplot2::aes(x = collect.date, y = site.name),
       fill = NA, pch = 21, size = 3
     ) +
@@ -1437,7 +1437,7 @@ generate_prov_es_detection_chart <- function(
     ggplot2::scale_fill_manual(name = "SIAs", values = vaccine_types) +
     ggplot2::scale_color_manual(name = "ES detections", values = detection_types) +
     ggplot2::facet_grid(
-      PROV_NAME ~ ., scales = "free_y", space = "free", switch = "y",
+      ADM1_NAME ~ ., scales = "free_y", space = "free", switch = "y",
       labeller = ggplot2::label_wrap_gen(8)
     ) +
     ggplot2::theme_bw() +
@@ -1769,10 +1769,10 @@ generate_prov_es_site_table <- function(
 
   negative_intervals <- es_data |>
     dplyr::filter(timely < 0 | is.na(timely)) |>
-    dplyr::group_by(PROV_NAME, DIST_NAME, site.name) |>
+    dplyr::group_by(ADM1_NAME, ADM2_NAME, site.name) |>
     dplyr::summarise(neg_intervals = dplyr::n(), .groups = "drop")
   sample_summary <- es_data |>
-    dplyr::group_by(PROV_NAME, DIST_NAME, site.name) |>
+    dplyr::group_by(ADM1_NAME, ADM2_NAME, site.name) |>
     dplyr::summarise(samples = dplyr::n(), .groups = "drop")
   negative_intervals <- negative_intervals |>
     dplyr::left_join(
@@ -1786,7 +1786,7 @@ generate_prov_es_site_table <- function(
     dplyr::mutate(timely = dplyr::if_else(timely < 0, NA, timely))
 
   es_summary <- es_data |>
-    dplyr::group_by(site.name, PROV_NAME, DIST_NAME) |>
+    dplyr::group_by(site.name, ADM1_NAME, ADM2_NAME) |>
     dplyr::reframe(
       early.dat = format(early.dat, format = "%B %d, %Y"),
       ev.pct = 100 * sum(as.numeric(ev.detect), na.rm = TRUE) / dplyr::n(),
@@ -1806,7 +1806,7 @@ generate_prov_es_site_table <- function(
       num.wpv.or.vdpv = sum(wpv, na.rm = TRUE) + sum(vdpv, na.rm = TRUE)
     ) |>
     dplyr::distinct() |>
-    dplyr::arrange(PROV_NAME, DIST_NAME, site.name)
+    dplyr::arrange(ADM1_NAME, ADM2_NAME, site.name)
 
   table <- es_summary |>
     flextable::flextable(
@@ -1829,8 +1829,8 @@ generate_prov_es_site_table <- function(
     flextable::width(j = 1:2, width = 1.5) |>
     flextable::fontsize(size = 11, part = "all") |>
     flextable::set_header_labels(
-      PROV_NAME = "Province",
-      DIST_NAME = "District",
+      ADM1_NAME = "Province",
+      ADM2_NAME = "District",
       early.dat = "Earliest date reporting to POLIS",
       site.name = "Site name",
       num.spec = "No. samples collected",
@@ -1930,4 +1930,3 @@ generate_prov_desk_review_outputs <- function(
 
   outputs
 }
-
