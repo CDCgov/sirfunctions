@@ -27,7 +27,12 @@ clean_lab_data_who(
 \code{tibble} Cleaned lab data.
 }
 \description{
-Cleans the lab data from WHO. This is used in \code{\link[=clean_lab_data]{clean_lab_data()}}, but can be used on its own.
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
+}
+\details{
+this function is no longer referenced within the sirfunctions package.
+
+Cleans the lab data from WHO. This was previously used in \code{\link[=clean_lab_data]{clean_lab_data()}}, but can be used on its own.
 }
 \examples{
 \dontrun{
@@ -42,4 +47,3 @@ ctry.data$lab_data <- read_csv(lab_path)
 ctry.data$lab_data <- clean_lab_data_who(ctry.data, "2021-01-01", "2023-12-31")
 }
 }
-\keyword{internal}

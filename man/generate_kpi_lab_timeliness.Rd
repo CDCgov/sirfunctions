@@ -5,6 +5,7 @@
 \title{Generate KPI lab intervals}
 \usage{
 generate_kpi_lab_timeliness(lab_data, start_date, end_date, afp_data = NULL)
+}
 \arguments{
 \item{lab_data}{\code{tibble} Lab data containing information of ES or AFP samples.}
 

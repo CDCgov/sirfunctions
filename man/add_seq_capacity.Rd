@@ -4,16 +4,24 @@
 \alias{add_seq_capacity}
 \title{Title}
 \usage{
-add_seq_capacity(df, ctry_col = "ctry", lab_locs = NULL)
+add_seq_capacity(
+  df,
+  ctry_col = "ctry",
+  lab_locs = NULL,
+  lab_data_cleaned = NULL
+)
 }
 \arguments{
 \item{df}{\code{tibble} Dataset with at least a country column to join to.}
 
 \item{lab_locs}{\code{tibble} Lab testing information table. Defaults to \code{NULL}. If
 \code{NULL}, attempts to download the table from EDAV.}
+
+\item{lab_data_cleaned}{\code{tibble} Cleaned lab data information table. Defaults
+to \code{NULL}. If \code{NULL}, throws error.}
 }
 \value{
-\code{tibble} A dataset with country lab information attached.
+\code{tibble} A dataset with country sequencing capacity information attached.
 }
 \description{
 Title
