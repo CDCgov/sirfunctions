@@ -234,6 +234,7 @@ impute_missing_lab_geo <- function(lab_data, afp_data = NULL) {
 
 
 # Public functions ----
+#' Table of information regarding testing labs in each country
 #'
 #' Imports information on testing labs for each country, either from a CSV file
 #' or downloaded from EDAV. If no argument is passed, the function will download
