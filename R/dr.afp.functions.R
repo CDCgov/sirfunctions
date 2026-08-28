@@ -996,6 +996,38 @@ generate_60_day_table_data <- function(stool.data, start_date, end_date) {
         TRUE ~ FALSE)
         ) |>
     dplyr::mutate(
+      doses.interpretation = dplyr::case_when(
+        doses.flag &
+          doses.opv.routine == 0 & doses.opv.sia == 0 ~
+          "0 routine and 0 SIA OPV doses",
+        doses.flag &
+          doses.opv.routine == 0 & doses.opv.sia %in% c(NA, 99) ~
+          "0 routine OPV doses; SIA OPV missing/unknown",
+        doses.flag &
+          doses.opv.routine %in% c(NA, 99) & doses.opv.sia == 0 ~
+          "Routine OPV missing/unknown; 0 SIA OPV doses",
+        doses.flag &
+          doses.opv.routine %in% c(NA, 99) &
+          doses.opv.sia %in% c(NA, 99) &
+          doses.total < 3 ~
+          "Fewer than 3 total doses",
+        doses.flag &
+          doses.opv.routine %in% c(NA, 99) &
+          doses.opv.sia %in% c(NA, 99) &
+          doses.total %in% c(NA, 99) &
+          calcdosesrisi < 3 ~
+          "Fewer than 3 calculated doses",
+        doses.flag &
+          doses.opv.routine %in% c(NA, 99) &
+          doses.opv.sia %in% c(NA, 99) &
+          doses.total %in% c(NA, 99) &
+          calcdosesrisi %in% c(NA, 99) ~
+          "All dose information missing/unknown",
+        !doses.flag ~ "Not flagged",
+        TRUE ~ "Other/unclear dose coding"
+      )
+    ) |>
+    dplyr::mutate(
       pot.compatible = dplyr::if_else(
         (adequacy.final2 == "Inadequate") &
         (
@@ -1060,10 +1092,12 @@ generate_60_day_table_data <- function(stool.data, start_date, end_date) {
       "paralysis.rapid.progress",
       "paralysis.onset.fever",
       "pot.compatible",
+      "doses.flag",
       "doses.opv.routine",
       "doses.opv.sia",
       "doses.total",
       "calcdosesrisi",
+      "doses.interpretation",
       "timeto60day",
       "followup.date",
       "classification",
