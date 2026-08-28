@@ -21,16 +21,6 @@ library(sirfunctions)
 library(tidyverse)
 ```
 
-
-
-
-
-
-
-
-
-
-
 2.  **Set the desk review parameters**. `local_dr_path` is the folder where you would like to store desk reviews and associated files locally. If lab or ISS/eSurv data are unavailable locally, please assign the path values to `NULL`. Otherwise, assign the path to the local files for loading in R. For multiple countries, pass as a string vector, i.e. `c("djibouti", "somalia", "yemen")`.
 
 ```{r parameters}
@@ -38,18 +28,7 @@ country_name <- ""
 local_dr_path <- file.path("")
 iss_data_path <- NULL
 lab_data_path <- NULL
-
 ```
-
-
-
-
-
-
-
-
-
-
 
 3.  **Initialize the desk review**. By default, the start date of the desk review is 3 years from the end date on January 1st. The end date is 6 weeks from today. You may modify the default start and end dates. For ES data, the start date is one year from the end date. Within the `param` folder, there will be a parameters file that is created when `init_dr()` is first run. This file saves the start date and end date of the desk review, to ensure consistency in analyzing data across multiple days. You will have the option to modify this parameter file in subsequent runs of `init_dr()`. 
 
@@ -66,32 +45,16 @@ init_dr(country_name,
         use_edav = TRUE)
 ```
 
-
-
-
-
-
-
-
-
-
-
 4. **(Optional) Attaching lab data from EDAV.** If lab data is not saved locally, then you may access lab data from EDAV.
 
 ```{r edav.lab}
-lab_data <- sirfunctions::edav_io("read", file_loc = get_constant("CLEANED_LAB_DATA")) |> 
-  filter(!is.na(EPID))
+sirfunctions::edav_io(
+  "read",
+  file_loc = get_constant("CLEANED_LAB_DATA")
+)
+lab_data <- lab_data |>
+  dplyr::filter(!is.na(EPID))
 ```
-
-
-
-
-
-
-
-
-
-
 
 ## Data Cleaning
 
@@ -102,16 +65,6 @@ ctry_data_errors(ctry.data)
 lab_data_errors(lab_data, ctry.data$afp.all.2)
 iss_data_errors(ctry.data$iss.data)
 ```
-
-
-
-
-
-
-
-
-
-
 
 2.  **Perform Data Cleaning**. The following will attempt to clean data issues flagged during the error checking process. There are instances where data cleaning, in particular with the lab and ISS data, can fail. This can occur during the imputation of missing data (year, province, district, etc...), which depend on EPIDs. For example, EPIDs from EMRO are separated by `/`, which means that it may be useful to set `delim='/'` in `clean_lab_data()`. 
 
@@ -126,18 +79,8 @@ lab_data <- clean_lab_data(lab_data, start_date, end_date,
 ctry.data$iss.data <- clean_iss_data(ctry.data$iss.data, start_date, end_date)
 ```
 
-
-
-
-
-
-
-
-
-
-
-
 ## Analysis
+
 
 #### Full AFP linelist in the analysis period
 
@@ -152,15 +95,6 @@ afp.case <- generate_afp_by_month_summary(ctry.data$afp.all.2,
                                           start_date, end_date, "year")
 ```
 
-
-
-
-
-
-
-
-
-
 #### Calculating NPAFP Rates
 These calculate the NPAFP rates at each geographic level. `sp_continuity_validation` is a parameter to indicate whether GUIDs that are not present across the start and end dates should be dropped.
 ```{r npafp.rates}
@@ -174,7 +108,6 @@ dist.extract <- f.npafp.rate.01(
   rolling = F,
   sp_continuity_validation = F
 )
-
 prov.extract <- f.npafp.rate.01(
   afp.data = ctry.data$afp.all.2,
   pop.data = ctry.data$prov.pop,
@@ -185,7 +118,6 @@ prov.extract <- f.npafp.rate.01(
   rolling = F,
   sp_continuity_validation = F
 )
-
 ctry.extract <- f.npafp.rate.01(
   afp.data = ctry.data$afp.all.2,
   pop.data = ctry.data$ctry.pop,
@@ -198,18 +130,6 @@ ctry.extract <- f.npafp.rate.01(
 )
 ```
 
-
-
-
-
-
-
-
-
-
-
-
-
 #### Generate lab timeliness
 If lab timeliness intervals from the lab data are available, uncomment `lab.timeliness.ctry` and `lab.timeliness.prov`. Otherwise, timeliness intervals are purely calculated from the AFP linelist. The main advantage of attaching lab data is to include the interval between the lab receiving the stool sample to final culture results.
 
@@ -219,16 +139,6 @@ NOTE: If calculating for multiple countries as a group, make sure `spatial_scale
 lab.timeliness.ctry <- generate_lab_timeliness(lab_data |> dplyr::filter(ctry %in% Sys.getenv("DR_COUNTRY")), "ctry", start_date, end_date)
 lab.timeliness.prov <- generate_lab_timeliness(lab_data |> dplyr::filter(ctry %in% Sys.getenv("DR_COUNTRY")), "prov", start_date, end_date)
 ```
-
-
-
-
-
-
-
-
-
-
 
 #### Generate Stool Adequacy Summary Tables
 These calculate the stool adequacy rates at each geographic level. `sp_continuity_validation` is a parameter to indicate whether GUIDs that are not present across the start and end dates should be dropped.
@@ -268,16 +178,6 @@ cstool <- f.stool.ad.01(
 )
 ```
 
-
-
-
-
-
-
-
-
-
-
 #### Set shapefiles
 
 ```{r set.recent.shape}
@@ -297,16 +197,6 @@ dist.shape <- load_clean_dist_sp(type = "long") |>
                                   stringr::str_split(",") |>
                                   unlist()))
 ```
-
-
-
-
-
-
-
-
-
-
 
 #### Generating tables necessary for analysis
 If lab timeliness intervals from the lab data are available, uncomment `lab.timeliness.ctry` and `lab.timeliness.prov`. Otherwise, timeliness intervals are purely calculated from the AFP linelist. The main advantage of attaching lab data is to include the interval between the lab receiving the stool sample to final culture results.
@@ -332,17 +222,6 @@ cases.need60day <- generate_60_day_table_data(stool.data, start_date, end_date)
 pot.c.clust <- generate_potentially_compatibles_cluster(cases.need60day)
 ```
 
-
-
-
-
-
-
-
-
-
-
-
 ## Figures
 Note: use `generate_afp_ctry_year()` to show AFP detections per month at the country
 level rather than at the province level presented by `generate_afp_prov_year()`.
@@ -367,17 +246,6 @@ generate_iss_barplot(ctry.data$iss.data, start_date, end_date)
 generate_iss_map(ctry.data$iss.data, ctry.shape, prov.shape, start_date, end_date)
 ```
 
-
-
-
-
-
-
-
-
-
-
-
 ## Generate flextables
 For analyzing multiple countries, use `generate_pop_tab_ctry()` as opposed to
 `generate_pop_tab()`. In addition, use `generate_surv_reg_tab()` instead of
@@ -390,17 +258,6 @@ tab.60d <- generate_60_day_tab(cases.need60day)
 es.table <- generate_es_tab(ctry.data$es) 
 ```
 
-
-
-
-
-
-
-
-
-
-
-
 ## Excel outputs
 
 ```{r excel.outputs}
@@ -412,32 +269,110 @@ create_60_day_export(cases.need60day)
 create_pot_comp_clust_export(pot.c.clust)
 ```
 
-
-
-
-
-
-
-
-
-
-
 ## Generating PowerPoint Presentation
 ```{r powerpoint}
 generate_dr_ppt2(ctry.data, start_date, end_date, 
                  surv.ind.tab, inad.tab.flex, tab.60d, pop.tab, es.table)
 ```
 
+#### Optional PROV analyses and PowerPoints
+Set `run_prov_analysis` to `TRUE` to create PROV-level figures and one
+PowerPoint for each PROV. By default, all available PROVs are used. You may
+instead supply a character vector to `prov_names`. The PROV output includes
+the AFP case map and epicurve, NPAFP and stool-adequacy maps and tables, the
+60-day follow-up table, PROV population-and-roads map, district timeliness
+panels, and environmental-surveillance outputs. The NPAFP immunization graph,
+age histogram, and delayed-detection graph are intentionally not generated.
 
-
-
-
-
-
-
-
-
-
+```{r optional.prov}
+run_prov_analysis <- FALSE
+prov_names <- NULL
+# To analyze selected PROVs instead of all available PROVs, use for example:
+# prov_names <- c("PROV 1", "PROV 2")
+# For one PROV:
+# prov_names <- "PROV 1"
+if (run_prov_analysis) {
+  if (!exists("generate_prov_desk_review_outputs")) {
+    stop(
+      "PROV functions are not loaded. Re-run init_dr() with source = TRUE, " ,
+      "or use a sirfunctions version that includes PROV functions."
+    )
+  }
+  if (is.null(prov_names)) {
+    prov_names <- list_desk_review_prov(ctry.data)
+  }
+  prov_figure_dir <- file.path(Sys.getenv("DR_FIGURE_PATH"), "prov")
+  prov_ppt_dir <- file.path(Sys.getenv("DR_POWERPOINT_PATH"), "prov")
+  dir.create(prov_figure_dir, recursive = TRUE, showWarnings = FALSE)
+  dir.create(prov_ppt_dir, recursive = TRUE, showWarnings = FALSE)
+  prov_outputs <- stats::setNames(
+    lapply(prov_names, function(prov_name) {
+      tryCatch(
+        generate_prov_desk_review_outputs(
+          ctry.data = ctry.data,
+          prov_name = prov_name,
+          dist.extract = dist.extract,
+          pstool = pstool,
+          dstool = dstool,
+          cases.need60day = cases.need60day,
+          prov.shape = prov.shape,
+          dist.shape = dist.shape,
+          start_date = start_date,
+          end_date = end_date,
+          output_path = prov_figure_dir
+        ),
+        error = function(e) {
+          cli::cli_alert_warning(
+            paste0("Skipping ", prov_name, ": ", conditionMessage(e))
+          )
+          NULL
+        }
+      )
+    }),
+    prov_names
+  )
+  failed_prov_names <- prov_names[
+    vapply(prov_outputs, is.null, logical(1))
+  ]
+  prov_outputs <- prov_outputs[!vapply(prov_outputs, is.null, logical(1))]
+  prov_names <- names(prov_outputs)
+  if (length(failed_prov_names) > 0) {
+    cli::cli_alert_warning(paste0(
+      "No PowerPoints will be written for: ",
+      paste(failed_prov_names, collapse = ", ")
+    ))
+  }
+  prov_ppt_files <- stats::setNames(
+    vapply(prov_names, function(prov_name) {
+      tryCatch(
+        write_prov_desk_review_ppt(
+          prov_outputs = prov_outputs[[prov_name]],
+          prov_name = prov_name,
+          start_date = start_date,
+          end_date = end_date,
+          ppt_output_file = file.path(
+            prov_ppt_dir,
+            paste0(
+              "Deskreview_",
+              gsub("(^-+|-+$)", "", gsub("[^a-z0-9]+", "-", tolower(trimws(prov_name)))),
+              ".pptx"
+            )
+          ),
+          ppt_template_path = NULL
+        ),
+        error = function(e) {
+          cli::cli_alert_warning(
+            paste0("PowerPoint failed for ", prov_name, ": ", conditionMessage(e))
+          )
+          NA_character_
+        }
+      )
+    }, character(1)),
+    prov_names
+  )
+  prov_ppt_files
+}
+```
 
 ## Helpful Information
 
@@ -448,7 +383,6 @@ default_vaccine_type <- c(
     "nOPV2" = "blue",
     "bOPV" = "coral1",
     "mOPV2" = "purple")
-
 default_detections <- c(
     "No EV isolated" = "#f2f2f2",
     "NPEV only" = "darkgrey",
@@ -464,34 +398,27 @@ default_detections <- c(
     "Sabin 1/3" = scales::brewer_pal(palette = "Set1")(9)[2],
     "Sabin 1/3 and VDPV2"  = scales::brewer_pal(palette = "Set1")(9)[5]
   )
-
 ```
 
 Gender Code provided by Scarlett
 ```{r gender}
 afp.data <- (ctry.data$afp.all.2)
-
 afp.data <- afp.data %>%
   filter(cdc.classification.all2 == "NPAFP") %>%
   mutate(year = format(as.Date(investigation.date, format = "%Y-%m-%d"), "%Y")) %>%
   filter(year %in% c("2021", "2022", "2023", "2024"))
-
-
 sex_percentages <- afp.data %>%
   mutate(sex = ifelse(is.na(sex), "Unknown", sex)) %>%
   group_by(year, sex) %>% 
   summarise(count = n(), .groups = 'drop') %>%
   group_by(year) %>%
   mutate(percentage = count / sum(count) * 100)
-
 total_counts <- sex_percentages %>%
   group_by(year) %>%
   summarise(total_count = sum(count), .groups = 'drop')
-
 # Combine the total_counts with sex_percentages for easier plotting
 combined_data <- sex_percentages %>%
   left_join(total_counts, by = "year")
-
 # Create the stacked bar plot with percentage and count labels
 ggplot(combined_data, aes(x = year, y = percentage, fill = sex)) +
   geom_bar(stat = "identity", position = "stack") +
@@ -512,7 +439,6 @@ ontonot_medians <- afp.data %>%
   filter(!is.na(ontonot)) %>%
   group_by(year, sex) %>%
   summarise(median_ontonot = median(ontonot), .groups = 'drop')
-
 ggplot(ontonot_medians, aes(x = year, y = median_ontonot, fill = sex, label = round(median_ontonot, 1))) +
   geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
   geom_text(aes(y = median_ontonot + max(ontonot_medians$median_ontonot, na.rm = TRUE) * 0.02), 
@@ -524,15 +450,12 @@ ggplot(ontonot_medians, aes(x = year, y = median_ontonot, fill = sex, label = ro
   theme_minimal() +
   scale_fill_manual(values = c("Male" = "#003f5a", "Female" = "#de6600", "Unknown" = "lightgrey")) +
   theme(axis.text.x = element_text(angle = 0, hjust = 1))
-
 #median onset to stool 1 by sex
-
 ontostool_medians <- afp.data %>%
   mutate(sex = ifelse(is.na(sex), "Unknown", sex)) %>%
   filter(!is.na(ontostool1)) %>%
   group_by(year, sex) %>%
   summarise(median_ontostool = median(ontostool1), .groups = 'drop')
-
 ggplot(ontostool_medians, aes(x = year, y = median_ontostool, fill = sex, label = round(median_ontostool, 1))) +
   geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
   geom_text(aes(y = median_ontostool + max(ontostool_medians$median_ontostool, na.rm = TRUE) * 0.01), 
@@ -544,5 +467,4 @@ ggplot(ontostool_medians, aes(x = year, y = median_ontostool, fill = sex, label 
   theme_minimal() +
   scale_fill_manual(values = c("Male" = "#003f5a", "Female" = "#de6600", "Unknown" = "lightgrey")) +
   theme(axis.text.x = element_text(angle = 0, hjust = 1))
-
 ```
