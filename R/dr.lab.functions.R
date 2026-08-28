@@ -496,6 +496,7 @@ clean_lab_data_regional <- function(lab_data,
       country = ifelse(stringr::str_detect(country, "IVOIRE"),
         "COTE D IVOIRE", country
       ),
+      country = stringr::str_replace(country, "-", " "),
       year = lubridate::year(ParalysisOnsetDate),
       whoregion = get_region(country)
     )
@@ -558,7 +559,7 @@ clean_lab_data_regional <- function(lab_data,
       # Met target yes/no
       met.targ.collect.lab = ifelse(days.collect.lab < 3, 1, 0),
       negative.spec = ifelse(!str_detect(FinalCellCultureResult, "ITD") &
-        FinalITDResult == "NULL", 1, 0),
+        FinalITDResult %in% c("NULL", ""), 1, 0),
       met.lab.culture = ifelse(days.lab.culture < 14, 1, 0),
     )
   cli::cli_process_done()
@@ -701,7 +702,9 @@ get_lab_locs <- function(lab_locs_path = NULL, use_edav = TRUE) {
       country == "OCCUPIED PALESTINIAN TERRITORY, INCLUDING EAST JERUSALEM" ~ "Jordan",
       seq.lab %in% c("-", NA) ~ "Unknown",
       .default = seq.lab
-    ))
+    )) |>
+    dplyr::mutate(country = stringr::str_replace_all(country, "-", " "))
+
 
 
   return(lab.locs.edited)
@@ -926,6 +929,7 @@ lab_data_errors_region <- function(lab.data,
     # dplyr::mutate_at(vars(DateStoolCollected:VDPV3), ~na_if(., "NULL")) %>%
     dplyr::mutate(
       country = stringr::str_to_upper(country),
+      country = stringr::str_replace(country, "-", " "),
       year = lubridate::year(ParalysisOnsetDate),
       whoregion = get_region(country)
     )
@@ -963,7 +967,7 @@ lab_data_errors_region <- function(lab.data,
 
       # Met target yes/no
       met.targ.collect.lab = ifelse(days.collect.lab < 3, 1, 0),
-      negative.spec = ifelse(!str_detect(FinalCellCultureResult, "ITD") & FinalITDResult == "NULL", 1, 0),
+      negative.spec = ifelse(!str_detect(FinalCellCultureResult, "ITD") & FinalITDResult %in% c("NULL", ""), 1, 0),
       met.lab.culture = ifelse(days.lab.culture < 14, 1, 0),
     )
 
