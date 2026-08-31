@@ -88,8 +88,10 @@ named \code{u15pop} exists in the joined district data by:
 \item Adequate if \code{npafp_rate >= 2} \strong{and} \code{per.stool.ad >= 80}.
 \item The \% population in adequate ≥100k districts is:
 \eqn{100 * (sum(U15 in adequate ≥100k districts) / sum(U15 in all ≥100k districts))}.
+}
 
-*\emph{Aggregation}*:
+\strong{Aggregation}:
+\itemize{
 \item AFP cases: summed across countries per year.
 \item \code{npafp_rate} and \code{per.stool.ad}: \strong{simple means} across countries per year
 (switch to a weighted mean if needed).
