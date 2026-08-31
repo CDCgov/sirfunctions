@@ -80,6 +80,7 @@
 <url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_afp_ctry_year.html</loc></url>
 <url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_afp_epicurve.html</loc></url>
 <url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_afp_prov_year.html</loc></url>
+<url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_all_prov_desk_review_ppts.html</loc></url>
 <url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_c1_rollup.html</loc></url>
 <url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_c1_table.html</loc></url>
 <url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_c2_table.html</loc></url>
@@ -129,6 +130,24 @@
 <url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_pos_timeliness.html</loc></url>
 <url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_potentially_compatibles_cluster.html</loc></url>
 <url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_pptx_assumptions.html</loc></url>
+<url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_prov_60_day_table.html</loc></url>
+<url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_prov_afp_case_map.html</loc></url>
+<url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_prov_afp_epicurve.html</loc></url>
+<url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_prov_desk_review_outputs.html</loc></url>
+<url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_prov_desk_review_ppt.html</loc></url>
+<url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_prov_district_timeliness_panel.html</loc></url>
+<url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_prov_es_detection_chart.html</loc></url>
+<url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_prov_es_location_map.html</loc></url>
+<url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_prov_es_site_table.html</loc></url>
+<url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_prov_es_timeliness.html</loc></url>
+<url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_prov_npafp_age_histogram.html</loc></url>
+<url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_prov_npafp_detection_delay_graph.html</loc></url>
+<url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_prov_npafp_immunization_graph.html</loc></url>
+<url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_prov_npafp_map.html</loc></url>
+<url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_prov_population_roads_map.html</loc></url>
+<url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_prov_population_roads_maps.html</loc></url>
+<url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_prov_stool_adequacy_map.html</loc></url>
+<url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_prov_stool_adequacy_table.html</loc></url>
 <url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_prov_timeliness_graph.html</loc></url>
 <url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_prov_year_lab.html</loc></url>
 <url><loc>https://cdcgov.github.io/sirfunctions/reference/generate_sg_priority_map.html</loc></url>
@@ -171,6 +190,7 @@
 <url><loc>https://cdcgov.github.io/sirfunctions/reference/lab_data_errors_region.html</loc></url>
 <url><loc>https://cdcgov.github.io/sirfunctions/reference/lab_data_errors_who.html</loc></url>
 <url><loc>https://cdcgov.github.io/sirfunctions/reference/last_detections_prov.html</loc></url>
+<url><loc>https://cdcgov.github.io/sirfunctions/reference/list_desk_review_prov.html</loc></url>
 <url><loc>https://cdcgov.github.io/sirfunctions/reference/load_clean_ctry_sp.html</loc></url>
 <url><loc>https://cdcgov.github.io/sirfunctions/reference/load_clean_dist_sp.html</loc></url>
 <url><loc>https://cdcgov.github.io/sirfunctions/reference/load_clean_prov_sp.html</loc></url>
@@ -205,5 +225,6 @@
 <url><loc>https://cdcgov.github.io/sirfunctions/reference/update_road_spatial_data.html</loc></url>
 <url><loc>https://cdcgov.github.io/sirfunctions/reference/update_vacc_cov_data.html</loc></url>
 <url><loc>https://cdcgov.github.io/sirfunctions/reference/upload_to_sharepoint.html</loc></url>
+<url><loc>https://cdcgov.github.io/sirfunctions/reference/write_prov_desk_review_ppt.html</loc></url>
 </urlset>
 

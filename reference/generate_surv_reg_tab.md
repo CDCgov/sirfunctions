@@ -113,7 +113,7 @@ column named `u15pop` exists in the joined district data by:
 - The % population in adequate ≥100k districts is: \\100 \* (sum(U15 in
   adequate ≥100k districts) / sum(U15 in all ≥100k districts))\\.
 
-  \**Aggregation*\*:
+**Aggregation**:
 
 - AFP cases: summed across countries per year.
 

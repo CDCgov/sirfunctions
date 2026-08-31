@@ -25,6 +25,9 @@ Useful links:
 
 Authors:
 
+- Mervin Keith Cuadera <xrg9@cdc.gov>
+  ([ORCID](https://orcid.org/0000-0003-4898-2659))
+
 - Nishant Kishore <ynm2@cdc.gov>
   ([ORCID](https://orcid.org/0000-0003-0408-2747))
 

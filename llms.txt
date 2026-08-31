@@ -261,6 +261,9 @@ site](http://www.cdc.gov).
 - [`generate_afp_prov_year()`](https://cdcgov.github.io/sirfunctions/reference/generate_afp_prov_year.md)
   : AFP cases by province and year
 
+- [`generate_all_prov_desk_review_ppts()`](https://cdcgov.github.io/sirfunctions/reference/generate_all_prov_desk_review_ppts.md)
+  : Generate one AFP desk-review PowerPoint per prov
+
 - [`generate_c1_rollup()`](https://cdcgov.github.io/sirfunctions/reference/generate_c1_rollup.md)
   **\[experimental\]** : Generate C1 rollup for high-priority countries
 
@@ -280,7 +283,7 @@ site](http://www.cdc.gov).
   **\[experimental\]** : Laboratory surveillance KPIs
 
 - [`generate_case_num_dose_g()`](https://cdcgov.github.io/sirfunctions/reference/generate_case_num_dose_g.md)
-  : Immunization rates per year
+  : Immunization case status per year
 
 - [`generate_ctry_timeliness_graph()`](https://cdcgov.github.io/sirfunctions/reference/generate_ctry_timeliness_graph.md)
   : Timeliness intervals of samples at the country level
@@ -393,6 +396,60 @@ site](http://www.cdc.gov).
 - [`generate_potentially_compatibles_cluster()`](https://cdcgov.github.io/sirfunctions/reference/generate_potentially_compatibles_cluster.md)
   : Creating a table of compatible and potentially compatible cases
 
+- [`generate_prov_60_day_table()`](https://cdcgov.github.io/sirfunctions/reference/generate_prov_60_day_table.md)
+  : PROV 60-day follow-up table
+
+- [`generate_prov_afp_case_map()`](https://cdcgov.github.io/sirfunctions/reference/generate_prov_afp_case_map.md)
+  : PROV-only paralytic polio and compatible-case map
+
+- [`generate_prov_afp_epicurve()`](https://cdcgov.github.io/sirfunctions/reference/generate_prov_afp_epicurve.md)
+  : PROV AFP epicurve
+
+- [`generate_prov_desk_review_outputs()`](https://cdcgov.github.io/sirfunctions/reference/generate_prov_desk_review_outputs.md)
+  : Generate the complete prov AFP review set
+
+- [`generate_prov_desk_review_ppt()`](https://cdcgov.github.io/sirfunctions/reference/generate_prov_desk_review_ppt.md)
+  : Generate and write one prov AFP desk-review PowerPoint
+
+- [`generate_prov_district_timeliness_panel()`](https://cdcgov.github.io/sirfunctions/reference/generate_prov_district_timeliness_panel.md)
+  : Annual AFP timeliness map panels by district for one prov
+
+- [`generate_prov_es_detection_chart()`](https://cdcgov.github.io/sirfunctions/reference/generate_prov_es_detection_chart.md)
+  : ES detection dot chart for one prov
+
+- [`generate_prov_es_location_map()`](https://cdcgov.github.io/sirfunctions/reference/generate_prov_es_location_map.md)
+  : ES location and detection-rate map for one prov
+
+- [`generate_prov_es_site_table()`](https://cdcgov.github.io/sirfunctions/reference/generate_prov_es_site_table.md)
+  : ES site details table for one prov
+
+- [`generate_prov_es_timeliness()`](https://cdcgov.github.io/sirfunctions/reference/generate_prov_es_timeliness.md)
+  : ES sample-transport timeliness for one prov
+
+- [`generate_prov_npafp_age_histogram()`](https://cdcgov.github.io/sirfunctions/reference/generate_prov_npafp_age_histogram.md)
+  : Histogram of NPAFP case age in one prov
+
+- [`generate_prov_npafp_detection_delay_graph()`](https://cdcgov.github.io/sirfunctions/reference/generate_prov_npafp_detection_delay_graph.md)
+  : Delayed detection of NPAFP cases in one prov
+
+- [`generate_prov_npafp_immunization_graph()`](https://cdcgov.github.io/sirfunctions/reference/generate_prov_npafp_immunization_graph.md)
+  : Immunization status of NPAFP cases in one prov
+
+- [`generate_prov_npafp_map()`](https://cdcgov.github.io/sirfunctions/reference/generate_prov_npafp_map.md)
+  : PROV-only annualized NPAFP rate map by district
+
+- [`generate_prov_population_roads_map()`](https://cdcgov.github.io/sirfunctions/reference/generate_prov_population_roads_map.md)
+  : PROV DIST under-15 population, roads, and labels map
+
+- [`generate_prov_population_roads_maps()`](https://cdcgov.github.io/sirfunctions/reference/generate_prov_population_roads_maps.md)
+  : Generate DIST population and roads maps for multiple prov_names
+
+- [`generate_prov_stool_adequacy_map()`](https://cdcgov.github.io/sirfunctions/reference/generate_prov_stool_adequacy_map.md)
+  : PROV-only stool adequacy map by district
+
+- [`generate_prov_stool_adequacy_table()`](https://cdcgov.github.io/sirfunctions/reference/generate_prov_stool_adequacy_table.md)
+  : PROV stool adequacy issues table
+
 - [`generate_prov_timeliness_graph()`](https://cdcgov.github.io/sirfunctions/reference/generate_prov_timeliness_graph.md)
   : Timeliness intervals of samples at the province level
 
@@ -478,6 +535,9 @@ site](http://www.cdc.gov).
 - [`lab_data_errors()`](https://cdcgov.github.io/sirfunctions/reference/lab_data_errors.md)
   : Generate a log of potential errors in the lab data
 
+- [`list_desk_review_prov()`](https://cdcgov.github.io/sirfunctions/reference/list_desk_review_prov.md)
+  : List available prov_names in country data
+
 - [`load_clean_ctry_sp()`](https://cdcgov.github.io/sirfunctions/reference/load_clean_ctry_sp.md)
   : Download country georgraphic data
 
@@ -522,6 +582,9 @@ site](http://www.cdc.gov).
 
 - [`upload_to_sharepoint()`](https://cdcgov.github.io/sirfunctions/reference/upload_to_sharepoint.md)
   : Upload file to Sharepoint
+
+- [`write_prov_desk_review_ppt()`](https://cdcgov.github.io/sirfunctions/reference/write_prov_desk_review_ppt.md)
+  : Write prov AFP outputs to a PowerPoint
 
 # Articles
 

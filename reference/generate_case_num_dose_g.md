@@ -1,10 +1,12 @@
-# Immunization rates per year
+# Immunization case status per year
 
-Generates a stacked percent bar plot displaying immunization rates per
-year for the country. Note that this function only graphs immunization
-rates for children aged 6-59 months. The "Missing" category is cases
-that have no value (i.e. NA) for doses.total. The "Unknown" category has
-"99" for doses.total.
+Generates 4 stacked percent bar plots displaying immunization status of
+NPAFP cases per year for the country. Note that this function only
+graphs immunization rates for children aged 6-59 months. The "Missing"
+category is cases that have no value (i.e. NA) for doses.total. The
+"Unknown" category has "99" for doses.total. 4 plots: 1 by total number
+of doses (combined OPV and IPV), 1 by SIA OPV, 1 by Routine OPV, 1 by
+IPV
 
 ## Usage
 
@@ -44,7 +46,7 @@ generate_case_num_dose_g(
 
 ## Value
 
-`ggplot` A percent bar plot displaying immunization rates per year by
+`ggplot` A percent bar plot displaying NPAFP cases per year by
 immunization status.
 
 ## Examples

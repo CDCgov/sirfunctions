@@ -27,7 +27,7 @@ returns either a tidy tibble or a formatted flextable.
 
     <a class="navbar-brand me-2" href="../index.html">sirfunctions</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.1.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.1.9</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -151,9 +151,8 @@ named <code>u15pop</code> exists in the joined district data by:</p><ol><li><p>c
 <li><p>importing from <code>ctry_data$dist.pop</code> by <code>adm2guid</code> and <code>year</code>.</p></li>
 </ol><p><strong>Adequacy rule (district level)</strong>:</p><ul><li><p>Adequate if <code>npafp_rate &gt;= 2</code> <strong>and</strong> <code>per.stool.ad &gt;= 80</code>.</p></li>
 <li><p>The % population in adequate ≥100k districts is:
-\(100 * (sum(U15 in adequate ≥100k districts) / sum(U15 in all ≥100k districts))\).</p>
-<p>*<em>Aggregation</em>*:</p></li>
-<li><p>AFP cases: summed across countries per year.</p></li>
+\(100 * (sum(U15 in adequate ≥100k districts) / sum(U15 in all ≥100k districts))\).</p></li>
+</ul><p><strong>Aggregation</strong>:</p><ul><li><p>AFP cases: summed across countries per year.</p></li>
 <li><p><code>npafp_rate</code> and <code>per.stool.ad</code>: <strong>simple means</strong> across countries per year
 (switch to a weighted mean if needed).</p></li>
 </ul><p>The output <code>flextable</code> renders <code>year</code> as plain text (no thousands separator).</p>
