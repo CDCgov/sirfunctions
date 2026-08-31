@@ -40,16 +40,12 @@ export(generate_60_day_tab)
 export(generate_60_day_table_data)
 export(generate_ad_final_col)
 export(generate_adhoc_map)
-export(generate_prov_desk_review_outputs)
-export(generate_prov_desk_review_ppt)
-export(generate_prov_population_roads_map)
-export(generate_prov_population_roads_maps)
-export(generate_all_prov_desk_review_ppts)
 export(generate_afp_by_month_summary)
 export(generate_afp_case_map)
 export(generate_afp_ctry_year)
 export(generate_afp_epicurve)
 export(generate_afp_prov_year)
+export(generate_all_prov_desk_review_ppts)
 export(generate_c1_rollup)
 export(generate_c1_table)
 export(generate_c2_table)
@@ -78,7 +74,6 @@ export(generate_kpi_map)
 export(generate_kpi_npafp_bar)
 export(generate_kpi_npafp_map)
 export(generate_kpi_stool_map)
-
 export(generate_kpi_stoolad_bar)
 export(generate_kpi_tile)
 export(generate_kpi_violin)
@@ -94,6 +89,10 @@ export(generate_pop_map)
 export(generate_pop_tab)
 export(generate_pop_tab_ctry)
 export(generate_potentially_compatibles_cluster)
+export(generate_prov_desk_review_outputs)
+export(generate_prov_desk_review_ppt)
+export(generate_prov_population_roads_map)
+export(generate_prov_population_roads_maps)
 export(generate_prov_timeliness_graph)
 export(generate_sg_priority_map)
 export(generate_stool_ad_maps)
@@ -104,8 +103,6 @@ export(generate_surv_reg_tab)
 export(generate_timeliness_maps)
 export(generate_timely_det_violin)
 export(generate_timely_ship_violin)
-export(list_desk_review_prov)
-export(write_prov_desk_review_ppt)
 export(get_all_polio_data)
 export(get_azure_storage_connection)
 export(get_cdc_childvaxview_data)
@@ -138,110 +135,132 @@ export(update_polio_data)
 export(update_road_spatial_data)
 export(update_vacc_cov_data)
 export(upload_to_sharepoint)
+export(write_prov_desk_review_ppt)
 import(dplyr)
 import(ggplot2)
 import(lubridate)
 import(rlang)
-importFrom(AzureAuth,get_azure_token)
-importFrom(AzureAuth,list_azure_tokens)
-importFrom(AzureAuth,load_azure_token)
-importFrom(AzureStor,create_storage_dir)
-importFrom(AzureStor,delete_storage_file)
-importFrom(AzureStor,list_storage_files)
-importFrom(AzureStor,storage_container)
-importFrom(AzureStor,storage_dir_exists)
-importFrom(AzureStor,storage_download)
-importFrom(AzureStor,storage_endpoint)
-importFrom(AzureStor,storage_file_exists)
-importFrom(AzureStor,storage_load_rdata)
-importFrom(AzureStor,storage_load_rds)
-importFrom(AzureStor,storage_read_csv)
-importFrom(AzureStor,storage_save_rds)
-importFrom(AzureStor,storage_upload)
-importFrom(AzureStor,storage_write_csv)
-
-importFrom(cli,cli_abort)
-importFrom(cli,cli_alert)
-importFrom(cli,cli_alert_danger)
-importFrom(cli,cli_alert_info)
-importFrom(cli,cli_alert_success)
-importFrom(cli,cli_alert_warning)
-importFrom(cli,cli_h1)
-importFrom(cli,cli_process_done)
-importFrom(cli,cli_process_start)
-importFrom(cli,cli_progress_done)
-importFrom(cli,cli_progress_step)
+importFrom(AzureAuth,
+  get_azure_token,
+  list_azure_tokens,
+  load_azure_token
+)
+importFrom(AzureStor,
+  create_storage_dir,
+  delete_storage_file,
+  list_storage_files,
+  storage_container,
+  storage_dir_exists,
+  storage_download,
+  storage_endpoint,
+  storage_file_exists,
+  storage_load_rdata,
+  storage_load_rds,
+  storage_read_csv,
+  storage_save_rds,
+  storage_upload,
+  storage_write_csv
+)
+importFrom(cli,
+  cli_abort,
+  cli_alert,
+  cli_alert_danger,
+  cli_alert_info,
+  cli_alert_success,
+  cli_alert_warning,
+  cli_h1,
+  cli_process_done,
+  cli_process_start,
+  cli_progress_done,
+  cli_progress_step
+)
 importFrom(glue,glue)
 importFrom(grDevices,rgb)
-importFrom(httr,GET)
-importFrom(httr,content)
-importFrom(httr,status_code)
+importFrom(httr,
+  GET,
+  content,
+  status_code
+)
 importFrom(jsonlite,fromJSON)
-importFrom(lifecycle,badge)
-importFrom(lifecycle,deprecate_warn)
-importFrom(lifecycle,deprecated)
-importFrom(lifecycle,is_present)
+importFrom(lifecycle,
+  badge,
+  deprecate_warn,
+  deprecated,
+  is_present
+)
 importFrom(pins,board_azure)
 importFrom(purrr,map)
 importFrom(rappdirs,user_data_dir)
-importFrom(readr,read_csv)
-importFrom(readr,read_rds)
-importFrom(readr,write_csv)
-importFrom(readr,write_lines)
-importFrom(readr,write_rds)
-importFrom(scales,brewer_pal)
-importFrom(scales,comma)
-importFrom(scales,label_percent)
-importFrom(scales,number_format)
-importFrom(scales,percent)
-importFrom(sf,sf_use_s2)
-importFrom(sf,st_as_sf)
-importFrom(sf,st_as_sfc)
-importFrom(sf,st_bbox)
-importFrom(sf,st_centroid)
-importFrom(sf,st_coordinates)
-importFrom(sf,st_crop)
-importFrom(sf,st_crs)
-importFrom(sf,st_intersection)
-importFrom(sf,st_is_empty)
-importFrom(sf,st_make_valid)
-importFrom(sf,st_sample)
-importFrom(sf,st_touches)
-importFrom(sf,st_transform)
-importFrom(stats,end)
-importFrom(stats,runif)
-importFrom(stats,setNames)
-importFrom(stats,start)
-importFrom(stringr,regex)
-importFrom(stringr,str_c)
-importFrom(stringr,str_count)
-importFrom(stringr,str_detect)
-importFrom(stringr,str_ends)
-importFrom(stringr,str_extract)
-importFrom(stringr,str_replace)
-importFrom(stringr,str_replace_all)
-importFrom(stringr,str_split)
-importFrom(stringr,str_squish)
-importFrom(stringr,str_starts)
-importFrom(stringr,str_to_lower)
-importFrom(stringr,str_to_title)
-importFrom(stringr,str_to_upper)
-importFrom(stringr,str_trim)
-importFrom(tidyr,complete)
-importFrom(tidyr,drop_na)
-importFrom(tidyr,expand_grid)
-importFrom(tidyr,pivot_longer)
-importFrom(tidyr,pivot_wider)
-importFrom(tidyr,replace_na)
-importFrom(tidyr,separate)
-importFrom(tidyr,separate_wider_regex)
-importFrom(tidyr,unite)
-importFrom(tidyr,unnest)
-importFrom(utils,capture.output)
-importFrom(utils,download.file)
-importFrom(utils,globalVariables)
-
-importFrom(utils,head)
+importFrom(readr,
+  read_csv,
+  read_rds,
+  write_csv,
+  write_lines,
+  write_rds
+)
+importFrom(scales,
+  brewer_pal,
+  comma,
+  label_percent,
+  number_format,
+  percent
+)
+importFrom(sf,
+  sf_use_s2,
+  st_as_sf,
+  st_as_sfc,
+  st_bbox,
+  st_centroid,
+  st_coordinates,
+  st_crop,
+  st_crs,
+  st_intersection,
+  st_is_empty,
+  st_make_valid,
+  st_sample,
+  st_touches,
+  st_transform
+)
+importFrom(stats,
+  end,
+  runif,
+  setNames,
+  start
+)
+importFrom(stringr,
+  regex,
+  str_c,
+  str_count,
+  str_detect,
+  str_ends,
+  str_extract,
+  str_replace,
+  str_replace_all,
+  str_split,
+  str_squish,
+  str_starts,
+  str_to_lower,
+  str_to_title,
+  str_to_upper,
+  str_trim
+)
+importFrom(tidyr,
+  complete,
+  drop_na,
+  expand_grid,
+  pivot_longer,
+  pivot_wider,
+  replace_na,
+  separate,
+  separate_wider_regex,
+  unite,
+  unnest
+)
+importFrom(utils,
+  capture.output,
+  download.file,
+  globalVariables,
+  head
+)
 importFrom(withr,with_tempdir)
 importFrom(yaml,read_yaml)
-
