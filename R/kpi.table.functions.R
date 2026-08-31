@@ -135,7 +135,9 @@ generate_pos_timeliness <- function(raw_data, start_date, end_date,
       "virus.type",
       "collect.date", "date.notification.to.hq"
     ))) |>
-    dplyr::mutate(source = "ENV")
+    dplyr::mutate(source = "ENV") |>
+    dplyr::mutate(ADM0_NAME = stringr::str_replace(ADM0_NAME, "-", " "))
+
 
   pos <- dplyr::full_join(afp_data, es_data,
                           by = c(
@@ -172,8 +174,8 @@ generate_pos_timeliness <- function(raw_data, start_date, end_date,
       timely_cat =
         case_when(stringr::str_detect(.data$seq.capacity, "[Yy]es") & ontonothq <= 35 ~ "<=35 days from onset",
                   stringr::str_detect(.data$seq.capacity, "[Yy]es") & ontonothq > 35 ~ ">35 days from onset",
-                  seq.capacity == "no" & ontonothq <= 46 ~ "<=46 days from onset",
-                  seq.capacity == "no" & ontonothq > 46 ~ ">46 days from onset",
+                  (seq.capacity == "no" | is.na(seq.capacity)) & ontonothq <= 46 ~ "<=46 days from onset",
+                  (seq.capacity == "no" | is.na(seq.capacity)) & ontonothq > 46 ~ ">46 days from onset",
                   is.na(ontonothq) | ontonothq < 0 ~ "Missing or bad data",
                   .default = NA
         ),
@@ -221,8 +223,8 @@ generate_wild_vdpv_summary <- function(raw_data, start_date, end_date,
       timely_cat =
         case_when(stringr::str_detect(.data$seq.capacity, "[Yy]es") & ontonothq <= 35 ~ "<=35 days from onset",
                   stringr::str_detect(.data$seq.capacity, "[Yy]es") & ontonothq > 35 ~ ">35 days from onset",
-                  seq.capacity == "no" & ontonothq <= 46 ~ "<=46 days from onset",
-                  seq.capacity == "no" & ontonothq > 46 ~ ">46 days from onset",
+                  (seq.capacity == "no" | is.na(seq.capacity)) & ontonothq <= 46 ~ "<=46 days from onset",
+                  (seq.capacity == "no" | is.na(seq.capacity)) & ontonothq > 46 ~ ">46 days from onset",
                   is.na(ontonothq) | ontonothq < 0 ~ "Missing or bad data",
                   .default = "Missing or bad data"
         ),
@@ -1171,8 +1173,8 @@ generate_c2_table <- function(afp_data, pop_data, start_date, end_date,
       timely_cat =
         dplyr::case_when(seq.capacity == "yes" & ontonothq <= 35 ~ "<=35 days from onset",
           seq.capacity == "yes" & ontonothq > 35 ~ ">35 days from onset",
-          seq.capacity == "no" & ontonothq <= 46 ~ "<=46 days from onset",
-          seq.capacity == "no" & ontonothq > 46 ~ ">46 days from onset",
+          (seq.capacity == "no" | is.na(seq.capacity)) & ontonothq <= 46 ~ "<=46 days from onset",
+          (seq.capacity == "no" | is.na(seq.capacity)) & ontonothq > 46 ~ ">46 days from onset",
           is.na(ontonothq) | ontonothq < 0 ~ "Missing or bad data",
           .default = "Missing or bad data"
         ),
@@ -1233,8 +1235,8 @@ generate_c2_table <- function(afp_data, pop_data, start_date, end_date,
       timely_cat =
         dplyr::case_when(seq.capacity == "yes" & ontonothq <= 35 ~ "<=35 days from onset",
                          seq.capacity == "yes" & ontonothq > 35 ~ ">35 days from onset",
-                         seq.capacity == "no" & ontonothq <= 46 ~ "<=46 days from onset",
-                         seq.capacity == "no" & ontonothq > 46 ~ ">46 days from onset",
+                         (seq.capacity == "no" | is.na(seq.capacity)) & ontonothq <= 46 ~ "<=46 days from onset",
+                         (seq.capacity == "no" | is.na(seq.capacity)) & ontonothq > 46 ~ ">46 days from onset",
                          is.na(ontonothq) | ontonothq < 0 ~ "Missing or bad data",
                          .default = "Missing or bad data"
         )) |>

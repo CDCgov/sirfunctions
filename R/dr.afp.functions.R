@@ -215,6 +215,17 @@ add_zero_dose_col <- function(afp.data) {
         )] < 99),
       na.rm = T
     )) |>
+    dplyr::mutate(ipv.num.calc = rowSums(
+      afp.data[, c(
+        "doses.ipv.routine",
+        "doses.ipv.sia"
+      )] *
+        (afp.data[, c(
+          "doses.ipv.routine",
+          "doses.ipv.sia"
+        )] < 99),
+      na.rm = T
+    )) |>
     dplyr::mutate(
       dose.num.calc = dplyr::case_when(
         doses.opv.routine == 99 &
@@ -228,6 +239,15 @@ add_zero_dose_col <- function(afp.data) {
           is.na(doses.ipv.sia) &
           is.na(doses.ipv.number) ~ NA,
         T ~ dose.num.calc
+      )
+    ) |>
+    dplyr::mutate(
+      ipv.num.calc = dplyr::case_when(
+        doses.ipv.routine %in% c(99, 999) &
+          doses.ipv.sia %in% c(99, 999) ~ 999,
+        is.na(doses.ipv.routine) &
+          is.na(doses.ipv.sia) ~ NA,
+        T ~ ipv.num.calc
       )
     )
 
@@ -248,9 +268,69 @@ add_zero_dose_col <- function(afp.data) {
       "3",
       "1-2",
       "0"
+    ))) |>
+    dplyr::mutate(
+      opv_routine_cat = dplyr::case_when(
+        doses.opv.routine %in% c(99, 999) ~ "Unknown",
+        doses.opv.routine == 0 ~ "0",
+        doses.opv.routine == 1 ~ "1",
+        doses.opv.routine == 2 ~ "2",
+        doses.opv.routine == 3 ~ "3",
+        doses.opv.routine > 3 ~ "4+",
+        T ~ as.character(doses.opv.routine)
+      )
+    ) |>
+    dplyr::mutate(opv_routine_cat = factor(opv_routine_cat, levels = c(
+      "Unknown",
+      "4+",
+      "3",
+      "2",
+      "1",
+      "0"
+    ))) |>
+    dplyr::mutate(
+      opv_sia_cat = dplyr::case_when(
+        doses.opv.sia %in% c(99, 999) ~ "Unknown",
+        doses.opv.sia == 0 ~ "0",
+        doses.opv.sia == 1 ~ "1",
+        doses.opv.sia == 2 ~ "2",
+        doses.opv.sia == 3 ~ "3",
+        doses.opv.sia > 3 ~ "4+",
+        T ~ as.character(doses.opv.routine)
+      )
+    ) |>
+    dplyr::mutate(opv_sia_cat = factor(opv_sia_cat, levels = c(
+      "Unknown",
+      "4+",
+      "3",
+      "2",
+      "1",
+      "0"
+    ))) |>
+    dplyr::mutate(
+      ipv_cat = dplyr::case_when(
+        ipv.num.calc %in% c(99, 999) ~ "Unknown",
+        ipv.num.calc == 0 ~ "0",
+        ipv.num.calc == 1 ~"1",
+        ipv.num.calc == 2 ~ "2",
+        ipv.num.calc >= 3 ~ "3+",
+        T ~ as.character(ipv.num.calc)
+      )
+    ) |>
+    dplyr::mutate(ipv_cat = factor(ipv_cat, levels = c(
+      "Unknown",
+      "3+",
+      "2",
+      "1",
+      "0"
     )))
 
+
   afp.data$dose.cat <- forcats::fct_na_value_to_level(afp.data$dose.cat, "Missing")
+  afp.data$opv_routine_cat <- forcats::fct_na_value_to_level(afp.data$opv_routine_cat, "Missing")
+  afp.data$opv_sia_cat <- forcats::fct_na_value_to_level(afp.data$opv_sia_cat, "Missing")
+  afp.data$ipv_cat <- forcats::fct_na_value_to_level(afp.data$ipv_cat, "Missing")
+
   cli::cli_process_done()
   return(afp.data)
 }

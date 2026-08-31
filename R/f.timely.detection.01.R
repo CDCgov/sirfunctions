@@ -170,8 +170,8 @@ f.timely.detection.01 <- function(
           ),
         afpes.detection.49d =
           dplyr::case_when(
-            seq.capacity == "no" & median_days <= 49 ~ 1,
-            seq.capacity == "no" & median_days > 49 ~ 0
+            (seq.capacity == "no" | is.na(seq.capacity)) & median_days <= 49 ~ 1,
+            (seq.capacity == "no" | is.na(seq.capacity)) & median_days > 49 ~ 0
           )
       ) |>
       dplyr::mutate(
@@ -182,7 +182,7 @@ f.timely.detection.01 <- function(
     afpes.detect.04 <- afpes.detect.03 %>%
       dplyr::summarize(
         num.ctry.inseq = sum(seq.capacity == "yes"),
-        num.ctry.outseq = sum(seq.capacity == "no"),
+        num.ctry.outseq = sum((seq.capacity == "no" | is.na(seq.capacity))),
         num.afpes.detect.35d = sum(afpes.detection.35d == 1, na.rm = T),
         num.afpes.detect.49d = sum(afpes.detection.49d == 1, na.rm = T)
       ) %>%
@@ -222,8 +222,8 @@ f.timely.detection.01 <- function(
           ),
         afpes.detection.49d =
           dplyr::case_when(
-            seq.capacity == "no" & median_days <= 49 ~ 1,
-            seq.capacity == "no" & median_days > 49 ~ 0
+            (seq.capacity == "no" | is.na(seq.capacity)) & median_days <= 49 ~ 1,
+            (seq.capacity == "no" | is.na(seq.capacity)) & median_days > 49 ~ 0
           )
       )
 
@@ -231,7 +231,7 @@ f.timely.detection.01 <- function(
       dplyr::group_by(year) %>%
       dplyr::summarize(
         num.ctry.inseq = sum(seq.capacity == "yes"),
-        num.ctry.outseq = sum(seq.capacity == "no"),
+        num.ctry.outseq = sum((seq.capacity == "no" | is.na(seq.capacity))),
         num.afpes.detect.35d = sum(afpes.detection.35d == 1, na.rm = T),
         num.afpes.detect.49d = sum(afpes.detection.49d == 1, na.rm = T)
       ) %>%

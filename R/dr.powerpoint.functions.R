@@ -692,6 +692,27 @@ generate_dr_ppt2 <- function(ctry.data,
       location = officer::ph_location_type("title")
     ) %>%
     officer::ph_with(officer::external_img(file.path(fig.path, "case.num.dose.g.png")), location = officer::ph_location(top = 2, left = 1, height = 8, width = 9)) %>%
+    # Possible clusters of under-immunized NPAFP cases (table) (NOT DONE) ----
+    officer::add_slide(layout = "Title and Content", master = "1_Office Theme") %>%
+      officer::ph_with(
+        value = "Immunization Status Among NPAFP cases - Routine OPV Doses",
+        location = officer::ph_location_type("title")
+      ) %>%
+      officer::ph_with(officer::external_img(file.path(fig.path, "case.num.opv.routine.dose.g.png")), location = officer::ph_location(top = 2, left = 1, height = 8, width = 9)) %>%
+    # Possible clusters of under-immunized NPAFP cases (table) (NOT DONE) ----
+    officer::add_slide(layout = "Title and Content", master = "1_Office Theme") %>%
+      officer::ph_with(
+        value = "Immunization Status Among NPAFP cases - SIA OPV Doses",
+        location = officer::ph_location_type("title")
+      ) %>%
+      officer::ph_with(officer::external_img(file.path(fig.path, "case.num.opv.sia.dose.g.png")), location = officer::ph_location(top = 2, left = 1, height = 8, width = 9)) %>%
+    # Possible clusters of under-immunized NPAFP cases (table) (NOT DONE) ----
+    officer::add_slide(layout = "Title and Content", master = "1_Office Theme") %>%
+      officer::ph_with(
+        value = "Immunization Status Among NPAFP cases - IPV Doses",
+        location = officer::ph_location_type("title")
+      ) %>%
+      officer::ph_with(officer::external_img(file.path(fig.path, "case.num.ipv.dose.g.png")), location = officer::ph_location(top = 2, left = 1, height = 8, width = 9)) %>%
     # Key Points on AFP surveillance ----
     officer::add_slide(layout = "Title and Content", master = "1_Office Theme") %>%
     officer::ph_with(
