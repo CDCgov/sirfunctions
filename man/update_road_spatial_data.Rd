@@ -5,29 +5,42 @@
 \title{Update Roads Spatial data}
 \usage{
 update_road_spatial_data(
-  edav,
+  road_zip_file_path = NULL,
+  edav = TRUE,
   output_path = "GID/PEB/SIR/Data/spatial/roads.new.rds",
   resolution = 10
 )
 }
 \arguments{
+\item{road_zip_file_path}{\code{str} File path to the roads zip file. If \code{NULL}, uses the rnaturalearth package to download
+the roads data.}
+
 \item{edav}{\code{logical} \code{TRUE} or \code{FALSE} depending on if final save location is in Azure.}
 
 \item{output_path}{\code{str} Absolute file path location to save roads spatial data. Outputs in RDS by default,
 but also supports \code{.qs2} format.}
 
 \item{resolution}{\code{int} options are 110 (low resolution), 50 (medium resolution)
-and 10 (high resolution); default is 10}
+and 10 (high resolution); default is 10.}
 }
 \value{
 \code{NULL}, invisibly.
 }
 \description{
-Function to download latest roads data for mapping purposes
+Function to download latest roads data for mapping purposes.
+}
+\details{
+Sometimes rnaturalearth may not work to download the roads dataset. Therefore, you will need to download the data directly
+from Natural Earth. Go \href{https://www.naturalearthdata.com/downloads/10m-cultural-vectors/}{here} 10m resolution roads data.
 }
 \examples{
 \dontrun{
-update_road_spatial_data(edav = TRUE)
+# Default downloads from Natural Earth using rnaturalearth package
+update_road_spatial_data()
+
+# Pass the zip file directly to the function
+update_road_spatial_data("C:/Users/xrg9/Downloads/ne_10m_roads.zip")
+
 }
 
 }
