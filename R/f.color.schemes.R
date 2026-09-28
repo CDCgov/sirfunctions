@@ -327,7 +327,8 @@ f.color.schemes <- function(type) {
            "Sabin 3/VDPV2" = scales::brewer_pal(palette = "Set1")(9)[6],
            "Sabin 1 or Sabin 3" = scales::brewer_pal(palette = "Set1")(9)[6],
            "Sabin 1/3" = scales::brewer_pal(palette = "Set1")(9)[2],
-           "Sabin 1/3 and VDPV2" = scales::brewer_pal(palette = "Set1")(9)[5]
+           "Sabin 1/3 and VDPV2" = scales::brewer_pal(palette = "Set1")(9)[5],
+           "Sabin 1/3 and Sabin 2" = "#1B9E77"
          ),
          "vpd.critical.ctry" = c(
            "AFG" = "#a51d42",

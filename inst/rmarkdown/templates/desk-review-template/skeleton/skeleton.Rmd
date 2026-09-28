@@ -233,14 +233,16 @@ generate_dist_pop_map(ctry.data, ctry.shape, prov.shape, dist.shape, end_date)
 generate_afp_case_map(ctry.data$afp.all, ctry.shape, prov.shape, start_date)
 generate_afp_epicurve(ctry.data, start_date)
 generate_afp_prov_year(afp.by.month.prov, start_date, end_date)
+generate_case_sex_graph(ctry.data, start_date, end_date)
+generate_case_age_graph(ctry.data, start_date, end_date)
 generate_npafp_maps(prov.extract, ctry.shape, prov.shape, start_date, end_date, caption_size = 2.5)
 generate_npafp_maps_dist(dist.extract, ctry.shape, prov.shape, dist.shape, start_date, end_date, caption_size = 2.5)
 generate_stool_ad_maps(ctry.data, pstool, ctry.shape, prov.shape, start_date, end_date, caption_size = 2.5)
 generate_stool_ad_maps_dist(ctry.data, dstool, ctry.shape, prov.shape, dist.shape, start_date, end_date, caption_size = 2.5)
-generate_timeliness_maps(ctry.data, ctry.shape, prov.shape, start_date, end_date, mark_x = F)
+generate_timeliness_maps(ctry.data, ctry.shape, prov.shape, start_date, end_date, in_country_lab = TRUE, mark_x = F)
 generate_es_site_det(ctry.data$sia, ctry.data$es)
 generate_es_det_map(ctry.data$es, ctry.shape, prov.shape)
-generate_es_timely(ctry.data$es)
+generate_es_timely(ctry.data$es, in_country_lab = TRUE)
 generate_case_num_dose_g(ctry.data, start_date, end_date)
 generate_iss_barplot(ctry.data$iss.data, start_date, end_date)
 generate_iss_map(ctry.data$iss.data, ctry.shape, prov.shape, start_date, end_date)
@@ -255,7 +257,7 @@ surv.ind.tab <- generate_surv_ind_tab(ctry.data, ctry.extract, dist.extract, cst
 pop.tab <- generate_pop_tab(prov.extract, pstool, start_date, end_date) 
 inad.tab.flex <- generate_inad_tab(ctry.data$afp.all.2, cstool, start_date, end_date) 
 tab.60d <- generate_60_day_tab(cases.need60day)
-es.table <- generate_es_tab(ctry.data$es) 
+es.table <- generate_es_tab(ctry.data$es, in_country_lab = TRUE) 
 ```
 
 ## Excel outputs
@@ -396,7 +398,8 @@ default_detections <- c(
     "Sabin 3/VDPV2" = scales::brewer_pal(palette = "Set1")(9)[6],
     "Sabin 1 or Sabin 3" = scales::brewer_pal(palette = "Set1")(9)[6],
     "Sabin 1/3" = scales::brewer_pal(palette = "Set1")(9)[2],
-    "Sabin 1/3 and VDPV2"  = scales::brewer_pal(palette = "Set1")(9)[5]
+    "Sabin 1/3 and VDPV2"  = scales::brewer_pal(palette = "Set1")(9)[5],
+    "Sabin 1/3 and Sabin 2" = "#1B9E77"
   )
 ```
 

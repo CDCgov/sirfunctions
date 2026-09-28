@@ -108,8 +108,11 @@ generate_ctry_timeliness_graph <- function(int.data,
 #' @param output_path `str` Path where to output the figure.
 #' @param afp.prov.year.lab `tibble` `r lifecycle::badge("deprecated")`
 #' Deprecated since it is not used anymore.
+#' @param max_prov_per_plot `numeric` Maximum number of provinces to show in each
+#'   output figure. Defaults to 12, which is suitable for a PowerPoint slide.
 #'
-#' @returns `ggplot` Plot of timeliness intervals at the country level.
+#' @returns A `ggplot` when one figure is produced, or a list of `ggplot`s when
+#'   the provinces are split across multiple figures.
 #' @examples
 #' \dontrun{
 #' # Attaching lab data
@@ -125,7 +128,8 @@ generate_ctry_timeliness_graph <- function(int.data,
 #' @export
 generate_prov_timeliness_graph <- function(int.data,
                                            output_path = Sys.getenv("DR_FIGURE_PATH"),
-                                           afp.prov.year.lab = lifecycle::deprecated()) {
+                                           afp.prov.year.lab = lifecycle::deprecated(),
+                                           max_prov_per_plot = 12) {
   if (!requireNamespace("forcats", quietly = TRUE)) {
     stop(
       'Package "forcats" must be installed to use this function.',
@@ -144,60 +148,113 @@ generate_prov_timeliness_graph <- function(int.data,
   int.data <- int.data |>
     dplyr::filter(medi >= 0 | !is.na(medi))
 
+  if (!is.numeric(max_prov_per_plot) || length(max_prov_per_plot) != 1 ||
+      is.na(max_prov_per_plot) || max_prov_per_plot < 1) {
+    stop("max_prov_per_plot must be a positive number.", call. = FALSE)
+  }
+  max_prov_per_plot <- as.integer(max_prov_per_plot)
+
+  # Remove numbered outputs from an earlier run so stale slides are not picked
+  # up by generate_dr_ppt2().
+  old_prov_figures <- list.files(
+    output_path,
+    pattern = "^timely_prov_[0-9]+\\.png$",
+    full.names = TRUE
+  )
+  if (length(old_prov_figures) > 0) {
+    unlink(old_prov_figures)
+  }
+
   if (nrow(int.data) == 0) {
     return(output_empty_image(output_path, "timely_prov.png"))
   }
 
-  timely_prov <- ggplot2::ggplot(int.data |>
-    dplyr::filter(is.na(medi) == F &
-      is.na(prov) == F)) +
-    ggplot2::geom_bar(
-      ggplot2::aes(
-        x = as.character(labs),
-        y = medi,
-        fill = forcats::fct_rev(type)
-      ),
-      position = "stack",
-      stat = "identity"
-    ) +
-    ggplot2::geom_text(
-      ggplot2::aes(
-        x = labs,
-        y = medi,
-        label = medi,
-        group = forcats::fct_rev(type)
-      ),
-      size = 3,
-      position = ggplot2::position_stack(vjust = 0.5)
-    ) +
-    ggplot2::coord_flip() +
-    ggplot2::ylab("Median Days") +
-    ggplot2::xlab("Year of Paralysis Onset") +
-    ggplot2::scale_x_discrete() +
-    ggplot2::ylab("Days") +
-    ggplot2::xlab("Year") +
-    ggplot2::scale_fill_manual(
-      name = "Interval",
-      values = f.color.schemes("timeliness.col.vars"),
-      guide = ggplot2::guide_legend(reverse = TRUE),
-      drop = T
-    ) +
-    ggplot2::facet_grid(prov ~ ., scales = "free_y", space = "free", switch = "y", labeller = label_wrap_gen(8)) +
-    ggplot2::theme(
-      legend.position = "right",
-      legend.background = ggplot2::element_blank(),
-      strip.text.y = ggplot2::element_text(size = 7, angle = 0)
-    )
+  plot_data <- int.data |>
+    dplyr::filter(!is.na(medi), !is.na(prov)) |>
+    dplyr::distinct(prov) |>
+    dplyr::pull(prov)
 
-  ggplot2::ggsave(
-    "timely_prov.png",
-    plot = timely_prov,
-    path = output_path,
-    width = 14,
-    height = 10
+  if (length(plot_data) == 0) {
+    return(output_empty_image(output_path, "timely_prov.png"))
+  }
+
+  prov_groups <- split(
+    plot_data,
+    ceiling(seq_along(plot_data) / max_prov_per_plot)
   )
 
-  return(timely_prov)
+  plots <- lapply(seq_along(prov_groups), function(group_number) {
+    group_data <- int.data |>
+      dplyr::filter(!is.na(medi), !is.na(prov), prov %in% prov_groups[[group_number]])
+    plot_height <- max(10, length(prov_groups[[group_number]]) * 0.45)
+
+    timely_prov <- ggplot2::ggplot(group_data) +
+      ggplot2::geom_bar(
+        ggplot2::aes(
+          x = as.character(labs),
+          y = medi,
+          fill = forcats::fct_rev(type)
+        ),
+        position = "stack",
+        stat = "identity"
+      ) +
+      ggplot2::geom_text(
+        ggplot2::aes(
+          x = labs,
+          y = medi,
+          label = medi,
+          group = forcats::fct_rev(type)
+        ),
+        size = 3,
+        position = ggplot2::position_stack(vjust = 0.5)
+      ) +
+      ggplot2::coord_flip() +
+      ggplot2::ylab("Median Days") +
+      ggplot2::xlab("Year of Paralysis Onset") +
+      ggplot2::scale_x_discrete() +
+      ggplot2::ylab("Days") +
+      ggplot2::xlab("Year") +
+      ggplot2::scale_fill_manual(
+        name = "Interval",
+        values = f.color.schemes("timeliness.col.vars"),
+        guide = ggplot2::guide_legend(reverse = TRUE),
+        drop = TRUE
+      ) +
+      ggplot2::facet_grid(
+        prov ~ .,
+        scales = "free_y",
+        space = "free",
+        switch = "y",
+        labeller = ggplot2::label_wrap_gen(20)
+      ) +
+      ggplot2::theme(
+        legend.position = "right",
+        legend.background = ggplot2::element_blank(),
+        strip.text.y.left = ggplot2::element_text(
+          size = 8,
+          angle = 0,
+          lineheight = 0.9
+        )
+      )
+
+    filename <- if (length(prov_groups) == 1) {
+      "timely_prov.png"
+    } else {
+      paste0("timely_prov_", group_number, ".png")
+    }
+
+    ggplot2::ggsave(
+      filename,
+      plot = timely_prov,
+      path = output_path,
+      width = 14,
+      height = plot_height
+    )
+
+    timely_prov
+  })
+
+  if (length(plots) == 1) plots[[1]] else plots
 }
 
 
@@ -713,6 +770,9 @@ generate_es_site_det <- function(sia.data,
 #' @param es.data `tibble` ES data.
 #' @param es_start_date `str` Start date of analysis. By default, this is one year from the end date.
 #' @param es_end_date `str` End date of analysis.
+#' @param in_country_lab `logical` Whether samples are transported within the
+#' country. Defaults to `TRUE`, using a 3-day threshold. Set to `FALSE` for
+#' international transport, using a 7-day threshold.
 #' @param output_path `str` Local path for where to save the figure to.
 #' @param add_legend `logical` Whether to add or remove a legend in the figure.
 #' @param .color `str` What column to use as color. Defaults to `site.name`.
@@ -728,11 +788,13 @@ generate_es_site_det <- function(sia.data,
 generate_es_timely <- function(es.data,
                                es_start_date = (lubridate::as_date(es_end_date) - lubridate::years(1)),
                                es_end_date = end_date,
+                               in_country_lab = TRUE,
                                output_path = Sys.getenv("DR_FIGURE_PATH"),
                                add_legend = TRUE,
                                .color = "site.name") {
   es_start_date <- lubridate::as_date(es_start_date)
   es_end_date <- lubridate::as_date(es_end_date)
+  timely_threshold <- if (in_country_lab) 3 else 7
 
   es.data <- es.data |>
     dplyr::filter(dplyr::between(collect.date, es_start_date, es_end_date))
@@ -749,8 +811,8 @@ generate_es_timely <- function(es.data,
     )
 
   per.time <- es.data %>%
-    dplyr::count(timely > 3) %>%
-    dplyr::rename(c("timely" = "timely > 3", "n" = "n"))
+    dplyr::count(timely > timely_threshold) %>%
+    dplyr::rename(c("timely" = "timely > timely_threshold", "n" = "n"))
   # The number that are false are the percentage timely
 
   per.timely.title <- paste0(
@@ -758,7 +820,8 @@ generate_es_timely <- function(es.data,
       100 * dplyr::filter(per.time, timely == FALSE)["n"] / sum(per.time$n),
       0
     ),
-    "% of samples arrived in lab within 3 days of collection - \n",
+    "% of samples arrived in lab within ", timely_threshold,
+    " days of collection - \n",
     format(es_start_date, "%B %Y"),
     " - ",
     format(es_end_date, "%B %Y")
@@ -779,7 +842,7 @@ generate_es_timely <- function(es.data,
   # Excludes those with bad data (e.g. negative timeliness)
   es.timely <- ggplot2::ggplot() +
     ggplot2::geom_hline(
-      yintercept = 3,
+      yintercept = timely_threshold,
       color = "dark gray",
       linetype = "dashed",
       lwd = 1
@@ -819,6 +882,242 @@ generate_es_timely <- function(es.data,
     height = 8
   )
   return(es.timely)
+}
+
+#' Case sex distribution per year
+#'
+#' Generates a stacked percentage bar plot displaying case sex by year. The
+#' denominator includes NPAFP, pending classification, and lab-pending cases.
+#'
+#' @param ctry.data `list` A large list containing polio data of country.
+#' This is the output of [extract_country_data()] or [init_dr()].
+#' @param start_date `str` Start date of analysis.
+#' @param end_date `str` End date of analysis.
+#' @param output_path `str` Local path of where to save the figure to.
+#'
+#' @returns `ggplot` A stacked percentage bar plot displaying case sex by year.
+#'
+#' @export
+generate_case_sex_graph <- function(ctry.data,
+                                start_date,
+                                end_date,
+                                output_path = Sys.getenv("DR_FIGURE_PATH")) {
+  start_date <- lubridate::as_date(start_date)
+  end_date <- lubridate::as_date(end_date)
+
+  sex_data <- ctry.data$afp.all.2 |>
+    dplyr::filter(
+      dplyr::between(date, start_date, end_date),
+      cdc.classification.all2 %in% c("NPAFP", "PENDING", "LAB PENDING")
+    ) |>
+    dplyr::mutate(
+      year = lubridate::year(date),
+      sex = dplyr::if_else(is.na(sex) | sex == "", "Unknown", as.character(sex))
+    ) |>
+    dplyr::count(year, sex, name = "count") |>
+    dplyr::group_by(year) |>
+    dplyr::mutate(
+      total_count = sum(count),
+      percentage = count / total_count * 100
+    ) |>
+    dplyr::ungroup()
+
+  if (nrow(sex_data) == 0) {
+    return(output_empty_image(output_path, "case.sex.g.png"))
+  }
+
+  sex_data$sex <- factor(
+    sex_data$sex,
+    levels = c("Male", "Female", "Unknown", setdiff(unique(sex_data$sex), c("Male", "Female", "Unknown")))
+  )
+
+  total_data <- sex_data |>
+    dplyr::distinct(year, total_count)
+
+  case_sex <- ggplot2::ggplot(
+    sex_data,
+    ggplot2::aes(x = factor(year), y = percentage, fill = sex)
+  ) +
+    ggplot2::geom_col() +
+    ggplot2::geom_text(
+      data = total_data,
+      ggplot2::aes(
+        x = factor(year),
+        y = 100,
+        label = paste0("n = ", total_count)
+      ),
+      vjust = -0.5,
+      color = "black",
+      size = 3,
+      inherit.aes = FALSE
+    ) +
+    ggplot2::scale_fill_manual(
+      values = c(
+        "Male" = "#003f5a",
+        "Female" = "#de6600",
+        "Unknown" = "lightgrey"
+      ),
+      drop = FALSE
+    ) +
+    ggplot2::scale_y_continuous(
+      limits = c(0, 110),
+      breaks = seq(0, 100, by = 20),
+      labels = function(x) paste0(x, "%"),
+      expand = c(0, 0)
+    ) +
+    ggplot2::labs(
+      title = "AFP Case Sex Distribution by Year",
+      subtitle = "Includes NPAFP, pending classification, and lab-pending cases",
+      x = NULL,
+      y = "Percentage",
+      fill = "Sex"
+    ) +
+    ggplot2::theme_classic() +
+    ggplot2::theme(
+      legend.position = "top",
+      legend.direction = "horizontal",
+      legend.box = "horizontal",
+      legend.title = ggplot2::element_text(face = "bold"),
+      legend.text = ggplot2::element_text(size = 10),
+      axis.text.x = ggplot2::element_text(angle = 0, hjust = 0.5)
+    )
+
+  ggplot2::ggsave(
+    "case.sex.g.png",
+    plot = case_sex,
+    path = output_path,
+    width = 14,
+    height = 8
+  )
+
+  case_sex
+}
+
+#' NPAFP case age distribution per year
+#'
+#' Generates a stacked percentage bar plot displaying age groups by year. The
+#' denominator includes NPAFP, pending classification, and lab-pending cases.
+#'
+#' @param ctry.data `list` A large list containing polio data of country.
+#' This is the output of [extract_country_data()] or [init_dr()].
+#' @param start_date `str` Start date of analysis.
+#' @param end_date `str` End date of analysis.
+#' @param output_path `str` Local path of where to save the figure to.
+#'
+#' @returns `ggplot` A stacked percentage bar plot displaying case age by year.
+#'
+#' @export
+generate_case_age_graph <- function(ctry.data,
+                                start_date,
+                                end_date,
+                                output_path = Sys.getenv("DR_FIGURE_PATH")) {
+  start_date <- lubridate::as_date(start_date)
+  end_date <- lubridate::as_date(end_date)
+
+  age_data <- ctry.data$afp.all.2 |>
+    dplyr::filter(
+      dplyr::between(date, start_date, end_date),
+      cdc.classification.all2 %in% c("NPAFP", "PENDING", "LAB PENDING")
+    ) |>
+    dplyr::mutate(
+      year = lubridate::year(date),
+      age_months = suppressWarnings(as.numeric(age.months)),
+      age_group = dplyr::case_when(
+        is.na(age_months) | age_months < 0 ~ "Missing",
+        age_months < 6 ~ "0-5 months",
+        age_months < 24 ~ "6-23 months",
+        age_months < 60 ~ "24-59 months",
+        age_months < 120 ~ "60-119 months",
+        age_months < 180 ~ "120-179 months",
+        TRUE ~ "180+ months"
+      )
+    ) |>
+    dplyr::count(year, age_group, name = "count") |>
+    dplyr::group_by(year) |>
+    dplyr::mutate(
+      total_count = sum(count),
+      percentage = count / total_count * 100
+    ) |>
+    dplyr::ungroup()
+
+  if (nrow(age_data) == 0) {
+    return(output_empty_image(output_path, "case.age.g.png"))
+  }
+
+  age_levels <- c(
+    "Missing",
+    "0-5 months",
+    "6-23 months",
+    "24-59 months",
+    "60-119 months",
+    "120-179 months",
+    "180+ months"
+  )
+  age_data$age_group <- factor(age_data$age_group, levels = age_levels)
+
+  total_data <- age_data |>
+    dplyr::distinct(year, total_count)
+
+  age_palette <- c(
+    "Missing" = "#bdbdbd",
+    "0-5 months" = "#003f5a",
+    "6-23 months" = "#2f7f9f",
+    "24-59 months" = "#66a61e",
+    "60-119 months" = "#e6ab02",
+    "120-179 months" = "#e66101",
+    "180+ months" = "#b2182b"
+  )
+
+  case_age <- ggplot2::ggplot(
+    age_data,
+    ggplot2::aes(x = factor(year), y = percentage, fill = age_group)
+  ) +
+    ggplot2::geom_col(position = ggplot2::position_stack(reverse = TRUE)) +
+    ggplot2::geom_text(
+      data = total_data,
+      ggplot2::aes(
+        x = factor(year),
+        y = 100,
+        label = paste0("n = ", total_count)
+      ),
+      vjust = -0.5,
+      color = "black",
+      size = 3,
+      inherit.aes = FALSE
+    ) +
+    ggplot2::scale_fill_manual(values = age_palette, drop = FALSE) +
+    ggplot2::scale_y_continuous(
+      limits = c(0, 110),
+      breaks = seq(0, 100, by = 20),
+      labels = function(x) paste0(x, "%"),
+      expand = c(0, 0)
+    ) +
+    ggplot2::labs(
+      title = "NPAFP Case Age Distribution by Year",
+      subtitle = "Includes NPAFP, pending classification, and lab-pending cases",
+      x = NULL,
+      y = "Percentage",
+      fill = "Age group"
+    ) +
+    ggplot2::theme_classic() +
+    ggplot2::theme(
+      legend.position = "top",
+      legend.direction = "horizontal",
+      legend.box = "horizontal",
+      legend.title = ggplot2::element_text(face = "bold"),
+      legend.text = ggplot2::element_text(size = 10),
+      axis.text.x = ggplot2::element_text(angle = 0, hjust = 0.5)
+    )
+
+  ggplot2::ggsave(
+    "case.age.g.png",
+    plot = case_age,
+    path = output_path,
+    width = 14,
+    height = 8
+  )
+
+  case_age
 }
 
 #' Immunization case status per year
@@ -2980,6 +3279,9 @@ generate_stool_ad_maps_dist <- function(ctry.data,
 #' @param start_date `str` Start date of analysis.
 #' @param end_date `str` End date of analysis.
 #' @param mark_x `logical` Mark where there are less than 5 AFP cases? Defaults to `TRUE`.
+#' @param in_country_lab `logical` Whether stool transport is within the country.
+#' Defaults to `TRUE`, using a 3-day threshold. Set to `FALSE` for international
+#' transport, using a 7-day threshold.
 #' @param pt_size `numeric` Size of the marks.
 #' @param output_path `str` Local path where to save the figure to.
 #'
@@ -3000,6 +3302,7 @@ generate_timeliness_maps <- function(ctry.data,
                                      start_date,
                                      end_date,
                                      mark_x = T,
+                                     in_country_lab = TRUE,
                                      pt_size = 4,
                                      output_path = Sys.getenv("DR_FIGURE_PATH")) {
   if (!requireNamespace("forcats", quietly = TRUE)) {
@@ -3034,6 +3337,8 @@ generate_timeliness_maps <- function(ctry.data,
     cli::cli_abort(error_message)
   }
 
+  ship_threshold <- if (in_country_lab) 3 else 7
+
   ctry.shape <- ctry.shape |>
     dplyr::filter(dplyr::between(
       active.year.01,
@@ -3050,6 +3355,14 @@ generate_timeliness_maps <- function(ctry.data,
     dplyr::mutate(year = active.year.01)
 
   long.timely <- ctry.data$afp.all.2 %>%
+    dplyr::mutate(
+      ship.3d.coll = dplyr::case_when(
+        !is.na(stool.date.sent.to.lab) & !is.na(datestool2) &
+          as.numeric(difftime(stool.date.sent.to.lab, datestool2, units = "days")) <= ship_threshold ~ TRUE,
+        !is.na(stool.date.sent.to.lab) & !is.na(datestool2) ~ FALSE,
+        TRUE ~ NA
+      )
+    ) |>
     dplyr::select(
       "epid",
       "noti.7d.on",
@@ -3351,7 +3664,11 @@ generate_timeliness_maps <- function(ctry.data,
       values = f.color.schemes("mapval"),
       drop = T
     ) +
-    ggplot2::ggtitle("Proportion of stools arriving at the lab within 3 days of collection") +
+    ggplot2::ggtitle(paste0(
+      "Proportion of stools arriving at the lab within ",
+      ship_threshold,
+      " days of collection"
+    )) +
     sirfunctions::f.plot.looks("epicurve")
 
 
@@ -4627,6 +4944,9 @@ generate_60_day_tab <- function(cases.need60day) {
 #' [clean_ctry_data()] first. Otherwise, there will be an error.
 #' @param es_start_date `str` Start date of analysis. Defaults to a year before the end date.
 #' @param es_end_date `str` End date of analysis.
+#' @param in_country_lab `logical` Whether samples are transported within the
+#' country. Defaults to `TRUE`, using a 3-day threshold. Set to `FALSE` for
+#' international transport, using a 7-day threshold.
 #'
 #' @returns `flextable` Summary table of ES surveillance site performance.
 #' @examples
@@ -4639,7 +4959,8 @@ generate_60_day_tab <- function(cases.need60day) {
 #' @export
 generate_es_tab <- function(es.data,
                             es_start_date = (lubridate::as_date(es_end_date) - lubridate::years(1)),
-                            es_end_date = end_date) {
+                            es_end_date = end_date,
+                            in_country_lab = TRUE) {
 
   if (!requireNamespace("flextable", quietly = TRUE)) {
     stop('Package "flextable" must be installed to use this function.',
@@ -4649,6 +4970,7 @@ generate_es_tab <- function(es.data,
 
   es_start_date <- lubridate::as_date(es_start_date)
   es_end_date <- lubridate::as_date(es_end_date)
+  timely_threshold <- if (in_country_lab) 3 else 7
 
   es.data <- es.data |>
     dplyr::filter(dplyr::between(collect.date, es_start_date, es_end_date))
@@ -4656,7 +4978,8 @@ generate_es_tab <- function(es.data,
   # Big table that needs calculating
   # Cols = province, district, site name, earliest sample collected in POLIS,
   # n samples collected (earliest to analysis date), % EV detected, % good condition
-  # % arrived within 3 days, days from collection to lab arrival (median + range),
+  # % arrived within the timely threshold, days from collection to lab arrival
+  # (median + range),
   # WPV/VDPV
 
   # ev.pct = ev percent
@@ -4708,7 +5031,7 @@ generate_es_tab <- function(es.data,
       # no of bad specimens excluded
       condition.pct = 100 * sum(sample.condition == "Good", na.rm = T) / dplyr::n(),
       # specimens in good condition
-      trans.pct = round(100 * sum(as.numeric(timely) <= 3, na.rm = TRUE) / dplyr::n(), 0),
+      trans.pct = round(100 * sum(as.numeric(timely) <= timely_threshold, na.rm = TRUE) / dplyr::n(), 0),
       # % timely
       med.trans = paste0(
         median(as.numeric(timely), na.rm = T),
@@ -4784,7 +5107,7 @@ generate_es_tab <- function(es.data,
       num.spec.bad = "Excluded samples with bad data (negative or N/A time intervals)",
       ev.pct = "% detected EV",
       condition.pct = "% good condition",
-      trans.pct = "% arriving within 3 days",
+      trans.pct = paste0("% arriving within ", timely_threshold, " days"),
       med.trans = "Median lab transport time (d)",
       num.wpv.or.vdpv = "No. VDPV or WPV"
     ) |>
