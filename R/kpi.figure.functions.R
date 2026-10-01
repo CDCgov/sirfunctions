@@ -792,7 +792,8 @@ generate_timely_det_violin <- function(raw_data,
     dplyr::mutate(whoregion = get_region(place.admin.0)) |>
     # Remove other who region columns because it's confusing
     dplyr::select(-dplyr::any_of(c("who.region", "Region"))) |>
-    dplyr::filter(.data$`SG Priority Level` %in% priority_level,
+    dplyr::filter(.data$is_target == TRUE,
+                  .data$`SG Priority Level` %in% priority_level,
                   .data$whoregion %in% who_region) |>
     dplyr::left_join(ctry_abbrev,
                      by = c("place.admin.0", "whoregion")) |>

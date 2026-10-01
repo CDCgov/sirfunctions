@@ -84,7 +84,7 @@ After cleaning, you can use the `get_lab_date_col_missingness()` function to che
 ## Analysis
 
 ### Start and end dates
-Before creating the table, set the start and end dates. The analyses are on rolling 12 months. It is important to set the end date day to be one day before the start date. For example, if the start date is 1/**1**/2023, then end date must be **12/31**/2025. For start dates in March, please pay attention to whether the end date is on a leap year. For example (for a rolling 2 year period), 3/1/2022 will have an end date of 2/29/2024 since 2024 is a leap year but 3/1/23 will have an end date of 2/28/2025.
+The KPI template uses an inclusive rolling 2-year window. Edit only `end_date`; the template calculates `start_date` as two years before the end date plus one day. For example, an end date of `2026-07-31` produces a start date of `2024-08-01`. The date arithmetic also handles leap years.
 
 ### Creating the C1-C4 tables
 For CDC employees, you may run lines 32-38 as-is. However, for non-CDC employees, the `generate_c1-c3_table()` functions require passing the two parameters: `risk_table` and `lab_locs`. Please pass the variables loaded from the [Loading the lab information and country prioritization csv files](#load-lab) section.
