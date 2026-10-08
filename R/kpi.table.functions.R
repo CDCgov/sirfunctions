@@ -902,13 +902,13 @@ generate_c1_table <- function(raw_data, start_date, end_date,
   return(combine)
 }
 
-#' Generate C1 rollup for high-priority countries
+#' Generate C1 rollup by priority level and WHO region
 #'
 #' @description
 #' `r lifecycle::badge("experimental")`
 #'
-#' Generates a summary of how many of the high priority countries have met their
-#' AFP and ES indicators.
+#' Generates a summary of how many countries in each selected priority level and
+#' WHO region have met their AFP and ES indicators.
 #'
 #' @param c1 `tibble` The output of [generate_c1_table()].
 #' @param priority_level `str or list` Priority level. Defaults to `"HIGH"`. Valid
@@ -942,39 +942,110 @@ generate_c1_rollup <- function(c1,
                                ev_target = 80,
                                timely_wpv_vdpv_target = 80) {
 
+  c1_all <- c1
+
+  if (!is.null(who_region)) {
+    c1_all <- c1_all |>
+      dplyr::filter(Region %in% who_region)
+    c1 <- c1 |>
+      dplyr::filter(Region %in% who_region)
+  }
 
   if (!is.null(priority_level)) {
     c1 <- c1 |>
       dplyr::filter(`SG Priority Level` %in% priority_level)
   }
 
-  if (!is.null(who_region)) {
-    c1 <- c1 |>
-      dplyr::filter(Region %in% who_region)
+  region_rollup_regions <- c("AFRO", "EMRO", "SEARO", "WPRO")
+  wpro_rollup_countries <- c(
+    "CAMBODIA", "INDONESIA", "JAPAN", "MALAYSIA",
+    "PAPUA NEW GUINEA", "PHILIPPINES", "VIET NAM", "VIETNAM"
+  )
+
+  is_region_rollup_country <- function(region, country) {
+    region %in% c("AFRO", "EMRO", "SEARO") |
+      (region == "WPRO" & country %in% wpro_rollup_countries)
   }
 
-  c1_rollup <- c1 |>
-    dplyr::filter(`SG Priority Level` %in% priority_level) |>
-    dplyr::group_by(dplyr::across(dplyr::all_of(.group_by))) |>
-    dplyr::summarize(
-      met_npafp = sum(prop_met_npafp >= npafp_target, na.rm = TRUE),
-      npafp_denom = sum(!is.na(prop_met_npafp)),
-      stool_denom = sum(!is.na(prop_met_stool)),
-      ev_denom = sum(!is.na(prop_met_ev)),
-      det_denom = sum(!is.na(prop_timely_wild_vdpv)),
-      met_stool = sum(prop_met_stool >= stool_target, na.rm = TRUE),
-      met_ev = sum(prop_met_ev >= ev_target, na.rm = TRUE),
-      met_timely_wild_vdpv = sum(prop_timely_wild_vdpv >= timely_wpv_vdpv_target, na.rm = TRUE),
-      prop_met_npafp = met_npafp / npafp_denom * 100,
-      prop_met_stool = met_stool / stool_denom * 100,
-      prop_met_ev = met_ev / ev_denom * 100,
-      prop_met_timely_wild_vdpv = met_timely_wild_vdpv / det_denom * 100,
-      met_npafp_label = paste0(met_npafp, "/",npafp_denom),
-      met_stool_label = paste0(met_stool, "/", stool_denom),
-      met_ev_label = paste0(met_ev, "/", ev_denom),
-      met_timely_wild_vdpv_label = paste0(met_timely_wild_vdpv, "/", det_denom)
-    ) |>
-    dplyr::ungroup()
+  region_c1 <- c1_all |>
+    dplyr::filter(
+      Region %in% region_rollup_regions,
+      is_region_rollup_country(Region, stringr::str_to_upper(stringr::str_trim(ctry)))
+    )
+
+  summarize_rollup <- function(data, group_by, risk_group_label = NULL,
+                               region_label = NULL, summary_order) {
+    excluded_countries <- function(country, metric) {
+      countries <- sort(unique(country[metric %in% TRUE]))
+      countries <- countries[!is.na(countries)]
+      if (length(countries) == 0) "None" else paste(countries, collapse = ", ")
+    }
+
+    data <- data |>
+      dplyr::mutate(
+        .npafp_excluded = is.na(prop_met_npafp),
+        .stool_excluded = is.na(prop_met_stool),
+        .ev_excluded = is.na(prop_met_ev),
+        .timely_wpv_vdpv_excluded = is.na(prop_timely_wild_vdpv)
+      )
+
+    result <- data |>
+      dplyr::group_by(dplyr::across(dplyr::all_of(group_by))) |>
+      dplyr::summarize(
+        met_npafp = sum(prop_met_npafp >= npafp_target, na.rm = TRUE),
+        npafp_denom = sum(!is.na(prop_met_npafp)),
+        stool_denom = sum(!is.na(prop_met_stool)),
+        ev_denom = sum(!is.na(prop_met_ev)),
+        det_denom = sum(!is.na(prop_timely_wild_vdpv)),
+        met_stool = sum(prop_met_stool >= stool_target, na.rm = TRUE),
+        met_ev = sum(prop_met_ev >= ev_target, na.rm = TRUE),
+        met_timely_wild_vdpv = sum(prop_timely_wild_vdpv >= timely_wpv_vdpv_target, na.rm = TRUE),
+        prop_met_npafp = met_npafp / npafp_denom * 100,
+        prop_met_stool = met_stool / stool_denom * 100,
+        prop_met_ev = met_ev / ev_denom * 100,
+        prop_met_timely_wild_vdpv = met_timely_wild_vdpv / det_denom * 100,
+        met_npafp_label = paste0(met_npafp, "/", npafp_denom),
+        met_stool_label = paste0(met_stool, "/", stool_denom),
+        met_ev_label = paste0(met_ev, "/", ev_denom),
+        met_timely_wild_vdpv_label = paste0(met_timely_wild_vdpv, "/", det_denom),
+        npafp_excluded = excluded_countries(ctry, .npafp_excluded),
+        stool_excluded = excluded_countries(ctry, .stool_excluded),
+        ev_excluded = excluded_countries(ctry, .ev_excluded),
+        timely_wpv_vdpv_excluded = excluded_countries(ctry, .timely_wpv_vdpv_excluded),
+        .groups = "drop"
+      )
+
+    if (!is.null(risk_group_label)) {
+      result <- result |>
+        dplyr::mutate(`SG Priority Level` = risk_group_label)
+    }
+
+    if (!is.null(region_label)) {
+      result <- result |>
+        dplyr::mutate(Region = region_label)
+    }
+
+    result |>
+      dplyr::mutate(summary_order = summary_order)
+  }
+
+  risk_rollup <- summarize_rollup(
+    c1,
+    unique(c(.group_by, "SG Priority Level")),
+    region_label = "All Regions",
+    summary_order = 1
+  )
+
+  region_rollup <- summarize_rollup(
+    region_c1,
+    unique(c(.group_by, "Region")),
+    risk_group_label = "All Risk Groups",
+    summary_order = 2
+  )
+
+  c1_rollup <- dplyr::bind_rows(risk_rollup, region_rollup) |>
+    dplyr::select(dplyr::all_of(.group_by), `SG Priority Level`, Region,
+                  dplyr::everything())
 
   return(c1_rollup)
 }
@@ -1778,9 +1849,9 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
         dplyr::rename_with(\(x) stringr::str_to_lower(x)) |>
         dplyr::rename_with(\(x) stringr::str_replace_all(x, "[\\. ]", "_")) |>
         dplyr::mutate(dplyr::across(
-          (dplyr::starts_with("prop") |
-             dplyr::starts_with("timely") | dplyr::starts_with("median")) &
-            -dplyr::ends_with("label"),
+          dplyr::where(is.numeric) &
+            (dplyr::starts_with("prop") |
+             dplyr::starts_with("timely") | dplyr::starts_with("median")),
           \(x) round(x, 0)
         ))
       return(x)
@@ -1812,7 +1883,8 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
                                       ev_target = 90,
                                       timely_wpv_vdpv_target = 90)
     } else {
-      c1_rollup <- generate_c1_rollup(c1)
+      c1_rollup <- generate_c1_rollup(c1,
+                                      priority_level = c("LOW (WATCHLIST)", "MEDIUM", "HIGH"))
     }
   } else {
     c1_rollup <- NULL
@@ -1878,7 +1950,7 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
       dplyr::rename_with(recode,
                        rolling_period = "Rolling 12 Months",
                        region = "WHO Region",
-                       sg_priority_level = "GPSAP Risk Category",
+                       sg_priority_level = "Risk Group",
                        ctry = "Country",
                        prop_met_npafp = "Non-polio AFP rate \u2013 subnational, %",
                        prop_met_stool = "Stool adequacy \u2013 subnational, %",
@@ -1888,7 +1960,7 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
                       )
   }
 
-  # c1 high risk formatting
+  # c1 priority-level summary formatting
   if (!is.null(c1_rollup)) {
     export_list$`c1 - high risk summary` <- export_list$`c1 - high risk summary` %>%
       {
@@ -1904,15 +1976,28 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
           .
         }
       } |>
-      dplyr::arrange(dplyr::desc(rolling_period)) |>
+      dplyr::mutate(
+        group = dplyr::if_else(
+          sg_priority_level == "All Risk Groups", region, sg_priority_level
+        )
+      ) |>
+      dplyr::select(group, rolling_period, dplyr::everything()) |>
+      dplyr::arrange(summary_order, dplyr::desc(rolling_period)) |>
       dplyr::rename_with(recode,
                          rolling_period = "Rolling 12 Months",
+                         group = "Group",
                          prop_met_npafp = "Non-polio AFP rate \u2013 subnational, %",
                          prop_met_stool = "Stool adequacy \u2013 subnational, %",
                          prop_met_ev = "ES EV detection rate \u2013 national, %",
-                         prop_met_timely_wild_vdpv = "Timeliness of detection for WPV/VDPV, %"
+                         prop_met_timely_wild_vdpv = "Timeliness of detection for WPV/VDPV, %",
+                         npafp_excluded = "NPAFP  -Excluded Countries",
+                         stool_excluded = "SA -Excluded Countries",
+                         ev_excluded = "ESEV Detection -  Excluded Countries",
+                         timely_wpv_vdpv_excluded = "WPV/VDPV Timeliness -Excluded Countries"
       ) |>
-      dplyr::select(-dplyr::starts_with("met"), -dplyr::ends_with("denom"))
+      dplyr::select(-summary_order, -sg_priority_level, -region,
+                    -dplyr::starts_with("met"),
+                    -dplyr::ends_with("denom"))
   }
 
   # c2 formatting
@@ -1937,7 +2022,7 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
       dplyr::rename_with(recode,
                          rolling_period = "Rolling 12 Months",
                          region = "WHO Region",
-                         sg_priority_level = "GPSAP Risk Category",
+                         sg_priority_level = "Risk Group",
                          ctry = "Country",
                          prov = "Province",
                          dist = "District",
@@ -1994,7 +2079,7 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
       dplyr::rename_with(recode,
                          rolling_period = "Rolling 12 Months",
                          region = "WHO Region",
-                         sg_priority_level = "GPSAP Risk Category",
+                         sg_priority_level = "Risk Group",
                          ctry = "Country",
                          prov = "Province",
                          dist = "District",
