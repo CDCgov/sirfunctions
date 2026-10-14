@@ -911,7 +911,8 @@ generate_c1_table <- function(raw_data, start_date, end_date,
 #' WHO region have met their AFP and ES indicators.
 #'
 #' @param c1 `tibble` The output of [generate_c1_table()].
-#' @param priority_level `str or list` Priority level. Defaults to `"HIGH"`. Valid
+#' @param priority_level `str or list` Priority level. Defaults to
+#' `c("LOW (WATCHLIST)", "MEDIUM", "HIGH")`. Valid
 #' values are `"LOW", "LOW (WATCHLIST)", "MEDIUM", "HIGH"`
 #' @param who_region `str` WHO region to summarize the data to.
 #' @param .group_by `str` How the rollup should be grouped. Defaults to the column `"rolling_period"`.
@@ -934,7 +935,7 @@ generate_c1_table <- function(raw_data, start_date, end_date,
 #' c1_rollup <- generate_c1_rollup(c1)
 #' }
 generate_c1_rollup <- function(c1,
-                               priority_level = "HIGH",
+                               priority_level = c("LOW (WATCHLIST)", "MEDIUM", "HIGH"),
                                who_region = NULL,
                                .group_by = "rolling_period",
                                npafp_target = 80,
@@ -974,7 +975,7 @@ generate_c1_rollup <- function(c1,
     )
 
   summarize_rollup <- function(data, group_by, risk_group_label = NULL,
-                               region_label = NULL, summary_order) {
+                               region_label = NULL) {
     excluded_countries <- function(country, metric) {
       countries <- sort(unique(country[metric %in% TRUE]))
       countries <- countries[!is.na(countries)]
@@ -1025,22 +1026,19 @@ generate_c1_rollup <- function(c1,
         dplyr::mutate(Region = region_label)
     }
 
-    result |>
-      dplyr::mutate(summary_order = summary_order)
+    result
   }
 
   risk_rollup <- summarize_rollup(
     c1,
     unique(c(.group_by, "SG Priority Level")),
-    region_label = "All Regions",
-    summary_order = 1
+    region_label = "All Regions"
   )
 
   region_rollup <- summarize_rollup(
     region_c1,
     unique(c(.group_by, "Region")),
-    risk_group_label = "All Risk Groups",
-    summary_order = 2
+    risk_group_label = "All Risk Groups"
   )
 
   c1_rollup <- dplyr::bind_rows(risk_rollup, region_rollup) |>
@@ -1915,7 +1913,7 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
     c4_seq <- NULL
   }
 
-  export_list <- list(`c1 - kpi` = c1, `c1 - high risk summary` = c1_rollup,
+  export_list <- list(`c1 - kpi` = c1, `c1 - priority summary` = c1_rollup,
                       `c2 -  national AFP indicators` = c2,
                       `c3 - es indicators by site` = c3,
                       `c4 - culture itd lab summary` = c4_itd,
@@ -1962,7 +1960,7 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
 
   # c1 priority-level summary formatting
   if (!is.null(c1_rollup)) {
-    export_list$`c1 - high risk summary` <- export_list$`c1 - high risk summary` %>%
+    export_list$`c1 - priority summary` <- export_list$`c1 - priority summary` %>%
       {
         if (!drop_label_cols) {
           dplyr::mutate(.,
@@ -1982,7 +1980,7 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
         )
       ) |>
       dplyr::select(group, rolling_period, dplyr::everything()) |>
-      dplyr::arrange(summary_order, dplyr::desc(rolling_period)) |>
+      dplyr::arrange(group, dplyr::desc(rolling_period)) |>
       dplyr::rename_with(recode,
                          rolling_period = "Rolling 12 Months",
                          group = "Group",
@@ -1995,7 +1993,7 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
                          ev_excluded = "ESEV Detection -  Excluded Countries",
                          timely_wpv_vdpv_excluded = "WPV/VDPV Timeliness -Excluded Countries"
       ) |>
-      dplyr::select(-summary_order, -sg_priority_level, -region,
+      dplyr::select(-sg_priority_level, -region,
                     -dplyr::starts_with("met"),
                     -dplyr::ends_with("denom"))
   }
