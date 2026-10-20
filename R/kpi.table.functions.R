@@ -988,6 +988,9 @@ generate_c1_rollup <- function(c1,
 #' @param afp_data `tibble` AFP linelist data.
 #' @param pop_data `tibble` Population data.
 #' @param spatial_scale `str` Either `"ctry", "prov", "dist"`.
+#' @param lab_data `tibble` Optional cleaned laboratory data containing
+#'   `DateStoolReceivedinLab`. When supplied, this field replaces the AFP
+#'   `stooltolabdate` field for the shipment and optimized timeliness indicators.
 #' @inheritParams generate_c1_table
 #'
 #' @returns `tibble` Summary table containing AFP KPIs.
@@ -1002,7 +1005,8 @@ generate_c2_table <- function(afp_data, pop_data, start_date, end_date,
                               spatial_scale,
                               risk_category = NULL,
                               lab_locs = NULL,
-                              risk_table = NULL) {
+                              risk_table = NULL,
+                              lab_data = NULL) {
   check_spatial_scale(pop_data, spatial_scale)
 
   cli::cli_progress_bar("Creating C2 table", total = 5)
@@ -1021,6 +1025,47 @@ generate_c2_table <- function(afp_data, pop_data, start_date, end_date,
     dateinvest = "date.invest",
     cdc.classification.all = "cdc.class"
   )
+
+  # Use the laboratory receipt date when laboratory data are supplied. Lab
+  # data can contain more than one row per AFP case, so retain the latest
+  # available receipt date for each EPID, corresponding to the final stool.
+  if (!is.null(lab_data)) {
+    lab_epid_col <- intersect(c("EpidNumber", "EPID", "epid"), names(lab_data))
+
+    if (length(lab_epid_col) == 0) {
+      cli::cli_abort(
+        "lab_data must contain an EPID column named `EpidNumber`, `EPID`, or `epid`."
+      )
+    }
+
+    if (!"DateStoolReceivedinLab" %in% names(lab_data)) {
+      cli::cli_abort(
+        "lab_data must contain `DateStoolReceivedinLab`."
+      )
+    }
+
+    lab_arrival <- lab_data |>
+      dplyr::transmute(
+        .lab_epid = as.character(.data[[lab_epid_col[[1]]]]),
+        .lab_received = as.Date(.data$DateStoolReceivedinLab)
+      ) |>
+      dplyr::filter(!is.na(.lab_epid)) |>
+      dplyr::group_by(.lab_epid) |>
+      dplyr::summarise(
+        .lab_received = if (all(is.na(.lab_received))) {
+          as.Date(NA)
+        } else {
+          max(.lab_received, na.rm = TRUE)
+        },
+        .groups = "drop"
+      )
+
+    afp_data <- afp_data |>
+      dplyr::mutate(.afp_epid = as.character(.data$epid)) |>
+      dplyr::left_join(lab_arrival, by = c(".afp_epid" = ".lab_epid")) |>
+      dplyr::mutate(stooltolabdate = .data$.lab_received) |>
+      dplyr::select(-dplyr::any_of(c(".afp_epid", ".lab_received")))
+  }
 
   cli::cli_progress_update()
 

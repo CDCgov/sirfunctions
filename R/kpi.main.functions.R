@@ -280,8 +280,8 @@ generate_kpi_template <- function(output_path, name, edav) {
   # Generate tables
   c1 <- 'c1 <- generate_c1_table(raw_data, start_date, end_date)'
   c1_rollup <- 'c1_rollup <- generate_c1_rollup(c1)'
-  c2 <- 'c2 <- generate_c2_table(raw_data$afp, raw_data$ctry.pop, start_date, end_date, "ctry")'
-  c2_dist <- 'c2_dist <- generate_c2_table(raw_data$afp, raw_data$dist.pop, start_date, end_date, "dist")'
+  c2 <- 'c2 <- generate_c2_table(raw_data$afp, raw_data$ctry.pop, start_date, end_date, "ctry", lab_data = lab_data)'
+  c2_dist <- 'c2_dist <- generate_c2_table(raw_data$afp, raw_data$dist.pop, start_date, end_date, "dist", lab_data = lab_data)'
   c3 <- 'c3 <- generate_c3_table(raw_data$es, start_date, end_date)'
   c3_rollup <- 'c3_rollup <- generate_c3_rollup(c3)'
   c4 <- 'c4 <- generate_c4_table(lab_data, raw_data$afp, start_date, end_date)'
