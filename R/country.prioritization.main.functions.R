@@ -49,11 +49,16 @@ init_country_prioritization <- function(path = getwd(), name = NULL,
   invisible(analysis_path)
 }
 
-# Normalize country labels from the external WUENIC workbook only.
-normalize_GSAP_immunity_country_names <- function(x) {
+# Normalize country labels before country-prioritization joins. These aliases
+# cover the different country keys used by WUENIC, POLIS, risk tables, and
+# spatial data.
+normalize_GSAP_country_names <- function(x) {
   x <- stringr::str_to_upper(stringr::str_squish(as.character(x)))
   dplyr::case_when(
-    x %in% c("T\u00dcRK\u0130YE", "T\u00dcRKIYE", "TURKIYE") ~ "TURKEY",
+    x %in% c(
+      "T\u00dcRK\u0130YE", "T\u00dcRKIYE", "TURKIYE", "TURKEY"
+    ) ~ "TURKEY",
+    x %in% c("GUINEA-BISSAU", "GUINEA BISSAU") ~ "GUINEA BISSAU",
     x == "COTE D'IVOIRE" ~ "COTE D IVOIRE",
     x == "UNITED KINGDOM" ~ "THE UNITED KINGDOM",
     x == "UNITED STATES" ~ "UNITED STATES OF AMERICA",
@@ -64,30 +69,44 @@ normalize_GSAP_immunity_country_names <- function(x) {
   )
 }
 
+# Backwards-compatible name for callers that only need to normalize WUENIC
+# country labels.
+normalize_GSAP_immunity_country_names <- function(x) {
+  normalize_GSAP_country_names(x)
+}
+
 #' Read WUENIC coverage inputs for country prioritization
 #'
 #' Reads the long-format `country` sheet from a WUENIC workbook and returns
-#' one country-level table. The function selects the latest common year for
-#' DTP1, DTP3, and IPV1, using the `si` target group by default. Country
+#' one country-level table. The default follows the population-immunity
+#' analysis: filter by year and vaccine, reshape coverage to one row per
+#' country, and calculate the DTP1, DTP3, and IPV1 complements. Country
 #' labels are standardized here because the workbook is an external input;
 #' other prioritization inputs are expected to already use the package country
 #' key.
 #'
 #' @param path `str` Path to the WUENIC Excel workbook.
 #' @param sheet `str` Workbook sheet containing the long-format country data.
-#' @param year `integer` Optional WUENIC year. If omitted, the latest year
-#'   available for all three requested vaccines is used.
-#' @param target_grp `str` WUENIC target group. Defaults to `si` (surviving
-#'   infants).
+#' @param year `integer` Optional WUENIC year. If omitted, the maximum year
+#'   available after filtering to the requested target group is used. All
+#'   three requested vaccines must have data for that year.
+#' @param target_grp `str` Optional WUENIC target group. `NULL` (the default)
+#'   ignores this field; provide a value only when an explicit target-group
+#'   filter is needed.
+#' @param include_coverage `logical` Include the source coverage columns in
+#'   addition to the complement columns. Defaults to `FALSE`, matching the
+#'   reference analysis.
 #'
-#' @returns A tibble with `Country`, `dtp1.pct`, `dtp3.pct`, and `ipv1.pct`.
+#' @returns A tibble with `Country`, `zero.dose.pct`, `under.immun.pct`, and
+#'   `no.ipv1.pct`; coverage columns are included when requested.
 #' @export
 #'
 read_GSAP_immunity_data <- function(
     path,
     sheet = "country",
     year = NULL,
-    target_grp = "si") {
+    target_grp = NULL,
+    include_coverage = FALSE) {
   if (!requireNamespace("readxl", quietly = TRUE)) {
     cli::cli_abort("Package 'readxl' is required to read the WUENIC workbook.")
   }
@@ -95,7 +114,8 @@ read_GSAP_immunity_data <- function(
     cli::cli_abort(paste0("WUENIC workbook was not found: ", path))
   }
   data <- readxl::read_excel(path, sheet = sheet)
-  required_columns <- c("country", "vaccine", "year", "target_grp", "coverage")
+  required_columns <- c("country", "vaccine", "year", "coverage")
+  if (!is.null(target_grp)) required_columns <- c(required_columns, "target_grp")
   missing_columns <- setdiff(required_columns, names(data))
   if (length(missing_columns) > 0) {
     cli::cli_abort(paste0(
@@ -109,37 +129,40 @@ read_GSAP_immunity_data <- function(
     dtp3.pct = "dtp3",
     ipv1.pct = "ipv1"
   )
-  target_group <- stringr::str_to_lower(stringr::str_squish(target_grp))
+  if (length(target_grp) > 1) {
+    cli::cli_abort("target_grp must be one value or NULL.")
+  }
 
   data <- data |>
     dplyr::mutate(
       country = as.character(.data$country),
       vaccine = stringr::str_to_lower(stringr::str_squish(.data$vaccine)),
       year = suppressWarnings(as.integer(.data$year)),
-      target_grp = stringr::str_to_lower(stringr::str_squish(.data$target_grp)),
       coverage = suppressWarnings(as.numeric(.data$coverage))
-    ) |>
+    )
+  if ("target_grp" %in% names(data)) {
+    data <- data |>
+      dplyr::mutate(target_grp = stringr::str_to_lower(stringr::str_squish(.data$target_grp)))
+  }
+  data <- data |>
     dplyr::filter(
       .data$vaccine %in% unname(vaccine_map),
-      .data$target_grp == target_group,
       !is.na(.data$year)
     )
+  if (!is.null(target_grp)) {
+    target_group <- stringr::str_to_lower(stringr::str_squish(target_grp))
+    data <- data |>
+      dplyr::filter(.data$target_grp == target_group)
+  }
 
   if (nrow(data) == 0) {
-    cli::cli_abort("No DTP1, DTP3, or IPV1 records matched target_grp.")
+    cli::cli_abort(
+      "No DTP1, DTP3, or IPV1 records matched the requested filters."
+    )
   }
 
   if (is.null(year)) {
-    years_by_vaccine <- lapply(unname(vaccine_map), function(vaccine_name) {
-      unique(data$year[data$vaccine == vaccine_name])
-    })
-    common_years <- Reduce(intersect, years_by_vaccine)
-    if (length(common_years) == 0) {
-      cli::cli_abort(
-        "DTP1, DTP3, and IPV1 do not share a common WUENIC year."
-      )
-    }
-    year <- max(common_years)
+    year <- max(data$year, na.rm = TRUE)
   }
 
   year <- suppressWarnings(as.integer(year))
@@ -147,10 +170,19 @@ read_GSAP_immunity_data <- function(
     cli::cli_abort("year must be one non-missing year or NULL.")
   }
 
+  available_vaccines <- unique(data$vaccine[data$year == year])
+  missing_vaccines <- setdiff(unname(vaccine_map), available_vaccines)
+  if (length(missing_vaccines) > 0) {
+    cli::cli_abort(paste0(
+      "The selected WUENIC year ", year, " is missing: ",
+      paste(missing_vaccines, collapse = ", "), "."
+    ))
+  }
+
   output <- data |>
     dplyr::filter(.data$year == year) |>
     dplyr::transmute(
-      Country = normalize_GSAP_immunity_country_names(.data$country),
+      Country = normalize_GSAP_country_names(.data$country),
       vaccine = .data$vaccine,
       vaccine_output = names(vaccine_map)[
         match(.data$vaccine, unname(vaccine_map))
@@ -171,11 +203,29 @@ read_GSAP_immunity_data <- function(
     if (!column %in% names(output)) output[[column]] <- NA_real_
   }
 
+  output <- output |>
+    dplyr::mutate(
+      under.immun.pct = 100 - .data$dtp3.pct,
+      no.ipv1.pct = 100 - .data$ipv1.pct,
+      zero.dose.pct = 100 - .data$dtp1.pct
+    )
+
+  output <- if (isTRUE(include_coverage)) {
+    output |>
+      dplyr::select(
+        .data$Country,
+        dplyr::all_of(names(vaccine_map)),
+        dplyr::all_of(c("zero.dose.pct", "under.immun.pct", "no.ipv1.pct"))
+      )
+  } else {
+    output |>
+      dplyr::select(
+        .data$Country,
+        dplyr::all_of(c("zero.dose.pct", "under.immun.pct", "no.ipv1.pct"))
+      )
+  }
+
   output |>
-    dplyr::select(
-      .data$Country,
-      dplyr::all_of(names(vaccine_map))
-    ) |>
     dplyr::arrange(.data$Country)
 }
 
@@ -474,8 +524,8 @@ generate_country_prioritization_template <- function(output_path, name,
     "",
     "if (!file.exists(immunity_file)) stop(\"Add wuenic2025rev_web-update.xlsx to the parent country_prioritization folder or update immunity_file.\")",
     "",
-    "# This workbook is long-format; the reader selects the latest common year",
-    "# for DTP1, DTP3, and IPV1 from the country sheet.",
+    "# This workbook is long-format; the reader selects the maximum available",
+    "# year for DTP1, DTP3, and IPV1 without filtering target_grp.",
     "immunity_data <- read_GSAP_immunity_data(immunity_file)",
     "# Risk-category input for the Previous (June 2023) column; verify that",
     "# this EDAV table is the intended historical version.",

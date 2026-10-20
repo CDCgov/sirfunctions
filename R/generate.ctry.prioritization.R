@@ -152,7 +152,7 @@ prepare_GSAP_ctry_prioritization_data <- function(
   surveillance_indicators <- dplyr::full_join(
     c2_latest |>
       dplyr::transmute(
-        Country = .data$ctry,
+        Country = normalize_GSAP_country_names(.data$ctry),
         `NPAFP (National)` = .data$npafp_rate,
         `Stool adequacy (National)` = .data$per.stool.ad,
         `Onset to lab within 14d, %` =
@@ -160,7 +160,7 @@ prepare_GSAP_ctry_prioritization_data <- function(
       ),
     c1_latest |>
       dplyr::transmute(
-        Country = .data$ctry,
+        Country = normalize_GSAP_country_names(.data$ctry),
         `NPAFP (Subnational), %` = .data$prop_met_npafp,
         `Stool adequacy (Subnational), %` = .data$prop_met_stool,
         `ES sites >=50% EV` = .data$prop_met_ev,
@@ -197,13 +197,16 @@ prepare_GSAP_ctry_prioritization_data <- function(
 #' @param prepared_data Output of [prepare_GSAP_ctry_prioritization_data()].
 #' @param end_date Optional analysis end date. Defaults to the date stored in
 #'   `prepared_data`.
+#' @param positive_end_date Date used as the end of the six- and twelve-month
+#'   positive-detection and proximity windows. Defaults to `Sys.Date()`.
 #'
 #' @returns `prepared_data` with `immunity_indicators`, `positive_indicators`,
 #'   `proximity_indicators`, and `country_indicators` added.
 #' @export
 #'
 analyze_GSAP_ctry_prioritization_data <- function(prepared_data,
-                                                   end_date = NULL) {
+                                                   end_date = NULL,
+                                                   positive_end_date = Sys.Date()) {
   required <- c(
     "raw_data", "positives", "immunity_data", "ctry_sf",
     "surveillance_indicators"
@@ -221,6 +224,12 @@ analyze_GSAP_ctry_prioritization_data <- function(prepared_data,
   end_date <- suppressWarnings(lubridate::as_date(end_date))
   if (is.na(end_date)) {
     cli::cli_abort("Please provide a valid end_date.")
+  }
+  positive_end_date <- suppressWarnings(
+    lubridate::as_date(positive_end_date)
+  )
+  if (length(positive_end_date) != 1 || is.na(positive_end_date)) {
+    cli::cli_abort("Please provide a valid positive_end_date.")
   }
 
   immunity <- prepared_data$immunity_data
@@ -249,7 +258,7 @@ analyze_GSAP_ctry_prioritization_data <- function(prepared_data,
 
   immunity_indicators <- immunity |>
     dplyr::transmute(
-      Country = as.character(.data$Country),
+      Country = normalize_GSAP_country_names(.data$Country),
       zero.dose.pct = as.numeric(.data$zero.dose.pct),
       under.immun.pct = as.numeric(.data$under.immun.pct),
       no.ipv1.pct = as.numeric(.data$no.ipv1.pct)
@@ -267,17 +276,17 @@ analyze_GSAP_ctry_prioritization_data <- function(prepared_data,
 
   pos <- pos |>
     dplyr::mutate(
-      Country = .data$place.admin.0,
+      Country = normalize_GSAP_country_names(.data$place.admin.0),
       dateonset = lubridate::as_date(.data$dateonset),
       virus_group = classify_GSAP_positive_measurement(.data$measurement)
     )
 
   count_window <- function(months_back, suffix) {
-    window_start <- get_GSAP_window_start(end_date, months_back)
+    window_start <- get_GSAP_window_start(positive_end_date, months_back)
     pos |>
       dplyr::filter(
         .data$dateonset >= window_start,
-        .data$dateonset <= end_date
+        .data$dateonset <= positive_end_date
       ) |>
       dplyr::group_by(.data$Country) |>
       dplyr::summarise(
@@ -339,8 +348,8 @@ analyze_GSAP_ctry_prioritization_data <- function(prepared_data,
 
   points <- pos |>
     dplyr::filter(
-      .data$dateonset >= get_GSAP_window_start(end_date, 6),
-      .data$dateonset <= end_date,
+      .data$dateonset >= get_GSAP_window_start(positive_end_date, 6),
+      .data$dateonset <= positive_end_date,
       !is.na(.data$latitude), !is.na(.data$longitude),
       !is.na(.data$virus_group)
     ) |>
@@ -352,10 +361,12 @@ analyze_GSAP_ctry_prioritization_data <- function(prepared_data,
     sf::st_transform(3857) |>
     dplyr::mutate(source_country = .data$Country)
 
-  shape_names <- as.character(shapes$ADM0_NAME)
+  shape_names <- normalize_GSAP_country_names(shapes$ADM0_NAME)
   buffers <- shapes |>
     dplyr::select(buffer_country = ADM0_NAME) |>
-    dplyr::mutate(buffer_country = as.character(.data$buffer_country)) |>
+    dplyr::mutate(
+      buffer_country = normalize_GSAP_country_names(.data$buffer_country)
+    ) |>
     sf::st_transform(3857) |>
     sf::st_buffer(dist = 200000)
 
@@ -402,7 +413,9 @@ analyze_GSAP_ctry_prioritization_data <- function(prepared_data,
   }
 
   country_indicators <- prepared_data$surveillance_indicators |>
-    dplyr::mutate(Country = as.character(.data$Country)) |>
+    dplyr::mutate(
+      Country = normalize_GSAP_country_names(.data$Country)
+    ) |>
     dplyr::full_join(positive_indicators, by = "Country") |>
     dplyr::full_join(proximity_indicators, by = "Country") |>
     dplyr::full_join(immunity_indicators, by = "Country") |>
@@ -424,6 +437,7 @@ analyze_GSAP_ctry_prioritization_data <- function(prepared_data,
   prepared_data$positive_indicators <- positive_indicators
   prepared_data$proximity_indicators <- proximity_indicators
   prepared_data$country_indicators <- country_indicators
+  prepared_data$positive_end_date <- positive_end_date
   prepared_data
 }
 
@@ -481,7 +495,7 @@ calculate_GSAP_ctry_prioritization <- function(
   risk_region <- if (length(risk_region) > 0) risk_region[[1]] else NULL
 
   risk <- dplyr::tibble(
-    Country = as.character(risk_table[[risk_country]]),
+    Country = normalize_GSAP_country_names(risk_table[[risk_country]]),
     `Previous GPSAP risk cat` = as.character(
       risk_table[[risk_category]]
     ),
@@ -494,7 +508,9 @@ calculate_GSAP_ctry_prioritization <- function(
     dplyr::distinct(.data$Country, .keep_all = TRUE)
 
   indicators <- analyzed_data$country_indicators |>
-    dplyr::mutate(Country = as.character(.data$Country)) |>
+    dplyr::mutate(
+      Country = normalize_GSAP_country_names(.data$Country)
+    ) |>
     dplyr::full_join(risk, by = "Country") |>
     dplyr::mutate(
       `WHO Region` = dplyr::coalesce(
@@ -650,6 +666,9 @@ calculate_GSAP_ctry_prioritization <- function(
 #'   indicators required to retain a country. Defaults to `4`.
 #' @param output_path `str` Optional path for an Excel output. If `NULL`, no
 #'   file is written.
+#' @param positive_end_date `Date` Date used as the end of the six- and
+#'   twelve-month positive-detection and proximity windows. Defaults to
+#'   `Sys.Date()`.
 #'
 #' @returns A list with `results`, `analysis_notes`, and `output_path`.
 #' @export
@@ -666,7 +685,8 @@ generate_GSAP_ctry_prioritization <- function(
     ctry_sf = NULL,
     category_breaks = NULL,
     min_surv_ind = 4,
-    output_path = NULL) {
+    output_path = NULL,
+    positive_end_date = Sys.Date()) {
 
   required_raw <- c("afp", "es", "pos", "ctry.pop")
   missing_raw <- setdiff(required_raw, names(raw_data))
@@ -680,6 +700,12 @@ generate_GSAP_ctry_prioritization <- function(
   end_date <- lubridate::as_date(end_date)
   if (is.na(start_date) || is.na(end_date) || start_date > end_date) {
     cli::cli_abort("Please provide a valid start_date and end_date.")
+  }
+  positive_end_date <- suppressWarnings(
+    lubridate::as_date(positive_end_date)
+  )
+  if (length(positive_end_date) != 1 || is.na(positive_end_date)) {
+    cli::cli_abort("Please provide a valid positive_end_date.")
   }
   if (!is.data.frame(immunity_data)) {
     cli::cli_abort("immunity_data must be a data frame or tibble.")
@@ -713,7 +739,7 @@ generate_GSAP_ctry_prioritization <- function(
       `SG Priority Level` = dplyr::all_of(risk_priority)
     ) |>
     dplyr::mutate(
-      Country = as.character(Country),
+      Country = normalize_GSAP_country_names(Country),
       `SG Priority Level` = as.character(`SG Priority Level`)
     ) |>
     dplyr::distinct(Country, .keep_all = TRUE)
@@ -726,7 +752,7 @@ generate_GSAP_ctry_prioritization <- function(
   )
   immunity_data <- immunity_data |>
     dplyr::rename(Country = dplyr::all_of(immunity_country)) |>
-    dplyr::mutate(Country = as.character(Country))
+    dplyr::mutate(Country = normalize_GSAP_country_names(Country))
 
   complement_cols <- c("zero.dose.pct", "under.immun.pct", "no.ipv1.pct")
   coverage_cols <- c("dtp1.pct", "dtp3.pct", "ipv1.pct")
@@ -771,13 +797,15 @@ generate_GSAP_ctry_prioritization <- function(
       Country = ctry,
       dplyr::any_of(c("prop_met_npafp", "prop_met_stool",
                       "prop_met_ev", "prop_timely_wild_vdpv"))
-    )
+    ) |>
+    dplyr::mutate(Country = normalize_GSAP_country_names(.data$Country))
   c2 <- latest_period(c2, "ctry") |>
     dplyr::select(
       Country = ctry,
       dplyr::any_of(c("npafp_rate", "per.stool.ad",
                       "timely_opt_field_shipment"))
-    )
+    ) |>
+    dplyr::mutate(Country = normalize_GSAP_country_names(.data$Country))
   count_positives <- function(pos, end_date) {
     needed <- c("place.admin.0", "dateonset", "measurement")
     if (!all(needed %in% names(pos))) {
@@ -802,7 +830,7 @@ generate_GSAP_ctry_prioritization <- function(
         .data$dateonset <= end_date
       ) |>
       dplyr::mutate(
-        Country = .data$place.admin.0,
+        Country = normalize_GSAP_country_names(.data$place.admin.0),
         target = !is.na(.data$virus_group)
       ) |>
       dplyr::filter(.data$target) |>
@@ -867,11 +895,13 @@ generate_GSAP_ctry_prioritization <- function(
       sf::st_as_sf(coords = c("longitude", "latitude"),
                    crs = 4326, remove = FALSE) |>
       sf::st_transform(3857) |>
-      dplyr::mutate(source_country = .data$place.admin.0)
+      dplyr::mutate(
+        source_country = normalize_GSAP_country_names(.data$place.admin.0)
+      )
 
     if (nrow(points) == 0) {
       return(dplyr::tibble(
-        Country = as.character(shapes$ADM0_NAME),
+        Country = normalize_GSAP_country_names(shapes$ADM0_NAME),
         `Virus within 200km (6m)` = "No",
         `Virus within 200km details (6m)` = NA_character_
       ))
@@ -879,7 +909,9 @@ generate_GSAP_ctry_prioritization <- function(
 
     buffers <- shapes |>
       dplyr::select(buffer_country = ADM0_NAME) |>
-      dplyr::mutate(buffer_country = as.character(.data$buffer_country)) |>
+      dplyr::mutate(
+        buffer_country = normalize_GSAP_country_names(.data$buffer_country)
+      ) |>
       sf::st_transform(3857) |>
       sf::st_buffer(dist = 200000)
 
@@ -904,7 +936,9 @@ generate_GSAP_ctry_prioritization <- function(
         .groups = "drop"
       )
 
-    dplyr::tibble(Country = as.character(shapes$ADM0_NAME)) |>
+    dplyr::tibble(
+      Country = normalize_GSAP_country_names(shapes$ADM0_NAME)
+    ) |>
       dplyr::left_join(
         dplyr::rename(result, Country = buffer_country),
         by = "Country"
@@ -914,11 +948,11 @@ generate_GSAP_ctry_prioritization <- function(
       ))
   }
 
-  positives <- count_positives(raw_data$pos, end_date)
+  positives <- count_positives(raw_data$pos, positive_end_date)
   if (is.null(ctry_sf) && "global.ctry" %in% names(raw_data)) {
     ctry_sf <- raw_data$global.ctry
   }
-  proximity_data <- proximity(raw_data$pos, ctry_sf, end_date)
+  proximity_data <- proximity(raw_data$pos, ctry_sf, positive_end_date)
 
   indicators <- risk_table |>
     dplyr::select(
@@ -960,7 +994,7 @@ generate_GSAP_ctry_prioritization <- function(
     )
     regional_classification <- regional_classification |>
       dplyr::rename(Country = dplyr::all_of(regional_country)) |>
-      dplyr::mutate(Country = as.character(Country))
+      dplyr::mutate(Country = normalize_GSAP_country_names(Country))
     indicators <- indicators |>
       dplyr::left_join(regional_classification, by = "Country")
   }
@@ -980,7 +1014,7 @@ generate_GSAP_ctry_prioritization <- function(
         `Proposed GPSAP 2025-26 prioritization` = dplyr::all_of(proposed_col)
       ) |>
       dplyr::mutate(
-        Country = as.character(Country),
+        Country = normalize_GSAP_country_names(Country),
         `Proposed GPSAP 2025-26 prioritization` = as.character(
           `Proposed GPSAP 2025-26 prioritization`
         )
@@ -1123,6 +1157,7 @@ generate_GSAP_ctry_prioritization <- function(
     analysis_notes = notes,
     analysis_start_date = start_date,
     analysis_end_date = end_date,
+    positive_end_date = positive_end_date,
     output_path = output_path
   ))
 }
