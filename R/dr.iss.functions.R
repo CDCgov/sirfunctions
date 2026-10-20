@@ -28,6 +28,38 @@ load_iss_data <- function(iss_path, sheet_name = NULL) {
   }
 }
 
+# Select the unreported AFP column from the common ISS/eSURV naming variants.
+find_unreported_afp_column <- function(data, preferred = NULL) {
+  data_names <- names(data)
+  exact_candidates <- unique(c(
+    preferred,
+    "unrep_afp",
+    "num_unreportedcases_afp",
+    "num_unreportedcases"
+  ))
+  exact_candidates <- exact_candidates[
+    !is.na(exact_candidates) & exact_candidates %in% data_names
+  ]
+
+  if (length(exact_candidates) > 0) {
+    return(exact_candidates[[1]])
+  }
+
+  # Allow differences in case, spaces, underscores, and hyphens, but require
+  # both terms so other unreported disease fields are not selected.
+  normalized_names <- tolower(gsub("[^a-z0-9]", "", data_names))
+  fuzzy_matches <- data_names[
+    grepl("unreported", normalized_names) &
+      grepl("afp", normalized_names)
+  ]
+
+  if (length(fuzzy_matches) > 0) {
+    return(fuzzy_matches[[1]])
+  }
+
+  NULL
+}
+
 #' Perform common cleaning tasks for ISS/eSURV data
 #'
 #' ISS/eSURV data often needs to be cleaned and standardized before analysis. Because
@@ -62,11 +94,10 @@ load_iss_data <- function(iss_path, sheet_name = NULL) {
 #' ctry.data$iss.data <- clean_iss_data(ctry.data$iss.data, start_date, end_date)
 #' }
 #'
-#' @export
 clean_iss_data <- function(iss_data, start_date, end_date,
                            priority_col = "priority_level",
                            start_time_col = "starttime",
-                           unreported_cases_col = "num_unreportedcases",
+                           unreported_cases_col = NULL,
                            prov_col = "states",
                            dist_col = "districts",
                            hf_col = "name_of_facility_visited",
@@ -130,12 +161,14 @@ clean_iss_data <- function(iss_data, start_date, end_date,
   cli::cli_process_done()
 
   cli::cli_process_start("counting unreported AFP cases")
-  if (is.null(unreported_cases_col)) {
+  unreported_col <- find_unreported_afp_column(iss.02, unreported_cases_col)
+
+  if (is.null(unreported_col)) {
     message("Column for unreported AFP cases unavailable.")
   } else {
     # Unreported AFP
     iss.02 <- iss.02 |>
-      dplyr::mutate(unrep_afp = as.numeric(.data[[unreported_cases_col]])) |>
+      dplyr::mutate(unrep_afp = as.numeric(.data[[unreported_col]])) |>
       suppressWarnings()
   }
   cli::cli_process_done()

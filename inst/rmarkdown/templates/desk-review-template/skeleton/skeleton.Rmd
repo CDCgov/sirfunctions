@@ -245,6 +245,7 @@ generate_es_det_map(ctry.data$es, ctry.shape, prov.shape)
 generate_es_timely(ctry.data$es, in_country_lab = TRUE)
 generate_case_num_dose_g(ctry.data, start_date, end_date)
 generate_iss_barplot(ctry.data$iss.data, start_date, end_date)
+generate_iss_unreported_afp_graph(ctry.data$iss.data, start_date, end_date)
 generate_iss_map(ctry.data$iss.data, ctry.shape, prov.shape, start_date, end_date)
 ```
 

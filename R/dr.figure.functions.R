@@ -887,7 +887,8 @@ generate_es_timely <- function(es.data,
 #' Case sex distribution per year
 #'
 #' Generates a stacked percentage bar plot displaying case sex by year. The
-#' denominator includes NPAFP, pending classification, and lab-pending cases.
+#' denominator includes NPAFP, pending classification, lab-pending, compatible,
+#' and poliovirus cases.
 #'
 #' @param ctry.data `list` A large list containing polio data of country.
 #' This is the output of [extract_country_data()] or [init_dr()].
@@ -908,7 +909,14 @@ generate_case_sex_graph <- function(ctry.data,
   sex_data <- ctry.data$afp.all.2 |>
     dplyr::filter(
       dplyr::between(date, start_date, end_date),
-      cdc.classification.all2 %in% c("NPAFP", "PENDING", "LAB PENDING")
+      dplyr::coalesce(
+        cdc.classification.all2 %in% c("NPAFP", "PENDING", "LAB PENDING") |
+          stringr::str_detect(
+            as.character(cdc.classification.all2),
+            "VDPV|WILD|COMPATIBLE|VAPP"
+          ),
+        FALSE
+      )
     ) |>
     dplyr::mutate(
       year = lubridate::year(date),
@@ -967,7 +975,7 @@ generate_case_sex_graph <- function(ctry.data,
     ) +
     ggplot2::labs(
       title = "AFP Case Sex Distribution by Year",
-      subtitle = "Includes NPAFP, pending classification, and lab-pending cases",
+      subtitle = "Includes NPAFP, pending, lab-pending, compatible, and poliovirus cases",
       x = NULL,
       y = "Percentage",
       fill = "Sex"
@@ -996,7 +1004,8 @@ generate_case_sex_graph <- function(ctry.data,
 #' NPAFP case age distribution per year
 #'
 #' Generates a stacked percentage bar plot displaying age groups by year. The
-#' denominator includes NPAFP, pending classification, and lab-pending cases.
+#' denominator includes NPAFP, pending classification, lab-pending, compatible,
+#' and poliovirus cases.
 #'
 #' @param ctry.data `list` A large list containing polio data of country.
 #' This is the output of [extract_country_data()] or [init_dr()].
@@ -1017,7 +1026,14 @@ generate_case_age_graph <- function(ctry.data,
   age_data <- ctry.data$afp.all.2 |>
     dplyr::filter(
       dplyr::between(date, start_date, end_date),
-      cdc.classification.all2 %in% c("NPAFP", "PENDING", "LAB PENDING")
+      dplyr::coalesce(
+        cdc.classification.all2 %in% c("NPAFP", "PENDING", "LAB PENDING") |
+          stringr::str_detect(
+            as.character(cdc.classification.all2),
+            "VDPV|WILD|COMPATIBLE|VAPP"
+          ),
+        FALSE
+      )
     ) |>
     dplyr::mutate(
       year = lubridate::year(date),
@@ -1093,8 +1109,8 @@ generate_case_age_graph <- function(ctry.data,
       expand = c(0, 0)
     ) +
     ggplot2::labs(
-      title = "NPAFP Case Age Distribution by Year",
-      subtitle = "Includes NPAFP, pending classification, and lab-pending cases",
+      title = "AFP Case Age Distribution by Year",
+      subtitle = "Includes NPAFP, pending, lab-pending, compatible, and poliovirus cases",
       x = NULL,
       y = "Percentage",
       fill = "Age group"
@@ -1866,6 +1882,140 @@ generate_iss_barplot <- function(iss.data = NULL,
   )
 
   return(iss.data.vis)
+}
+
+#' Unreported AFP detections by province and year
+#'
+#' Creates a province-by-year tile plot from cleaned ISS/eSURV data. The
+#' `num_unreportedcases_afp` field is retained by [clean_iss_data()] and is
+#' also available in the cleaned data as `unrep_afp`.
+#'
+#' @param iss.data `tibble` ISS/eSURV data cleaned via [clean_iss_data()].
+#' @param start_date `str` Start date of the analysis.
+#' @param end_date `str` End date of the analysis.
+#' @param output_path `str` Local path where the figure is saved.
+#' @param unreported_cases_col `str` Column containing unreported AFP counts.
+#'   Defaults to automatic detection of `unrep_afp` or
+#'   `num_unreportedcases_afp`.
+#'
+#' @returns `ggplot` Province-by-year tile plot.
+#' @export
+generate_iss_unreported_afp_graph <- function(
+    iss.data = NULL,
+    start_date,
+    end_date,
+    output_path = Sys.getenv("DR_FIGURE_PATH"),
+    unreported_cases_col = NULL) {
+  if (is.null(iss.data)) {
+    return(message("No ISS data attached."))
+  }
+
+  start_date <- lubridate::as_date(start_date)
+  end_date <- lubridate::as_date(end_date)
+
+  unreported_col <- find_unreported_afp_column(iss.data, unreported_cases_col)
+
+  if (is.null(unreported_col)) {
+    stop(
+      "No unreported AFP column found. Supply `unreported_cases_col` or use a name containing both `unreported` and `AFP`.",
+      call. = FALSE
+    )
+  }
+
+  date_col <- if ("today_date" %in% names(iss.data)) {
+    "today_date"
+  } else if ("date_of_visit" %in% names(iss.data)) {
+    "date_of_visit"
+  } else {
+    stop("Cleaned ISS data must contain `today_date` or `date_of_visit`.", call. = FALSE)
+  }
+
+  province_col <- if ("prov" %in% names(iss.data)) {
+    "prov"
+  } else if ("states" %in% names(iss.data)) {
+    "states"
+  } else {
+    stop("ISS data must contain `prov` or `states` for the province name.", call. = FALSE)
+  }
+
+  review_years <- seq(lubridate::year(start_date), lubridate::year(end_date))
+
+  plot_data <- iss.data |>
+    dplyr::mutate(
+      .plot_date = lubridate::as_date(.data[[date_col]]),
+      .plot_prov = toupper(as.character(.data[[province_col]])),
+      .unreported_afp = suppressWarnings(as.numeric(.data[[unreported_col]]))
+    ) |>
+    dplyr::filter(
+      dplyr::between(.plot_date, start_date, end_date),
+      !is.na(.plot_prov),
+      .plot_prov != ""
+    ) |>
+    dplyr::mutate(year = lubridate::year(.plot_date)) |>
+    dplyr::group_by(year, prov = .plot_prov) |>
+    dplyr::summarise(
+      unreported_afp = sum(.unreported_afp, na.rm = TRUE),
+      .groups = "drop"
+    )
+
+  if (nrow(plot_data) == 0) {
+    return(output_empty_image(output_path, "iss.unreported.afp.prov.year.png"))
+  }
+
+  provinces <- sort(unique(plot_data$prov))
+  plot_data <- plot_data |>
+    tidyr::complete(
+      year = review_years,
+      prov = provinces,
+      fill = list(unreported_afp = 0)
+    )
+
+  province_order <- plot_data |>
+    dplyr::group_by(prov) |>
+    dplyr::summarise(total = sum(unreported_afp), .groups = "drop") |>
+    dplyr::arrange(total, prov) |>
+    dplyr::pull(prov)
+
+  plot_data <- plot_data |>
+    dplyr::mutate(
+      prov = factor(prov, levels = province_order),
+      year = factor(year, levels = review_years)
+    )
+
+  max_count <- max(plot_data$unreported_afp, na.rm = TRUE)
+  plot_height <- max(6, min(14, 3 + length(province_order) * 0.3))
+
+  unreported_plot <- ggplot2::ggplot(
+    plot_data,
+    ggplot2::aes(x = year, y = prov, fill = unreported_afp)
+  ) +
+    ggplot2::geom_tile(color = "black") +
+    ggplot2::scale_fill_gradientn(
+      colours = c("#F2F2F2", "#FEE0D2", "#FC9272", "#DE2D26", "#99000D"),
+      limits = c(0, max(1, max_count)),
+      name = "Unreported AFP\ndetections"
+    ) +
+    ggplot2::labs(
+      title = "Unreported AFP Detections by Province",
+      x = "Year",
+      y = "Province",
+      caption = "Counts are summed from the cleaned active-surveillance data."
+    ) +
+    ggplot2::theme_bw() +
+    ggplot2::theme(
+      panel.grid = ggplot2::element_blank(),
+      axis.text.y = ggplot2::element_text(size = 8)
+    )
+
+  ggplot2::ggsave(
+    "iss.unreported.afp.prov.year.png",
+    plot = unreported_plot,
+    path = output_path,
+    width = 14,
+    height = plot_height
+  )
+
+  return(unreported_plot)
 }
 
 ## Maps ----
@@ -4389,6 +4539,9 @@ generate_surv_ind_tab <- function(ctry.data,
 #' @param pstool `tibble` Stool adequacy at province level. Output of [f.stool.ad.01()] at the province level.
 #' @param start_date `str` Start date of analysis.
 #' @param end_date `str` End date of analysis.
+#' @param outbreak `logical` Whether to use outbreak NPAFP-rate coloring.
+#' When `TRUE`, rates below 2 are dark red, rates from 2 to below 3 are light
+#' red, and rates of 3 or more are white. Defaults to `FALSE`.
 #' @param prov.case.ind  `tibble` `r lifecycle::badge("deprecated")`
 #' Deprecated in favor of the more informative pnpafp param name.
 #'
@@ -4427,7 +4580,8 @@ generate_pop_tab <- function(pnpafp,
                              pstool,
                              start_date,
                              end_date,
-                             prov.case.ind = lifecycle::deprecated()) {
+                             prov.case.ind = lifecycle::deprecated(),
+                             outbreak = FALSE) {
 
   if (!requireNamespace("flextable", quietly = TRUE)) {
     stop('Package "flextable" must be installed to use this function.',
@@ -4513,17 +4667,40 @@ generate_pop_tab <- function(pnpafp,
   )
 
   # NPAFP table
-  col_palette <- c("#FF9999", "white")
-  col.npafp.rate <- sub.prov.join.wide[, c(paste0("npafp_rate_", date.analysis))] %>%
-    dplyr::mutate(dplyr::across(dplyr::everything(), \(x) tidyr::replace_na(x, 0))) %>%
-    dplyr::mutate(dplyr::across(c(dplyr::everything()), \(x) cut(
-      x,
-      breaks = c(0, 2),
-      right = F,
-      label = FALSE
-    )))
+  npafp.rate.data <- sub.prov.join.wide[, c(paste0("npafp_rate_", date.analysis))] %>%
+    dplyr::mutate(dplyr::across(dplyr::everything(), \(x) tidyr::replace_na(x, 0)))
 
-  npafp.rate.colors <- col_palette[as.matrix(col.npafp.rate)]
+  if (outbreak) {
+    col.npafp.rate <- npafp.rate.data |>
+      dplyr::mutate(dplyr::across(
+        dplyr::everything(),
+        \(x) cut(
+          x,
+          breaks = c(-Inf, 2, 3, Inf),
+          right = FALSE,
+          labels = c("<2", "2-<3", "3+")
+        )
+      ))
+
+    npafp.rate.colors <- c(
+      "<2" = "#CC0000",
+      "2-<3" = "#FF9999",
+      "3+" = "white"
+    )[as.matrix(col.npafp.rate)]
+  } else {
+    col.npafp.rate <- npafp.rate.data |>
+      dplyr::mutate(dplyr::across(
+        dplyr::everything(),
+        \(x) cut(
+          x,
+          breaks = c(0, 2),
+          right = FALSE,
+          label = FALSE
+        )
+      ))
+
+    npafp.rate.colors <- c("#FF9999", "white")[as.matrix(col.npafp.rate)]
+  }
 
   # Stool adequacy
   col_palette <- c("#FF9999", "white")
