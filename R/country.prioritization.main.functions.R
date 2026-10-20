@@ -88,8 +88,9 @@ normalize_GSAP_immunity_country_names <- function(x) {
 #' @param path `str` Path to the WUENIC Excel workbook.
 #' @param sheet `str` Workbook sheet containing the long-format country data.
 #' @param year `integer` Optional WUENIC year. If omitted, the maximum year
-#'   available after filtering to the requested target group is used. All
-#'   three requested vaccines must have data for that year.
+#'   available after filtering to the requested vaccines is used. The year is
+#'   selected before any `target_grp` filter is applied. All three requested
+#'   vaccines must have data for that year and target group.
 #' @param target_grp `str` Optional WUENIC target group. `NULL` (the default)
 #'   ignores this field; provide a value only when an explicit target-group
 #'   filter is needed.
@@ -149,12 +150,6 @@ read_GSAP_immunity_data <- function(
       .data$vaccine %in% unname(vaccine_map),
       !is.na(.data$year)
     )
-  if (!is.null(target_grp)) {
-    target_group <- stringr::str_to_lower(stringr::str_squish(target_grp))
-    data <- data |>
-      dplyr::filter(.data$target_grp == target_group)
-  }
-
   if (nrow(data) == 0) {
     cli::cli_abort(
       "No DTP1, DTP3, or IPV1 records matched the requested filters."
@@ -170,7 +165,23 @@ read_GSAP_immunity_data <- function(
     cli::cli_abort("year must be one non-missing year or NULL.")
   }
 
-  available_vaccines <- unique(data$vaccine[data$year == year])
+  data <- data |>
+    dplyr::filter(.data$year == .env$year)
+
+  if (!is.null(target_grp)) {
+    target_group <- stringr::str_to_lower(stringr::str_squish(target_grp))
+    data <- data |>
+      dplyr::filter(.data$target_grp == target_group)
+  }
+
+  if (nrow(data) == 0) {
+    cli::cli_abort(paste0(
+      "No DTP1, DTP3, or IPV1 records matched WUENIC year ", year,
+      " and target_grp '", target_grp, "'."
+    ))
+  }
+
+  available_vaccines <- unique(data$vaccine)
   missing_vaccines <- setdiff(unname(vaccine_map), available_vaccines)
   if (length(missing_vaccines) > 0) {
     cli::cli_abort(paste0(
@@ -180,7 +191,6 @@ read_GSAP_immunity_data <- function(
   }
 
   output <- data |>
-    dplyr::filter(.data$year == year) |>
     dplyr::transmute(
       Country = normalize_GSAP_country_names(.data$country),
       vaccine = .data$vaccine,
@@ -521,12 +531,19 @@ generate_country_prioritization_template <- function(output_path, name,
     "country_prioritization_parent <- Sys.getenv(\"GSAP_CTRY_PRIORITIZATION_PARENT\",",
     "  unset = \"C:/Users/XJA9/Desktop/country_prioritization\")",
     "immunity_file <- file.path(country_prioritization_parent, \"wuenic2025rev_web-update.xlsx\")",
+    "wuenic_year <- 2025",
+    "wuenic_target_grp <- \"si\"",
     "",
     "if (!file.exists(immunity_file)) stop(\"Add wuenic2025rev_web-update.xlsx to the parent country_prioritization folder or update immunity_file.\")",
     "",
-    "# This workbook is long-format; the reader selects the maximum available",
-    "# year for DTP1, DTP3, and IPV1 without filtering target_grp.",
-    "immunity_data <- read_GSAP_immunity_data(immunity_file)",
+    "# This workbook is long-format; set wuenic_year and wuenic_target_grp",
+    "# above to select the DTP1, DTP3, and IPV1 data used for country",
+    "# prioritization.",
+    "immunity_data <- read_GSAP_immunity_data(",
+    "  immunity_file,",
+    "  year = wuenic_year,",
+    "  target_grp = wuenic_target_grp",
+    ")",
     "# Risk-category input for the Previous (June 2023) column; verify that",
     "# this EDAV table is the intended historical version.",
     "previous_risk_table <- edav_io(\"read\", file_loc = get_constant(\"CTRY_RISK_CAT\"))",
@@ -537,6 +554,10 @@ generate_country_prioritization_template <- function(output_path, name,
     "# Laboratory locations are also pulled from EDAV.",
     "lab_locs <- get_lab_locs()",
     "",
+    "# Load cleaned laboratory data so C2 uses DateStoolReceivedinLab.",
+    "edav_io(\"read\", file_loc = get_constant(\"CLEANED_LAB_DATA\"))",
+    "lab_data <- get(\"lab_data\", envir = globalenv())",
+    "",
     "# Pull and calculate the required source data ----",
     "country_prio_data <- prepare_GSAP_ctry_prioritization_data(",
     "  raw_data = raw_data,",
@@ -545,6 +566,7 @@ generate_country_prioritization_template <- function(output_path, name,
     "  immunity_data = immunity_data,",
     "  risk_table = previous_risk_table,",
     "  lab_locs = lab_locs,",
+    "  lab_data = lab_data,",
     "  ctry_sf = ctry_sf",
     ")",
     "",

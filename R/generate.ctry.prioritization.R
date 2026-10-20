@@ -62,12 +62,18 @@ get_GSAP_window_start <- function(end_date, months_back) {
 #' @param immunity_data `tibble` Optional already-read WUENIC data.
 #' @param immunity_file `str` Optional WUENIC workbook path. Used when
 #'   `immunity_data` is `NULL`.
+#' @param wuenic_year `integer` Optional WUENIC year to use when
+#'   `immunity_data` is read from `immunity_file`. If `NULL`, the reader uses
+#'   its default year-selection behavior.
 #' @param risk_table `tibble` Optional current country-risk table. Defaults to
 #'   the EDAV `CTRY_RISK_CAT` table.
 #' @param lab_locs `tibble` Optional laboratory-location table. Defaults to
 #'   the EDAV laboratory-location data.
 #' @param ctry_sf Optional country spatial layer. Defaults to
 #'   `raw_data$global.ctry` when present.
+#' @param lab_data `tibble` Optional cleaned laboratory data containing
+#'   `DateStoolReceivedinLab`. When supplied, this date is used for the C2
+#'   onset-to-laboratory timeliness indicator.
 #'
 #' @returns A list containing the source inputs, existing KPI tables, and
 #'   `surveillance_indicators` table with the indicators needed by the later
@@ -80,9 +86,11 @@ prepare_GSAP_ctry_prioritization_data <- function(
     end_date,
     immunity_data = NULL,
     immunity_file = NULL,
+    wuenic_year = NULL,
     risk_table = NULL,
     lab_locs = NULL,
-    ctry_sf = NULL) {
+    ctry_sf = NULL,
+    lab_data = NULL) {
   required_raw <- c("afp", "es", "pos", "ctry.pop")
   missing_raw <- setdiff(required_raw, names(raw_data))
   if (length(missing_raw) > 0) {
@@ -103,7 +111,10 @@ prepare_GSAP_ctry_prioritization_data <- function(
         "Provide either immunity_data or the path to the WUENIC immunity_file."
       )
     }
-    immunity_data <- read_GSAP_immunity_data(immunity_file)
+    immunity_data <- read_GSAP_immunity_data(
+      immunity_file,
+      year = wuenic_year
+    )
   }
   if (!is.data.frame(immunity_data)) {
     cli::cli_abort("immunity_data must be a data frame or tibble.")
@@ -115,6 +126,9 @@ prepare_GSAP_ctry_prioritization_data <- function(
   }
   if (!is.data.frame(risk_table)) {
     cli::cli_abort("risk_table must be a data frame or tibble.")
+  }
+  if (!is.null(lab_data) && !is.data.frame(lab_data)) {
+    cli::cli_abort("lab_data must be a data frame or tibble.")
   }
   if (is.null(lab_locs)) {
     lab_locs <- get_lab_locs()
@@ -145,7 +159,8 @@ prepare_GSAP_ctry_prioritization_data <- function(
   )
   c2 <- generate_c2_table(
     raw_data$afp, raw_data$ctry.pop, start_date, end_date,
-    spatial_scale = "ctry", lab_locs = lab_locs, risk_table = risk_table
+    spatial_scale = "ctry", lab_locs = lab_locs, risk_table = risk_table,
+    lab_data = lab_data
   )
   c1_latest <- latest_period(c1, "ctry")
   c2_latest <- latest_period(c2, "ctry")
@@ -181,6 +196,7 @@ prepare_GSAP_ctry_prioritization_data <- function(
     immunity_data = immunity_data,
     risk_table = risk_table,
     lab_locs = lab_locs,
+    lab_data = lab_data,
     ctry_sf = ctry_sf,
     c1 = c1,
     c2 = c2,
@@ -669,6 +685,9 @@ calculate_GSAP_ctry_prioritization <- function(
 #' @param positive_end_date `Date` Date used as the end of the six- and
 #'   twelve-month positive-detection and proximity windows. Defaults to
 #'   `Sys.Date()`.
+#' @param lab_data `tibble` Optional cleaned laboratory data containing
+#'   `DateStoolReceivedinLab`. When supplied, this date is used for the C2
+#'   onset-to-laboratory timeliness indicator.
 #'
 #' @returns A list with `results`, `analysis_notes`, and `output_path`.
 #' @export
@@ -686,7 +705,8 @@ generate_GSAP_ctry_prioritization <- function(
     category_breaks = NULL,
     min_surv_ind = 4,
     output_path = NULL,
-    positive_end_date = Sys.Date()) {
+    positive_end_date = Sys.Date(),
+    lab_data = NULL) {
 
   required_raw <- c("afp", "es", "pos", "ctry.pop")
   missing_raw <- setdiff(required_raw, names(raw_data))
@@ -709,6 +729,9 @@ generate_GSAP_ctry_prioritization <- function(
   }
   if (!is.data.frame(immunity_data)) {
     cli::cli_abort("immunity_data must be a data frame or tibble.")
+  }
+  if (!is.null(lab_data) && !is.data.frame(lab_data)) {
+    cli::cli_abort("lab_data must be a data frame or tibble.")
   }
   if (is.null(risk_table)) {
     risk_table <- suppressMessages(
@@ -780,7 +803,8 @@ generate_GSAP_ctry_prioritization <- function(
   )
   c2 <- generate_c2_table(
     raw_data$afp, raw_data$ctry.pop, start_date, end_date,
-    spatial_scale = "ctry", lab_locs = lab_locs, risk_table = risk_table
+    spatial_scale = "ctry", lab_locs = lab_locs, risk_table = risk_table,
+    lab_data = lab_data
   )
   latest_period <- function(data, country_col) {
     if (!"analysis_year_end" %in% names(data)) {
