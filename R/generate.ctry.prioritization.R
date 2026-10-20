@@ -48,6 +48,18 @@ get_GSAP_window_start <- function(end_date, months_back) {
   ))
 }
 
+# Score immunity gaps in the direction of risk: larger gaps receive higher
+# scores. This is separate from score_0_5_10(), where higher indicator values
+# are treated as better performance.
+score_GSAP_immunity_0_5_10 <- function(x, low = 6, high = 20) {
+  dplyr::case_when(
+    is.na(x) ~ NA_real_,
+    x >= high ~ 10,
+    x >= low ~ 5,
+    TRUE ~ 0
+  )
+}
+
 #' Prepare country-prioritization source data
 #'
 #' Pulls the existing sirfunctions KPI calculations needed for the first
@@ -577,9 +589,9 @@ calculate_GSAP_ctry_prioritization <- function(
         .data$`Virus within 200km (6m)` == "Yes" ~ 5,
         TRUE ~ 0
       ),
-      zero_dose_score = score_0_5_10(.data$zero.dose.pct, 6, 20),
-      underimm_score = score_0_5_10(.data$under.immun.pct, 6, 20),
-      no_ipv_score = score_0_5_10(.data$no.ipv1.pct, 6, 20),
+      zero_dose_score = score_GSAP_immunity_0_5_10(.data$zero.dose.pct),
+      underimm_score = score_GSAP_immunity_0_5_10(.data$under.immun.pct),
+      no_ipv_score = score_GSAP_immunity_0_5_10(.data$no.ipv1.pct),
       score_ctry_npafp = score_0_5_10(.data$`NPAFP (National)`, 1, 2),
       score_nat_stool = score_0_5_10(.data$`Stool adequacy (National)`, 60, 80),
       score_subnat_npafp = score_0_5_10(.data$`NPAFP (Subnational), %`, 60, 80),
@@ -1078,9 +1090,9 @@ generate_GSAP_ctry_prioritization <- function(
         `Virus within 200km (6m)` == "Yes" ~ 5,
         TRUE ~ 0
       ),
-      zero_dose_score = score_0_5_10(zero.dose.pct, 6, 20),
-      underimm_score = score_0_5_10(under.immun.pct, 6, 20),
-      no_ipv_score = score_0_5_10(no.ipv1.pct, 6, 20),
+      zero_dose_score = score_GSAP_immunity_0_5_10(zero.dose.pct),
+      underimm_score = score_GSAP_immunity_0_5_10(under.immun.pct),
+      no_ipv_score = score_GSAP_immunity_0_5_10(no.ipv1.pct),
       score_ctry_npafp = score_0_5_10(`NPAFP (National)`, 1, 2),
       score_nat_stool = score_0_5_10(`Stool adequacy (National)`, 60, 80),
       score_subnat_npafp = score_0_5_10(`NPAFP (Subnational), %`, 60, 80),
