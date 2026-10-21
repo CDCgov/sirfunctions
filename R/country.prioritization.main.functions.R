@@ -24,14 +24,10 @@ init_country_prioritization <- function(path = getwd(), name = NULL,
   }
 
   analysis_path <- file.path(path, name)
-  data_path <- file.path(analysis_path, "data")
-  cli::cli_process_start("Setting up country-prioritization folder structure")
-  dir.create(data_path, recursive = TRUE, showWarnings = FALSE)
-  cli::cli_process_done()
+  dir.create(analysis_path, recursive = TRUE, showWarnings = FALSE)
 
   Sys.setenv(
     GSAP_CTRY_PRIORITIZATION_ROOT = analysis_path,
-    GSAP_CTRY_PRIORITIZATION_DATA = data_path,
     GSAP_CTRY_PRIORITIZATION_PARENT = normalizePath(path, winslash = "/")
   )
 
@@ -258,19 +254,39 @@ build_GSAP_analysis_notes <- function(prioritization_output) {
 
   start_date <- prioritization_output$analysis_start_date
   end_date <- prioritization_output$analysis_end_date
+  positive_end_date <- prioritization_output$positive_end_date
   if (length(start_date) == 1 && !is.na(start_date) &&
       length(end_date) == 1 && !is.na(end_date)) {
     period_note <- paste0(
-      "Analysis period: ", format(start_date, "%d-%b-%Y"),
+      "Indicator analysis period: ", format(start_date, "%d-%b-%Y"),
       " to ", format(end_date, "%d-%b-%Y")
     )
   } else {
-    period_note <- "Analysis period: supplied in the country-prioritization template"
+    period_note <- "Indicator analysis period: supplied in the country-prioritization template"
   }
+  analysis_date <- if (length(positive_end_date) == 1 &&
+                      !is.na(positive_end_date)) {
+    positive_end_date
+  } else {
+    Sys.Date()
+  }
+  format_note_date <- function(date) {
+    paste0(
+      as.integer(format(date, "%m")), "/",
+      as.integer(format(date, "%d")), "/",
+      format(date, "%Y")
+    )
+  }
+  virus_period_note <- paste0(
+    "Virus analysis period aligns with 6 & 12 months prior to date of analysis; ",
+    "12 months: ", format_note_date(get_GSAP_window_start(analysis_date, 12)),
+    "; 6 months: ", format_note_date(get_GSAP_window_start(analysis_date, 6))
+  )
   overall_note <- paste0(
-    "Date of analysis: ", format(Sys.Date(), "%d-%b-%Y"), "\n",
+    "Date of analysis: ", format(analysis_date, "%d-%b-%Y"), "\n",
     period_note, "\n",
-    "Within each sheet, countries are arranged by region and total score;"
+    virus_period_note, "\n",
+    "Within each sheet, countries are arranged by region and total score"
   )
 
   notes_table <- data.frame(
@@ -280,19 +296,16 @@ build_GSAP_analysis_notes <- function(prioritization_output) {
       "Immunity risk score (0-25)", "NPAFP (National)",
       "Stool adequacy (National)", "NPAFP (Subnational), %",
       "Stool adequacy (Subnational), %", "Detection within 46/35d, %",
-      "Onset to lab within 14d, %", "ES sites >=50% EV",
+      "Onset to lab within 14/18d, %", "ES sites >=50% EV",
       "WPV AFP/ES (last 6m)", "WPV AFP/ES (last 12m)",
       "cVDPV AFP/ES (last 6m)", "cVDPV AFP/ES (last 12m)",
       "Virus within 200km (6m)", "Virus within 200km details (6m)",
       "Zero dose, %", "Underimmunized, %", "No IPV1, %"
     ),
     `Data source` = c(
-      "POLIS", "Supplied risk table", "sirfunctions",
-      "POLIS and country classification", "sirfunctions KPI outputs",
-      "WUENIC workbook", "POLIS", "POLIS", "POLIS", "POLIS", "POLIS",
-      "POLIS", "POLIS (C1 ES EV detection rate)", "POLIS", "POLIS",
-      "POLIS", "POLIS", "POLIS", "POLIS", "WUENIC workbook",
-      "WUENIC workbook", "WUENIC workbook"
+      "POLIS", "GPSAP 2025-2026", "--", "--", "--", "--",
+      rep("POLIS", 13),
+      rep("WUENIC workbook", 3)
     ),
     `Definition or notes` = c(
       note_for(
@@ -304,17 +317,17 @@ build_GSAP_analysis_notes <- function(prioritization_output) {
       "Sum of WPV and cVDPV indicators, weighted to 25.",
       "Sum of seven surveillance indicators, weighted to 50 and normalized to the number available.",
       "Sum of DTP1, DTP3, and IPV1 complement scores, weighted to 25.",
-      "NPAFP cases per 100,000 population aged <15 years, summarized nationally.",
+      "NPAFP cases per 100,000 population aged <15 years, summarized nationally (missing age cases were assumed <15 yrs, and were therefore included in analysis).",
       "Proportion of AFP cases meeting the two-stool adequacy definition, summarized nationally.",
-      "Among districts with >=100K children under 15 years: proportion meeting the regional NPAFP target.",
-      "Among districts reporting >=5 AFP cases: proportion meeting the 80% stool-adequacy target.",
+      "Among districts with >=100K children under 15 years: proportion meeting the regional NPAFP target (missing age cases were assumed <15 yrs, and were therefore included in analysis).",
+      "Among districts reporting >=5 AFP cases: proportion meeting the 80% stool-adequacy target (only includes districts with 5 or more NPAFP cases).",
       "Proportion of AFP/ES detections with final results within 35 or 46 days, as applicable.",
       "Proportion of AFP cases meeting the onset-to-laboratory field-shipment timeliness target.",
-      "C1 ES EV detection rate: proportion of active ES sites meeting the >=50% EV detection target.",
-      "Count of WPV detections from the analysis end date through the previous six months.",
-      "Count of WPV detections from the analysis end date through the previous twelve months.",
-      "Count of cVDPV detections from the analysis end date through the previous six months.",
-      "Count of cVDPV detections from the analysis end date through the previous twelve months.",
+      "Proportion of active ES sites meeting the >=50% EV detection target. (Active Sites include sites in operation for ≥12 months and with ≥10 samples in the 12-month period)",
+      "Count of WPV detections in the 6 months preceding the date of analysis.",
+      "Count of WPV detections in the 12 months preceding the date of analysis.",
+      "Count of cVDPV detections in the 6 months preceding the date of analysis.",
+      "Count of cVDPV detections in the 12 months preceding the date of analysis.",
       "Country border is within 200 km of a qualifying detection in a neighboring country during the previous six months.",
       "Details of qualifying detections contributing to the 200-km indicator.",
       "100% - DTP1%.", "100% - DTP3%.", "100% - IPV1%."
@@ -375,14 +388,75 @@ export_GSAP_ctry_prioritization <- function(prioritization_output,
   wb <- openxlsx::createWorkbook()
   openxlsx::addWorksheet(wb, "Results")
   openxlsx::addWorksheet(wb, "Analysis notes")
+  results_for_export <- prioritization_output$results
+  score_names <- c(
+    "Total risk score (0-100)", "cVDPV/WPV risk score (0-25)",
+    "Surveillance risk score (0-50)", "Immunity risk score (0-25)"
+  )
+  for (score_name in intersect(score_names, names(results_for_export))) {
+    results_for_export[[score_name]] <- suppressWarnings(
+      as.numeric(as.character(results_for_export[[score_name]]))
+    )
+  }
   header_style <- openxlsx::createStyle(
     textDecoration = "bold", halign = "center", border = "Bottom",
     wrapText = TRUE
   )
   openxlsx::writeData(
-    wb, "Results", prioritization_output$results,
+    wb, "Results", results_for_export,
     withFilter = TRUE, headerStyle = header_style
   )
+  result_names <- names(results_for_export)
+  kpi_columns <- match(c(
+    "NPAFP (National)", "Stool adequacy (National)",
+    "NPAFP (Subnational), %", "Stool adequacy (Subnational), %",
+    "Detection within 46/35d, %", "Onset to lab within 14/18d, %",
+    "ES sites >=50% EV"
+  ), result_names)
+  score_columns <- match(c(
+    "Total risk score (0-100)", "cVDPV/WPV risk score (0-25)",
+    "Surveillance risk score (0-50)", "Immunity risk score (0-25)"
+  ), result_names)
+  total_score_column <- match("Total risk score (0-100)", result_names)
+  result_rows <- seq_len(nrow(results_for_export)) + 1L
+  if (length(kpi_columns) > 0 && length(result_rows) > 0) {
+    openxlsx::addStyle(
+      wb, "Results", openxlsx::createStyle(numFmt = "0.00"),
+      rows = result_rows, cols = kpi_columns, gridExpand = TRUE,
+      stack = TRUE
+    )
+  }
+  if (length(score_columns) > 0 && length(result_rows) > 0) {
+    openxlsx::addStyle(
+      wb, "Results", openxlsx::createStyle(numFmt = "0"),
+      rows = result_rows, cols = score_columns, gridExpand = TRUE,
+      stack = TRUE
+    )
+  }
+  if (!is.na(total_score_column) && length(result_rows) > 0) {
+    openxlsx::conditionalFormatting(
+      wb, "Results", cols = total_score_column, rows = result_rows,
+      type = "colorScale",
+      rule = c(0, 50, 100),
+      style = c("#5B9BD5", "#FFFDF5", "#F8696B")
+    )
+  }
+  surveillance_score_column <- match(
+    "Surveillance risk score (0-50)", result_names
+  )
+  if (!is.na(surveillance_score_column) &&
+      "Surveillance risk score (0-50)" %in% names(prioritization_output$results)) {
+    insufficient_rows <- which(
+      prioritization_output$results[["Surveillance risk score (0-50)"]] ==
+        "insufficient data"
+    )
+    for (row_index in insufficient_rows) {
+      openxlsx::writeData(
+        wb, "Results", "insufficient data", startRow = row_index + 1L,
+        startCol = surveillance_score_column, colNames = FALSE
+      )
+    }
+  }
   openxlsx::writeData(
     wb, "Analysis notes", "Overall notes",
     startRow = 1, startCol = 1, colNames = FALSE
@@ -460,7 +534,11 @@ export_GSAP_ctry_prioritization <- function(prioritization_output,
     widths = c(30.71, 18, 97, 9.14, 12.57, 9.14)
   )
   openxlsx::setRowHeights(
-    wb, "Analysis notes", rows = 1, heights = 54
+    wb, "Analysis notes", rows = 1, heights = 90
+  )
+  openxlsx::setRowHeights(
+    wb, "Analysis notes", rows = c(11, 13, 14, 17),
+    heights = c(45, 45, 45, 60)
   )
   openxlsx::setRowHeights(
     wb, "Analysis notes", rows = c(12, 15, 22), heights = c(30, 30, 60)

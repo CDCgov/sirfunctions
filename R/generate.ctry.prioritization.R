@@ -182,7 +182,7 @@ prepare_GSAP_ctry_prioritization_data <- function(
         Country = normalize_GSAP_country_names(.data$ctry),
         `NPAFP (National)` = .data$npafp_rate,
         `Stool adequacy (National)` = .data$per.stool.ad,
-        `Onset to lab within 14d, %` =
+        `Onset to lab within 14/18d, %` =
           .data$timely_opt_field_shipment
       ),
     c1_latest |>
@@ -548,6 +548,16 @@ calculate_GSAP_ctry_prioritization <- function(
       `Previous GPSAP risk cat` = dplyr::coalesce(
         as.character(.data$`Previous GPSAP risk cat`),
         "LOW"
+      ),
+      previous_risk_override = dplyr::case_when(
+        gsub(
+          "\\s+", " ",
+          trimws(toupper(as.character(.data$`Previous GPSAP risk cat`)))
+        ) == "LOW WATCHLIST" ~ "LOW (WATCHLIST)",
+        TRUE ~ gsub(
+          "\\s+", " ",
+          trimws(toupper(as.character(.data$`Previous GPSAP risk cat`)))
+        )
       )
     )
 
@@ -563,7 +573,7 @@ calculate_GSAP_ctry_prioritization <- function(
     "NPAFP (National)", "Stool adequacy (National)",
     "NPAFP (Subnational), %", "Stool adequacy (Subnational), %",
     "ES sites >=50% EV", "Detection within 46/35d, %",
-    "Onset to lab within 14d, %"
+    "Onset to lab within 14/18d, %"
   )
 
   indicators <- indicators |>
@@ -592,13 +602,16 @@ calculate_GSAP_ctry_prioritization <- function(
       zero_dose_score = score_GSAP_immunity_0_5_10(.data$zero.dose.pct),
       underimm_score = score_GSAP_immunity_0_5_10(.data$under.immun.pct),
       no_ipv_score = score_GSAP_immunity_0_5_10(.data$no.ipv1.pct),
+      num.immun.ind = rowSums(!is.na(dplyr::pick(dplyr::all_of(c(
+        "zero.dose.pct", "under.immun.pct", "no.ipv1.pct"
+      ))))),
       score_ctry_npafp = score_0_5_10(.data$`NPAFP (National)`, 1, 2),
       score_nat_stool = score_0_5_10(.data$`Stool adequacy (National)`, 60, 80),
       score_subnat_npafp = score_0_5_10(.data$`NPAFP (Subnational), %`, 60, 80),
       score_subnat_stool = score_0_5_10(.data$`Stool adequacy (Subnational), %`, 60, 80),
       score_ev = score_0_5_10(.data$`ES sites >=50% EV`, 60, 80),
       score_detection = score_0_5_10(.data$`Detection within 46/35d, %`, 60, 80),
-      score_onset_lab = score_0_5_10(.data$`Onset to lab within 14d, %`, 60, 80),
+      score_onset_lab = score_0_5_10(.data$`Onset to lab within 14/18d, %`, 60, 80),
       total.immun.score = rowSums(dplyr::pick(dplyr::all_of(c(
         "zero_dose_score", "underimm_score", "no_ipv_score"
       ))), na.rm = TRUE),
@@ -608,29 +621,57 @@ calculate_GSAP_ctry_prioritization <- function(
         "score_onset_lab"
       ))), na.rm = TRUE),
       surv.score.w = dplyr::if_else(
-        .data$num.surv.ind > 0,
-        round(.data$total.surv.score / (.data$num.surv.ind * 10) * 50),
+        .data$num.surv.ind >= min_surv_ind,
+        round(.data$total.surv.score / (.data$num.surv.ind * 10) * 50, 2),
         NA_real_
       ),
-      immun.score.w = round(.data$total.immun.score / 30 * 25),
-      polio.score.w = round(.data$polio_risk_score / 10 * 25),
-      total.risk.score = rowSums(dplyr::pick(dplyr::all_of(c(
-        "surv.score.w", "immun.score.w", "polio.score.w"
-      ))), na.rm = TRUE)
+      immun.score.w = dplyr::if_else(
+        .data$num.immun.ind > 0,
+        round(.data$total.immun.score / 30 * 25, 2),
+        NA_real_
+      ),
+      polio.score.w = round(.data$polio_risk_score / 10 * 25, 2),
+      total.risk.score = dplyr::if_else(
+        .data$num.surv.ind >= min_surv_ind,
+        round(rowSums(dplyr::pick(dplyr::all_of(c(
+          "surv.score.w", "immun.score.w", "polio.score.w"
+        ))), na.rm = TRUE), 2),
+        NA_real_
+      )
     ) |>
-    dplyr::filter(.data$num.surv.ind >= min_surv_ind)
+    dplyr::filter(
+      .data$num.surv.ind >= min_surv_ind |
+        .data$previous_risk_override %in% c(
+          "HIGH", "MEDIUM", "LOW (WATCHLIST)"
+        )
+    )
+
+  display_score <- function(x, insufficient = FALSE) {
+    insufficient <- rep_len(insufficient, length(x))
+    dplyr::if_else(
+      insufficient,
+      "insufficient data",
+      dplyr::if_else(
+        is.na(x), "", format(round(x, 0), trim = TRUE, scientific = FALSE)
+      )
+    )
+  }
 
   results <- indicators |>
     dplyr::transmute(
       `WHO Region`, Country,
       `Previous GPSAP risk cat`,
-      `Total risk score (0-100)` = .data$total.risk.score,
-      `cVDPV/WPV risk score (0-25)` = .data$polio.score.w,
-      `Surveillance risk score (0-50)` = .data$surv.score.w,
-      `Immunity risk score (0-25)` = .data$immun.score.w,
+      `Total risk score (0-100)` = display_score(
+        .data$total.risk.score, .data$num.surv.ind < min_surv_ind
+      ),
+      `cVDPV/WPV risk score (0-25)` = display_score(.data$polio.score.w),
+      `Surveillance risk score (0-50)` = display_score(
+        .data$surv.score.w, .data$num.surv.ind < min_surv_ind
+      ),
+      `Immunity risk score (0-25)` = display_score(.data$immun.score.w),
       `NPAFP (National)`, `Stool adequacy (National)`,
       `NPAFP (Subnational), %`, `Stool adequacy (Subnational), %`,
-      `Detection within 46/35d, %`, `Onset to lab within 14d, %`,
+      `Detection within 46/35d, %`, `Onset to lab within 14/18d, %`,
       `ES sites >=50% EV`,
       `WPV AFP/ES (last 6m)`, `WPV AFP/ES (last 12m)`,
       `cVDPV AFP/ES (last 6m)`, `cVDPV AFP/ES (last 12m)`,
@@ -646,10 +687,10 @@ calculate_GSAP_ctry_prioritization <- function(
     "Total risk score (0-100)", "Legacy country prioritization", "Surveillance weighted to 50, immunity weighted to 25, and cVDPV/WPV risk weighted to 25.",
     "cVDPV/WPV risk score (0-25)", "POLIS and country classification", "Endemic/recent virus scores 25; proximity to virus scores 12.5 before rounding.",
     "Surveillance risk score (0-50)", "sirfunctions KPI outputs", "Seven indicators scored 0/5/10 and normalized to the number available.",
-    "ES sites >=50% EV", "C1 ES EV detection rate", "Percentage of active ES sites meeting the EV detection target; pulled from C1 prop_met_ev.",
+    "ES sites >=50% EV", "C1 ES EV detection rate", "Proportion of active ES sites meeting the >=50% EV detection target. (Active Sites include sites in operation for ≥12 months and with ≥10 samples in the 12-month period)",
     "Immunity risk score (0-25)", "WUENIC workbook", "DTP1, DTP3, and IPV1 complements scored 0/5/10 and weighted to 25.",
     "Previous GPSAP risk cat", "Supplied risk table", "The category is taken from the supplied risk table; missing categories default to LOW.",
-    "Country inclusion", "Legacy country prioritization", paste0("Countries are retained when at least ", min_surv_ind, " of 7 surveillance indicators are available.")
+    "Country inclusion", "Legacy country prioritization", paste0("Countries are retained when at least ", min_surv_ind, " of 7 surveillance indicators are available, or when listed as HIGH, MEDIUM, or LOW (WATCHLIST) in the previous GPSAP risk table.")
   )
 
   list(
@@ -1014,10 +1055,20 @@ generate_GSAP_ctry_prioritization <- function(
       `Stool adequacy (Subnational), %` = .data$prop_met_stool,
       `ES sites >=50% EV` = .data$prop_met_ev,
       `Detection within 46/35d, %` = .data$prop_timely_wild_vdpv,
-      `Onset to lab within 14d, %` = .data$timely_opt_field_shipment,
+      `Onset to lab within 14/18d, %` = .data$timely_opt_field_shipment,
       `Previous GPSAP risk cat` = dplyr::coalesce(
         as.character(.data$`Previous GPSAP risk cat`),
         "LOW"
+      ),
+      previous_risk_override = dplyr::case_when(
+        gsub(
+          "\\s+", " ",
+          trimws(toupper(as.character(.data$`Previous GPSAP risk cat`)))
+        ) == "LOW WATCHLIST" ~ "LOW (WATCHLIST)",
+        TRUE ~ gsub(
+          "\\s+", " ",
+          trimws(toupper(as.character(.data$`Previous GPSAP risk cat`)))
+        )
       ),
       `Virus within 200km (6m)` = dplyr::coalesce(
         .data$`Virus within 200km (6m)`, "No"
@@ -1074,7 +1125,7 @@ generate_GSAP_ctry_prioritization <- function(
         "NPAFP (National)", "Stool adequacy (National)",
         "NPAFP (Subnational), %", "Stool adequacy (Subnational), %",
         "ES sites >=50% EV", "Detection within 46/35d, %",
-        "Onset to lab within 14d, %"
+        "Onset to lab within 14/18d, %"
       ))))),
       polio_recent = dplyr::coalesce(`WPV AFP/ES (last 12m)`, 0) > 0 |
         dplyr::coalesce(`cVDPV AFP/ES (last 12m)`, 0) > 0,
@@ -1093,13 +1144,16 @@ generate_GSAP_ctry_prioritization <- function(
       zero_dose_score = score_GSAP_immunity_0_5_10(zero.dose.pct),
       underimm_score = score_GSAP_immunity_0_5_10(under.immun.pct),
       no_ipv_score = score_GSAP_immunity_0_5_10(no.ipv1.pct),
+      num.immun.ind = rowSums(!is.na(dplyr::pick(dplyr::all_of(c(
+        "zero.dose.pct", "under.immun.pct", "no.ipv1.pct"
+      ))))),
       score_ctry_npafp = score_0_5_10(`NPAFP (National)`, 1, 2),
       score_nat_stool = score_0_5_10(`Stool adequacy (National)`, 60, 80),
       score_subnat_npafp = score_0_5_10(`NPAFP (Subnational), %`, 60, 80),
       score_subnat_stool = score_0_5_10(`Stool adequacy (Subnational), %`, 60, 80),
       score_ev = score_0_5_10(`ES sites >=50% EV`, 60, 80),
       score_detection = score_0_5_10(`Detection within 46/35d, %`, 60, 80),
-      score_onset_lab = score_0_5_10(`Onset to lab within 14d, %`, 60, 80),
+      score_onset_lab = score_0_5_10(`Onset to lab within 14/18d, %`, 60, 80),
       total.immun.score = rowSums(dplyr::pick(dplyr::all_of(c(
         "zero_dose_score", "underimm_score", "no_ipv_score"
       ))), na.rm = TRUE),
@@ -1109,15 +1163,26 @@ generate_GSAP_ctry_prioritization <- function(
         "score_onset_lab"
       ))), na.rm = TRUE),
       surv.score.w = dplyr::if_else(
-        num.surv.ind > 0,
-        round(total.surv.score / (num.surv.ind * 10) * 50),
+        num.surv.ind >= min_surv_ind,
+        round(total.surv.score / (num.surv.ind * 10) * 50, 2),
         NA_real_
       ),
-      immun.score.w = round(total.immun.score / 30 * 25),
-      polio.score.w = round(polio_risk_score / 10 * 25),
-      total.risk.score = surv.score.w + immun.score.w + polio.score.w
+      immun.score.w = dplyr::if_else(
+        num.immun.ind > 0,
+        round(total.immun.score / 30 * 25, 2),
+        NA_real_
+      ),
+      polio.score.w = round(polio_risk_score / 10 * 25, 2),
+      total.risk.score = dplyr::if_else(
+        num.surv.ind >= min_surv_ind,
+        round(surv.score.w + immun.score.w + polio.score.w, 2),
+        NA_real_
+      )
     ) |>
-    dplyr::filter(num.surv.ind >= min_surv_ind)
+    dplyr::filter(
+      num.surv.ind >= min_surv_ind |
+        previous_risk_override %in% c("HIGH", "MEDIUM", "LOW (WATCHLIST)")
+    )
 
   if (!is.null(category_breaks)) {
     required_breaks <- c("HIGH", "MEDIUM", "LOW (WATCHLIST)")
@@ -1142,19 +1207,34 @@ generate_GSAP_ctry_prioritization <- function(
       dplyr::mutate(`Proposed GPSAP 2025-26 prioritization` = NA_character_)
   }
 
+  display_score <- function(x, insufficient = FALSE) {
+    insufficient <- rep_len(insufficient, length(x))
+    dplyr::if_else(
+      insufficient,
+      "insufficient data",
+      dplyr::if_else(
+        is.na(x), "", format(round(x, 0), trim = TRUE, scientific = FALSE)
+      )
+    )
+  }
+
   results <- indicators |>
     dplyr::transmute(
       `WHO Region`, Country,
       `Previous GPSAP risk cat`,
-      `Total risk score (0-100)` = total.risk.score,
+      `Total risk score (0-100)` = display_score(
+        total.risk.score, num.surv.ind < min_surv_ind
+      ),
       `Proposed GPSAP 2025-26 prioritization`,
-      `cVDPV/WPV risk score (0-25)` = polio.score.w,
-      `Surveillance risk score (0-50)` = surv.score.w,
-      `Immunity risk score (0-25)` = immun.score.w,
+      `cVDPV/WPV risk score (0-25)` = display_score(polio.score.w),
+      `Surveillance risk score (0-50)` = display_score(
+        surv.score.w, num.surv.ind < min_surv_ind
+      ),
+      `Immunity risk score (0-25)` = display_score(immun.score.w),
       dplyr::any_of("Regional classification"),
       `NPAFP (National)`, `Stool adequacy (National)`,
       `NPAFP (Subnational), %`, `Stool adequacy (Subnational), %`,
-      `Detection within 46/35d, %`, `Onset to lab within 14d, %`,
+      `Detection within 46/35d, %`, `Onset to lab within 14/18d, %`,
       `ES sites >=50% EV`,
       `WPV AFP/ES (last 6m)`,
       `WPV AFP/ES (last 12m)`, `cVDPV AFP/ES (last 6m)`,
@@ -1168,12 +1248,12 @@ generate_GSAP_ctry_prioritization <- function(
 
   notes <- dplyr::tribble(
     ~Field, ~Data_source, ~Definition_or_notes,
-    "Total risk score (0-100)", "sirfunctions", "Sum of the three weighted component scores.",
-    "Previous GPSAP risk cat", "Supplied risk table", "Category from the supplied risk table; missing categories default to LOW.",
-    "cVDPV/WPV risk score (0-25)", "POLIS", "Endemic/recent virus scores 25; proximity to virus scores 12.5 before rounding.",
-    "Surveillance risk score (0-50)", "POLIS", "Surveillance indicators scored 0/5/10 and weighted to 50.",
-    "Immunity risk score (0-25)", "User-supplied immunity data", "DTP1, DTP3, and IPV1 complements scored 0/5/10 and weighted to 25.",
-    "Country inclusion", "POLIS", paste0("Retained when at least ", min_surv_ind, " of 7 surveillance indicators are available."),
+    "Total risk score (0-100)", "--", "Sum of the three weighted component scores.",
+    "Previous GPSAP risk cat", "GPSAP 2025-2026", "Category from the supplied risk table; missing categories default to LOW.",
+    "cVDPV/WPV risk score (0-25)", "--", "Endemic/recent virus scores 25; proximity to virus scores 12.5 before rounding.",
+    "Surveillance risk score (0-50)", "--", "Surveillance indicators scored 0/5/10 and weighted to 50.",
+    "Immunity risk score (0-25)", "--", "DTP1, DTP3, and IPV1 complements scored 0/5/10 and weighted to 25.",
+    "Country inclusion", "GPSAP 2025-2026", paste0("Retained when at least ", min_surv_ind, " of 7 surveillance indicators are available, or when listed as HIGH, MEDIUM, or LOW (WATCHLIST) in the previous GPSAP risk table."),
     "Detection within 46/35d, %", "sirfunctions", "Existing KPI timeliness-of-detection indicator; the label follows the requested final table.",
     "Proposed category", "Policy input", "Not assigned unless proposed_category or category_breaks is supplied."
   )
