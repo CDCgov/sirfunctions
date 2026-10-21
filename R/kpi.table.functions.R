@@ -552,6 +552,11 @@ add_rolling_years <- function(df, start_date, end_date, date_col, period = month
 #' @param lab_locs `tibble` Summary of the sequencing capacities of labs.
 #' Output of [get_lab_locs()]. Defaults to `NULL`, which will download the information
 #' directly from EDAV.
+#' @param missing_agemonths `logical` Whether to include AFP cases with missing
+#' `age.months` in the NPAFP calculation. Defaults to `FALSE`.
+#' @param stool_na_if_no_gt5_npafp `logical` Whether to return `NA` for
+#' subnational stool adequacy when no district has more than five AFP cases.
+#' Defaults to `FALSE`.
 #' .
 #' @returns `tibble` Summary table of GPSAP KPIs.
 #'
@@ -565,7 +570,9 @@ add_rolling_years <- function(df, start_date, end_date, date_col, period = month
 generate_c1_table <- function(raw_data, start_date, end_date,
                               risk_category = NULL,
                               risk_table = NULL,
-                              lab_locs = NULL) {
+                              lab_locs = NULL,
+                              missing_agemonths = FALSE,
+                              stool_na_if_no_gt5_npafp = FALSE) {
   cli::cli_progress_bar("Creating C1 table", total = 8)
 
   start_date <- lubridate::as_date(start_date)
@@ -628,6 +635,7 @@ generate_c1_table <- function(raw_data, start_date, end_date,
         min(.data$analysis_year_start),
         max(.data$analysis_year_end),
         "dist",
+        missing_agemonths = missing_agemonths,
         rolling = TRUE,
         sp_continuity_validation = FALSE
       )),
@@ -830,7 +838,12 @@ generate_c1_table <- function(raw_data, start_date, end_date,
     dplyr::summarise(
       dist_stool = sum(adequacy.denominator >= 5, na.rm = TRUE),
       met_stool = sum(per.stool.ad >= 80 & adequacy.denominator >= 5, na.rm = TRUE),
-      prop_met_stool = met_stool / dist_stool * 100,
+      prop_met_stool = dplyr::if_else(
+        stool_na_if_no_gt5_npafp &
+          sum(.data$afp.cases > 5, na.rm = TRUE) == 0,
+        NA_real_,
+        met_stool / dist_stool * 100
+      ),
       stool_label = paste0(met_stool, "/", dist_stool)
     )
 

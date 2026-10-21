@@ -60,6 +60,211 @@ score_GSAP_immunity_0_5_10 <- function(x, low = 6, high = 20) {
   )
 }
 
+#' Generate country-prioritization diagnostic checks
+#'
+#' Creates the diagnostic tables used to review missing NPAFP age data and
+#' district population/NPAFP eligibility. The checks are separate from the
+#' country-prioritization report calculations.
+#'
+#' @param raw_data `list` Output of [get_all_polio_data()].
+#' @param start_date `Date` or date-like string. Start of the analysis period.
+#' @param end_date `Date` or date-like string. End of the analysis period.
+#' @param output_path Optional Excel output path. If `NULL`, no workbook is
+#'   written.
+#' @param missing_agemonths `logical` Whether district NPAFP eligibility checks
+#'   include cases with missing `age.months`. Defaults to `TRUE`, matching the
+#'   country-prioritization calculation.
+#'
+#' @returns A list containing `npafp_age_check` and `dist_pop_check_updated`.
+#' @export
+#'
+generate_GSAP_ctry_prioritization_checks <- function(
+    raw_data,
+    start_date,
+    end_date,
+    output_path = NULL,
+    missing_agemonths = TRUE) {
+  required_raw <- c("afp", "dist.pop")
+  missing_raw <- setdiff(required_raw, names(raw_data))
+  if (length(missing_raw) > 0) {
+    cli::cli_abort(paste0(
+      "raw_data is missing: ", paste(missing_raw, collapse = ", ")
+    ))
+  }
+
+  start_date <- suppressWarnings(lubridate::as_date(start_date))
+  end_date <- suppressWarnings(lubridate::as_date(end_date))
+  if (length(start_date) != 1 || length(end_date) != 1 ||
+      is.na(start_date) || is.na(end_date) || start_date > end_date) {
+    cli::cli_abort("Please provide valid start_date and end_date values.")
+  }
+
+  countries_check <- raw_data$afp |>
+    dplyr::transmute(ctry = .data$place.admin.0) |>
+    dplyr::mutate(
+      ctry = normalize_GSAP_country_names(.data$ctry),
+      ctry = dplyr::if_else(
+        stringr::str_detect(.data$ctry, "TANZANIA"),
+        "UNITED REPUBLIC OF TANZANIA",
+        .data$ctry
+      )
+    ) |>
+    dplyr::filter(!is.na(.data$ctry), .data$ctry != "") |>
+    dplyr::distinct(.data$ctry) |>
+    dplyr::arrange(.data$ctry) |>
+    dplyr::pull(.data$ctry)
+
+  npafp_age_check <- raw_data$afp |>
+    dplyr::transmute(
+      ctry = normalize_GSAP_country_names(.data$place.admin.0),
+      date = lubridate::as_date(.data$dateonset),
+      age.months = .data$age.months,
+      is_npafp_case = .data$cdc.classification.all2 %in% c(
+        "NPAFP", "PENDING", "LAB PENDING"
+      )
+    ) |>
+    dplyr::filter(
+      .data$ctry %in% countries_check,
+      dplyr::between(.data$date, start_date, end_date),
+      .data$is_npafp_case
+    ) |>
+    dplyr::group_by(.data$ctry) |>
+    dplyr::summarise(
+      total_npafp_cases = dplyr::n(),
+      missing_age_cases = sum(is.na(.data$age.months)),
+      missing_age_percent = round(
+        .data$missing_age_cases / .data$total_npafp_cases * 100, 1
+      ),
+      .groups = "drop"
+    ) |>
+    dplyr::right_join(
+      tibble::tibble(ctry = as.character(countries_check)),
+      by = "ctry"
+    ) |>
+    dplyr::mutate(
+      total_npafp_cases = tidyr::replace_na(.data$total_npafp_cases, 0),
+      missing_age_cases = tidyr::replace_na(.data$missing_age_cases, 0),
+      missing_age_percent = tidyr::replace_na(.data$missing_age_percent, 0)
+    ) |>
+    dplyr::arrange(.data$ctry)
+
+  get_col <- function(data, choices) {
+    found <- intersect(choices, names(data))
+    if (length(found) == 0) {
+      cli::cli_abort(paste0(
+        "None of these columns were found: ", paste(choices, collapse = ", ")
+      ))
+    }
+    found[[1]]
+  }
+
+  dist_pop <- raw_data$dist.pop
+  dist_pop_check <- dist_pop |>
+    dplyr::transmute(
+      ctry = .data[[get_col(dist_pop, c("ctry", "ADM0_NAME"))]],
+      adm2guid = .data[[get_col(dist_pop, c("adm2guid", "ADM2_GUID"))]],
+      year = suppressWarnings(as.integer(
+        .data[[get_col(dist_pop, "year")]]
+      )),
+      u15pop = suppressWarnings(as.numeric(.data[[get_col(
+        dist_pop, c("u15pop", "u15pop.prov")
+      )]]))
+    ) |>
+    dplyr::mutate(
+      ctry = normalize_GSAP_country_names(.data$ctry),
+      ctry = dplyr::if_else(
+        stringr::str_detect(.data$ctry, "TANZANIA"),
+        "UNITED REPUBLIC OF TANZANIA",
+        .data$ctry
+      )
+    ) |>
+    dplyr::filter(
+      .data$ctry %in% countries_check,
+      dplyr::between(
+        .data$year,
+        lubridate::year(start_date),
+        lubridate::year(end_date)
+      )
+    ) |>
+    dplyr::group_by(.data$ctry) |>
+    dplyr::summarise(
+      total_districts = dplyr::n_distinct(.data$adm2guid),
+      districts_missing_population = dplyr::n_distinct(
+        .data$adm2guid[is.na(.data$u15pop)]
+      ),
+      .groups = "drop"
+    ) |>
+    dplyr::right_join(
+      tibble::tibble(ctry = as.character(countries_check)),
+      by = "ctry"
+    ) |>
+    dplyr::mutate(
+      total_districts = tidyr::replace_na(.data$total_districts, 0),
+      districts_missing_population = tidyr::replace_na(
+        .data$districts_missing_population, 0
+      )
+    ) |>
+    dplyr::arrange(.data$ctry)
+
+  district_npafp <- f.npafp.rate.01(
+    afp.data = raw_data$afp,
+    pop.data = raw_data$dist.pop,
+    start.date = start_date,
+    end.date = end_date,
+    spatial.scale = "dist",
+    rolling = TRUE,
+    sp_continuity_validation = FALSE,
+    missing_agemonths = missing_agemonths
+  ) |>
+    dplyr::mutate(
+      ctry = normalize_GSAP_country_names(.data$ctry),
+      ctry = dplyr::if_else(
+        stringr::str_detect(.data$ctry, "TANZANIA"),
+        "UNITED REPUBLIC OF TANZANIA",
+        .data$ctry
+      )
+    ) |>
+    dplyr::filter(.data$ctry %in% countries_check)
+
+  district_analysis_counts <- district_npafp |>
+    dplyr::group_by(.data$ctry) |>
+    dplyr::summarise(
+      districts_population_eligible = dplyr::n_distinct(
+        .data$adm2guid[.data$par >= 100000]
+      ),
+      districts_more_than_5_npafp_cases = dplyr::n_distinct(
+        .data$adm2guid[.data$n_npafp > 5]
+      ),
+      .groups = "drop"
+    )
+
+  dist_pop_check_updated <- dist_pop_check |>
+    dplyr::left_join(district_analysis_counts, by = "ctry") |>
+    dplyr::mutate(
+      districts_population_eligible = tidyr::replace_na(
+        .data$districts_population_eligible, 0
+      ),
+      districts_more_than_5_npafp_cases = tidyr::replace_na(
+        .data$districts_more_than_5_npafp_cases, 0
+      )
+    ) |>
+    dplyr::arrange(.data$ctry)
+
+  checks <- list(
+    District_Population_Check = dist_pop_check_updated,
+    NPAFP_Age_Check = npafp_age_check
+  )
+
+  if (!is.null(output_path)) {
+    if (!requireNamespace("writexl", quietly = TRUE)) {
+      cli::cli_abort("Package 'writexl' is required to write the checks workbook.")
+    }
+    writexl::write_xlsx(checks, path = output_path)
+  }
+
+  checks
+}
+
 #' Prepare country-prioritization source data
 #'
 #' Pulls the existing sirfunctions KPI calculations needed for the first
@@ -167,7 +372,9 @@ prepare_GSAP_ctry_prioritization_data <- function(
 
   c1 <- generate_c1_table(
     raw_data, start_date, end_date,
-    risk_table = risk_table, lab_locs = lab_locs
+    risk_table = risk_table, lab_locs = lab_locs,
+    missing_agemonths = TRUE,
+    stool_na_if_no_gt5_npafp = TRUE
   )
   c2 <- generate_c2_table(
     raw_data$afp, raw_data$ctry.pop, start_date, end_date,
@@ -294,7 +501,7 @@ analyze_GSAP_ctry_prioritization_data <- function(prepared_data,
     dplyr::distinct(.data$Country, .keep_all = TRUE)
 
   pos <- prepared_data$positives
-  required_pos <- c("place.admin.0", "dateonset", "measurement")
+  required_pos <- c("place.admin.0", "dateonset", "measurement", "source")
   missing_pos <- setdiff(required_pos, names(pos))
   if (length(missing_pos) > 0) {
     cli::cli_abort(paste0(
@@ -313,6 +520,7 @@ analyze_GSAP_ctry_prioritization_data <- function(prepared_data,
     window_start <- get_GSAP_window_start(positive_end_date, months_back)
     pos |>
       dplyr::filter(
+        .data$source %in% c("ENV", "AFP"),
         .data$dateonset >= window_start,
         .data$dateonset <= positive_end_date
       ) |>
@@ -811,7 +1019,9 @@ generate_GSAP_ctry_prioritization <- function(
 
   c1 <- generate_c1_table(
     raw_data, start_date, end_date,
-    risk_table = risk_table, lab_locs = lab_locs
+    risk_table = risk_table, lab_locs = lab_locs,
+    missing_agemonths = TRUE,
+    stool_na_if_no_gt5_npafp = TRUE
   )
   c2 <- generate_c2_table(
     raw_data$afp, raw_data$ctry.pop, start_date, end_date,
@@ -843,7 +1053,7 @@ generate_GSAP_ctry_prioritization <- function(
     ) |>
     dplyr::mutate(Country = normalize_GSAP_country_names(.data$Country))
   count_positives <- function(pos, end_date) {
-    needed <- c("place.admin.0", "dateonset", "measurement")
+    needed <- c("place.admin.0", "dateonset", "measurement", "source")
     if (!all(needed %in% names(pos))) {
       return(dplyr::tibble(
         Country = character(),
@@ -862,6 +1072,7 @@ generate_GSAP_ctry_prioritization <- function(
         virus_group = classify_GSAP_positive_measurement(.data$measurement)
       ) |>
       dplyr::filter(
+        .data$source %in% c("ENV", "AFP"),
         .data$dateonset >= window_12m,
         .data$dateonset <= end_date
       ) |>
