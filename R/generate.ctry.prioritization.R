@@ -687,7 +687,11 @@ analyze_GSAP_ctry_prioritization_data <- function(prepared_data,
 #' @param previous_risk_table Optional table containing the previous GPSAP
 #'   country categories. Defaults to the risk table carried in `analyzed_data`.
 #' @param min_surv_ind Minimum number of the seven surveillance indicators
-#'   required to retain a country. Defaults to `4`.
+#'   required for a complete score. Defaults to `4`.
+#' @param include_all_countries `logical` Retain every country present in the
+#'   AFP data, even when it has fewer than `min_surv_ind` indicators. Such
+#'   countries receive `insufficient data` for the affected scores. Defaults
+#'   to `FALSE`.
 #'
 #' @returns A list with `results` and `analysis_notes`.
 #' @export
@@ -695,7 +699,8 @@ analyze_GSAP_ctry_prioritization_data <- function(prepared_data,
 calculate_GSAP_ctry_prioritization <- function(
     analyzed_data,
     previous_risk_table = NULL,
-    min_surv_ind = 4) {
+    min_surv_ind = 4,
+    include_all_countries = FALSE) {
   if (!is.list(analyzed_data) ||
       !is.data.frame(analyzed_data$country_indicators)) {
     cli::cli_abort(
@@ -743,10 +748,25 @@ calculate_GSAP_ctry_prioritization <- function(
   ) |>
     dplyr::distinct(.data$Country, .keep_all = TRUE)
 
+  afp_countries <- analyzed_data$raw_data$afp |>
+    dplyr::transmute(
+      Country = normalize_GSAP_country_names(.data$place.admin.0)
+    ) |>
+    dplyr::mutate(
+      Country = dplyr::if_else(
+        stringr::str_detect(.data$Country, "TANZANIA"),
+        "UNITED REPUBLIC OF TANZANIA",
+        .data$Country
+      )
+    ) |>
+    dplyr::filter(!is.na(.data$Country), .data$Country != "") |>
+    dplyr::distinct(.data$Country)
+
   indicators <- analyzed_data$country_indicators |>
     dplyr::mutate(
       Country = normalize_GSAP_country_names(.data$Country)
     ) |>
+    dplyr::full_join(afp_countries, by = "Country") |>
     dplyr::full_join(risk, by = "Country") |>
     dplyr::mutate(
       `WHO Region` = dplyr::coalesce(
@@ -848,7 +868,9 @@ calculate_GSAP_ctry_prioritization <- function(
       )
     ) |>
     dplyr::filter(
-      .data$num.surv.ind >= min_surv_ind |
+      .data$Country %in% afp_countries$Country,
+      include_all_countries |
+        .data$num.surv.ind >= min_surv_ind |
         .data$previous_risk_override %in% c(
           "HIGH", "MEDIUM", "LOW (WATCHLIST)"
         )
@@ -898,7 +920,7 @@ calculate_GSAP_ctry_prioritization <- function(
     "ES sites >=50% EV", "C1 ES EV detection rate", "Proportion of active ES sites meeting the >=50% EV detection target. (Active Sites include sites in operation for ≥12 months and with ≥10 samples in the 12-month period)",
     "Immunity risk score (0-25)", "WUENIC workbook", "DTP1, DTP3, and IPV1 complements scored 0/5/10 and weighted to 25.",
     "Previous GPSAP risk cat", "Supplied risk table", "The category is taken from the supplied risk table; missing categories default to LOW.",
-    "Country inclusion", "Legacy country prioritization", paste0("Countries are retained when at least ", min_surv_ind, " of 7 surveillance indicators are available, or when listed as HIGH, MEDIUM, or LOW (WATCHLIST) in the previous GPSAP risk table.")
+    "Country inclusion", "Country prioritization", if (include_all_countries) "All countries present in the AFP data are retained; scores requiring insufficient indicators are labelled insufficient data." else paste0("Countries are retained when at least ", min_surv_ind, " of 7 surveillance indicators are available, or when listed as HIGH, MEDIUM, or LOW (WATCHLIST) in the previous GPSAP risk table.")
   )
 
   list(
@@ -940,7 +962,11 @@ calculate_GSAP_ctry_prioritization <- function(
 #'   proposed category from the total score. Names must include `HIGH`,
 #'   `MEDIUM`, and `LOW (WATCHLIST)`.
 #' @param min_surv_ind `integer` Minimum number of available surveillance
-#'   indicators required to retain a country. Defaults to `4`.
+#'   indicators required for a complete score. Defaults to `4`.
+#' @param include_all_countries `logical` Retain every country present in the
+#'   AFP data, even when it has fewer than `min_surv_ind` indicators. Such
+#'   countries receive `insufficient data` for the affected scores. Defaults
+#'   to `FALSE`.
 #' @param output_path `str` Optional path for an Excel output. If `NULL`, no
 #'   file is written.
 #' @param positive_end_date `Date` Date used as the end of the six- and
@@ -965,6 +991,7 @@ generate_GSAP_ctry_prioritization <- function(
     ctry_sf = NULL,
     category_breaks = NULL,
     min_surv_ind = 4,
+    include_all_countries = FALSE,
     output_path = NULL,
     positive_end_date = Sys.Date(),
     lab_data = NULL) {
@@ -1057,6 +1084,20 @@ generate_GSAP_ctry_prioritization <- function(
   immunity_data <- immunity_data |>
     dplyr::select(Country, dplyr::all_of(complement_cols)) |>
     dplyr::distinct(Country, .keep_all = TRUE)
+
+  afp_countries <- raw_data$afp |>
+    dplyr::transmute(
+      Country = normalize_GSAP_country_names(.data$place.admin.0)
+    ) |>
+    dplyr::mutate(
+      Country = dplyr::if_else(
+        stringr::str_detect(.data$Country, "TANZANIA"),
+        "UNITED REPUBLIC OF TANZANIA",
+        .data$Country
+      )
+    ) |>
+    dplyr::filter(!is.na(.data$Country), .data$Country != "") |>
+    dplyr::distinct(.data$Country)
 
   c1 <- generate_c1_table(
     raw_data, start_date, end_date,
@@ -1259,6 +1300,8 @@ generate_GSAP_ctry_prioritization <- function(
     dplyr::full_join(positives, by = "Country") |>
     dplyr::full_join(proximity_data, by = "Country") |>
     dplyr::full_join(immunity_data, by = "Country") |>
+    dplyr::full_join(afp_countries, by = "Country") |>
+    dplyr::filter(.data$Country %in% afp_countries$Country) |>
     dplyr::mutate(
       `NPAFP (National)` = .data$npafp_rate,
        `Stool adequacy (National)` = .data$per.stool.ad,
@@ -1391,7 +1434,8 @@ generate_GSAP_ctry_prioritization <- function(
       )
     ) |>
     dplyr::filter(
-      num.surv.ind >= min_surv_ind |
+      include_all_countries |
+        num.surv.ind >= min_surv_ind |
         previous_risk_override %in% c("HIGH", "MEDIUM", "LOW (WATCHLIST)")
     )
 
@@ -1464,7 +1508,7 @@ generate_GSAP_ctry_prioritization <- function(
     "cVDPV/WPV risk score (0-25)", "--", "Endemic/recent virus scores 25; proximity to virus scores 12.5 before rounding.",
     "Surveillance risk score (0-50)", "--", "Surveillance indicators scored 0/5/10 and weighted to 50.",
     "Immunity risk score (0-25)", "--", "DTP1, DTP3, and IPV1 complements scored 0/5/10 and weighted to 25.",
-    "Country inclusion", "GPSAP 2025-2026", paste0("Retained when at least ", min_surv_ind, " of 7 surveillance indicators are available, or when listed as HIGH, MEDIUM, or LOW (WATCHLIST) in the previous GPSAP risk table."),
+    "Country inclusion", "GPSAP 2025-2026", if (include_all_countries) "All countries present in the AFP data are retained; scores requiring insufficient indicators are labelled insufficient data." else paste0("Retained when at least ", min_surv_ind, " of 7 surveillance indicators are available, or when listed as HIGH, MEDIUM, or LOW (WATCHLIST) in the previous GPSAP risk table."),
     "Detection within 46/35d, %", "sirfunctions", "Existing KPI timeliness-of-detection indicator; the label follows the requested final table.",
     "Proposed category", "Policy input", "Not assigned unless proposed_category or category_breaks is supplied."
   )
