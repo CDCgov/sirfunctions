@@ -38,21 +38,21 @@ The pipeline is initiated using the `init_kpi()` function. The function takes th
 
 - `path`: the absolute path of the kpi_analysis folder.
 - `name`: the name of the KPI run. By default, it will be the date `init_kpi()` was ran.
-- `edav`: whether the analysis should access resources from EDAV or not. EDAV is the data science platform within CDC. For non-CDC employees, please set this to `FALSE`.
+- `edav`: whether to load the global polio data from EDAV, the data science platform within CDC. Lab data are always downloaded from EDAV, regardless of this setting, so the pipeline requires EDAV access.
 
 ### Initializing the pipeline
 
 #### CDC employees
 Run the following: `init_kpi("path_to_kpi_folder")`
 
-The function will set up the folder structure within the kpi_analysis folder, as well as set the paths to export the tables and figures. In the KPI run folder, there are three subfolders: data, figures, and tables. The KPI template is also created, which contains all the code necessary to run the KPI analysis. The function will download the global polio dataset and the lab data if available. It will load both the polio and lab data to the R environment.
+The function will set up the folder structure within the kpi_analysis folder, as well as set the paths to export the tables and figures. In the KPI run folder, there are three subfolders: data, figures, and tables. The KPI template is also created, which contains all the code necessary to run the KPI analysis. The function will load cached global polio data or download it if no cache exists. It downloads `cleaned_lab_data.rda` from EDAV on every run, loads `lab_data` into the R environment, and saves a local snapshot. Previous lab caches are not used.
 
 **NOTE:** If there's a message about being unable to pull data from EDAV, contact Stephanie Kovacs at uvx4@cdc.gov. This is likely a permissions issue.
 
 #### Non-CDC employees
 Run the following: `init_kpi("path_to_kpi_folder", edav = FALSE)`
 
-Upon running, it will set up the folder structure but not download the lab and polio data. There will be several warnings about needing to create the polio data list locally, as well as saving the lab data locally. Please follow the instructions included in these warnings. To create the global polio dataset, please see the `Generating Global Polio Data` vignette.
+This sets up the folder structure and uses local global polio data. If no cached polio data exist, follow the message to build `raw_data` locally; see the `Generating Global Polio Data` vignette. Lab data still come from EDAV on every run, so `edav = FALSE` does not enable running the pipeline without EDAV access.
 
 Once `init_kpi()` completely runs, open the template file. The function will link to the location of this template file and it can be linked if running the code in RStudio.
 
@@ -75,11 +75,11 @@ The lab information file contains data for each country regarding their culturin
 #### Non-CDC employees
 Please request the csv files from Stephanie Kovacs and load these in R to variables `lab_locs` (lab info) and `risk_table` (priority levels). Use `readr::read_csv()` instead of the base `read.csv()` function as the base function renames some of the columns by default, especially when column names contain spaces. 
 
-#### Cleaning the lab data
+#### Preparing the lab data
 
-The lab data is sourced from WHO. Please request this data from Pham-Minh, Ly Mathilde, Florence at phamm@who.int if not already loaded. Then, run the `clean_lab_data()` function. For non-CDC employees, pass the absolute path to the lab information file in the `lab_locs_path` parameter of the cleaning function. 
+`init_kpi()` loads the pre-cleaned lab dataset from `CLEANED_LAB_DATA` on EDAV. The generated template calls `add_rolling_years(lab_data, start_date, end_date, "CaseDate")` to select the analysis period and add rolling-year fields. It does not call `clean_lab_data()`.
 
-After cleaning, you can use the `get_lab_date_col_missingness()` function to check the proportion of missingness for each date column. It also has a `group_by` parameter that can be used to group results (ex. countries, regions, or labs).
+You can use the `get_lab_date_col_missingness()` function to check the proportion of missingness for each date column. It also has a `group_by` parameter that can be used to group results (ex. countries, regions, or labs).
 
 ## Analysis
 

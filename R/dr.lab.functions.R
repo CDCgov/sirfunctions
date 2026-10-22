@@ -616,7 +616,7 @@ lab_data_errors_region <- function(lab.data,
   error_log$missing_epids <- missing_epids
 
   writexl::write_xlsx(error_log, path = file.path(error_path, paste0("lab_errors_", Sys.Date() ,".xlsx")))
-  cli::cli_alert("Run clean_lab_data() to attempt data fixes and perform the check again. Log saved in the errors folder.")
+  cli::cli_alert("Log saved in the errors folder. Report lab data issues to CDC so the upstream cleaning process can be updated.")
 }
 
 #' Checks for common data errors in WHO lab data
@@ -742,7 +742,7 @@ lab_data_errors_who <- function(lab.data, afp.data,
   } else {
     cli::cli_alert_warning("Directory doesn't exist.")
   }
-  cli::cli_alert("Run clean_lab_data() to attempt data fixes and perform the check again. Log saved in the errors folder.")
+  cli::cli_alert("Log saved in the errors folder. Report lab data issues to CDC so the upstream cleaning process can be updated.")
 }
 
 #' Clean lab data
@@ -849,8 +849,7 @@ clean_lab_data <- function(lab_data, start_date, end_date,
 #'
 #' Generates a summary of the timeliness of samples for specific intervals.
 #'
-#' @param lab_data `tibble` Lab data. Ensure that this lab data is cleaned using
-#' [clean_lab_data()] before running the function.
+#' @param lab_data `tibble` Pre-cleaned lab data loaded from EDAV by [init_dr()].
 #' @param spatial.scale `str` Spatial scale to analyze the data. Valid values are `"ctry", "prov", "all"`.
 #' @param start_date `str` Start date of analysis.
 #' @param end_date `str` End date of analysis.
@@ -860,10 +859,10 @@ clean_lab_data <- function(lab_data, start_date, end_date,
 #' @returns `tibble` A table with timeliness data summary.
 #' @examples
 #' \dontrun{
-#' lab_path <- "C:/Users/XRG9/lab_data_who.csv"
-#' ctry.data <- init_dr("algeria", lab_data_path = lab_path)
-#' ctry.data$lab_data <- clean_lab_data(ctry.data, "2021-01-01", "2023-12-31")
-#' lab.timeliness.ctry <- generate_lab_timeliness(ctry.data$lab_data, "ctry", start_date, end_date)
+#' init_dr("algeria", start_date = "2021-01-01", end_date = "2023-12-31")
+#' lab.timeliness.ctry <- generate_lab_timeliness(
+#'   dplyr::filter(lab_data, ctry == "ALGERIA"), "ctry", start_date, end_date
+#' )
 #' }
 #' @export
 generate_lab_timeliness <-

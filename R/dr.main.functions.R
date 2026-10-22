@@ -486,13 +486,17 @@ fetch_dr_data <- function(country, year, local_dr_repo) {
 #' @param local_dr_folder `str` Folder where the desk review code is located.
 #' Defaults to the current working directory.
 #' @param attach_spatial_data `logical` Whether to include spatial data. Defaults to `TRUE`.
-#' @param lab_data_path `str` Location of the lab data. Defaults to `NULL`.
+#' @param lab_data_path Retained for compatibility and ignored. Lab data are always
+#' loaded from `CLEANED_LAB_DATA` on EDAV.
 #' @param iss_data_path `str` Location of the ISS data. Defaults to `NULL`.
 #' @param branch `str` What branch to download the DR functions from GitHub.
 #' `"main"` is the default, which contains the official version of the package. Other branches,
 #' like `"dev"` may contain experimental features not yet available in the `"main"` branch.
 #' @param source `logical` Whether to source local functions or use sirfunctions. Defaults to `FALSE`.
 #' @inheritParams get_all_polio_data
+#' @details Lab data are downloaded from EDAV on every run, independently of
+#' `use_edav`, which controls the POLIS data source. Local lab files and previous
+#' lab caches are not used. No lab cleaning is performed during the desk review.
 #'
 #' @returns `list` A list containing all dataframe for all polio data.
 #' @examples
@@ -609,43 +613,21 @@ init_dr <-
       use_edav
     )
 
-    # Attaching lab data if available and creating a copy to data folder
+    # Always load pre-cleaned lab data from EDAV, then save a local snapshot.
     data_folder_files <- list.files(data_path)
 
-
     if (!is.null(lab_data_path)) {
-      country_data$lab.data <- load_lab_data(lab_data_path)
-      # check if there is already a copy of lab data in the data folder
-      if ((stringr::str_detect(data_folder_files, "_lab_data_") |> sum()) == 0) {
-        cli::cli_process_start("Saving a copy of the lab data to the data folder.")
-        dr_lab_data_path <- file.path(
-          data_path,
-          paste0(paste(country_data$ctry$ISO_3_CODE, collapse = "_"), "_lab_data_", Sys.Date(), ".Rds")
-        )
-        saveRDS(country_data$lab.data, dr_lab_data_path)
-        Sys.setenv(DR_LAB_PATH = dr_lab_data_path)
-        }
-      } else if(is.null(lab_data_path) &
-                use_edav == TRUE &
-                (stringr::str_detect(data_folder_files, "_lab_data_") |> sum() == 0)) {
-          sirfunctions_io("read", file_loc = get_constant("CLEANED_LAB_DATA"), edav = use_edav)
-
-          cli::cli_alert_info("Caching lab data to the desk review folder")
-          dr_lab_data_path <- file.path(
-            data_path,
-            paste0(paste(country_data$ctry$ISO_3_CODE, collapse = "_"), "_lab_data_", Sys.Date(), ".Rds")
-          )
-          Sys.setenv(DR_LAB_PATH = dr_lab_data_path)
-          saveRDS(get("lab_data", envir = globalenv()), dr_lab_data_path)
-        } else if (is.null(lab_data_path) &
-                  (use_edav == TRUE) &
-                  (stringr::str_detect(data_folder_files, "_lab_data_") |> sum() != 0)) {
-          cli::cli_alert_info("Loading cached lab data")
-          lab_files <- data_folder_files[stringr::str_detect(data_folder_files, "lab_data")]
-          lab_data <- readRDS(file.path(data_path, lab_files[1]))
-          assign("lab_data", lab_data, envir = .GlobalEnv)
-          Sys.setenv(DR_LAB_PATH = file.path(data_path, lab_files[1]))
-          }
+      cli::cli_alert_warning("lab_data_path is ignored. Desk reviews load pre-cleaned lab data from EDAV.")
+    }
+    edav_io("read", file_loc = get_constant("CLEANED_LAB_DATA"))
+    # Reading an RDA file loads lab_data into the global environment.
+    country_data$lab.data <- get("lab_data", envir = globalenv())
+    dr_lab_data_path <- file.path(
+      data_path,
+      paste0(paste(country_data$ctry$ISO_3_CODE, collapse = "_"), "_cleaned_lab_data_", Sys.Date(), ".Rds")
+    )
+    saveRDS(country_data$lab.data, dr_lab_data_path)
+    Sys.setenv(DR_LAB_PATH = dr_lab_data_path)
 
     # Attaching ISS data if available and creating a copy to data folder
     if (!is.null(iss_data_path)) {
