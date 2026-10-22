@@ -8,17 +8,24 @@ add_seq_capacity(
   df,
   ctry_col = "ctry",
   lab_locs = NULL,
-  lab_data_cleaned = NULL
+  lab_data_cleaned = NULL,
+  date_col = "dateonset"
 )
 }
 \arguments{
 \item{df}{\code{tibble} Dataset with at least a country column to join to.}
 
+\item{ctry_col}{\code{str} Country column in \code{df}. Defaults to \code{"ctry"}.}
+
 \item{lab_locs}{\code{tibble} Lab testing information table. Defaults to \code{NULL}. If
 \code{NULL}, attempts to download the table from EDAV.}
 
 \item{lab_data_cleaned}{\code{tibble} Cleaned lab data information table. Defaults
-to \code{NULL}. If \code{NULL}, throws error.}
+to \code{NULL}. If \code{NULL}, uses the lab testing information table.}
+
+\item{date_col}{\code{str} Date column in \code{df} used to determine sequencing capacity.
+Defaults to \code{"dateonset"}. Use \code{"date"} for standardized AFP data and
+\code{"collect.date"} for environmental surveillance data.}
 }
 \value{
 \code{tibble} A dataset with country sequencing capacity information attached.

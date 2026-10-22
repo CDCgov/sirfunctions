@@ -66,14 +66,19 @@ add_risk_category <- function(df, risk_table = NULL, ctry_col = "ctry") {
 #' Title
 #'
 #' @param df `tibble` Dataset with at least a country column to join to.
+#' @param ctry_col `str` Country column in `df`. Defaults to `"ctry"`.
 #' @param lab_locs `tibble` Lab testing information table. Defaults to `NULL`. If
 #' `NULL`, attempts to download the table from EDAV.
 #' @param lab_data_cleaned `tibble` Cleaned lab data information table. Defaults
-#' to `NULL`. If `NULL`, throws error.
+#' to `NULL`. If `NULL`, uses the lab testing information table.
+#' @param date_col `str` Date column in `df` used to determine sequencing capacity.
+#' Defaults to `"dateonset"`. Use `"date"` for standardized AFP data and
+#' `"collect.date"` for environmental surveillance data.
 #'
 #' @returns `tibble` A dataset with country sequencing capacity information attached.
 #' @keywords internal
-add_seq_capacity <- function(df, ctry_col = "ctry", lab_locs = NULL, lab_data_cleaned = NULL) {
+add_seq_capacity <- function(df, ctry_col = "ctry", lab_locs = NULL,
+                             lab_data_cleaned = NULL, date_col = "dateonset") {
 
   if (is.null(lab_locs)) {
     lab_locs <- suppressMessages(get_lab_locs())
@@ -94,15 +99,15 @@ add_seq_capacity <- function(df, ctry_col = "ctry", lab_locs = NULL, lab_data_cl
       )
 
     # Manual edit based on changes to the sequencing lab list in Feb 2025
-    # There is no collection date, so will use dateonset to classify
+    # Use the caller's onset or collection date to classify sequencing capacity.
     #list of labs that sent samples to CDC for sequencing prior to February 2025, Nigeria and Uganda started doing their own sequencing.
     #Adding in redundancy for Nigeria in case lines above get deleted, lab locs file gets changed
     df <- df |>
-      mutate(seq.lab = case_when(dateonset < as_date("2025-02-01") & culture.itd.lab %in% c("Cameroon","KEMRI-Kenya","IBADAN-Nigeria","Ibadan-Nigeria","Nigeria","Senegal","Ethiopia","Oman/Jordan") ~ "CDC-Atlanta",
-                                 dateonset < as_date("2025-02-01") & .data[[ctry_col]] == "UGANDA" ~ "Noguchi-Ghana",
+      mutate(seq.lab = case_when(.data[[date_col]] < as_date("2025-02-01") & culture.itd.lab %in% c("Cameroon","KEMRI-Kenya","IBADAN-Nigeria","Ibadan-Nigeria","Nigeria","Senegal","Ethiopia","Oman/Jordan") ~ "CDC-Atlanta",
+                                 .data[[date_col]] < as_date("2025-02-01") & .data[[ctry_col]] == "UGANDA" ~ "Noguchi-Ghana",
                                  .default = seq.lab),
-             seq.cat = if_else(.data[[ctry_col]] %in% c("NIGERIA", "UGANDA") & dateonset < as_date("2025-02-01"), "Shipped for sequencing", seq.cat),
-             seq.capacity = if_else(.data[[ctry_col]] %in% c("NIGERIA", "UGANDA") & dateonset < as_date("2025-02-01"), "no", seq.capacity))
+             seq.cat = if_else(.data[[ctry_col]] %in% c("NIGERIA", "UGANDA") & .data[[date_col]] < as_date("2025-02-01"), "Shipped for sequencing", seq.cat),
+             seq.capacity = if_else(.data[[ctry_col]] %in% c("NIGERIA", "UGANDA") & .data[[date_col]] < as_date("2025-02-01"), "no", seq.capacity))
 
     cli::cli_process_done()
 
@@ -148,9 +153,9 @@ add_seq_capacity <- function(df, ctry_col = "ctry", lab_locs = NULL, lab_data_cl
     cli::cli_process_start("Adding country lab information from cleaned lab data")
 
     df <- df |>
-      #implications of using dateonset from afp vs datestoolcollected from lab unclear
-      dplyr::mutate(year = lubridate::year(dateonset),
-                    month_num = lubridate::month(dateonset)) |>
+      # Match onset or collection dates to monthly lab sequencing capacity.
+      dplyr::mutate(year = lubridate::year(.data[[date_col]]),
+                    month_num = lubridate::month(.data[[date_col]])) |>
       dplyr::left_join(lab_locs_long_complete,
                        by = c(setNames("country", ctry_col), "year", "month_num"))  |>
       dplyr::group_by(.data[[ctry_col]]) |>
@@ -1092,7 +1097,7 @@ generate_c2_table <- function(afp_data, pop_data, start_date, end_date,
   # Add required columns
   # NOTE: NAs are removed from rolling calculations as they can't be tagged
   afp_data <- afp_data |>
-    add_seq_capacity(lab_locs = lab_locs) |>
+    add_seq_capacity(lab_locs = lab_locs, date_col = "date") |>
     col_to_datecol() |>
     add_rolling_years(start_date, end_date, "date") |>
     # Removes years earlier than the start date
@@ -1487,7 +1492,7 @@ generate_c3_table <- function(es_data, start_date, end_date,
   start_date <- lubridate::as_date(start_date)
   end_date <- lubridate::as_date(end_date)
   es_data <- es_data |>
-    add_seq_capacity("ADM0_NAME", lab_locs) |>
+    add_seq_capacity("ADM0_NAME", lab_locs, date_col = "collect.date") |>
     add_rolling_years(start_date, end_date, "collect.date")
 
   # Get established ES sites first and then filter to appropriate start and end dates
