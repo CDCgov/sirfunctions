@@ -679,6 +679,9 @@ generate_kpi_stoolad_bar <- function(c1, afp_data,
 #' @param y.min `num` Minimum used in the y-axis.
 #' @param y.max `num` Maximum used in the y-axis.
 #'
+#' @details If no intervals remain within the plotted range, returns a panel
+#' labelled "No data available" without faceting.
+#'
 #' @returns `ggplot` A plot object.
 #' @export
 generate_kpi_violin <- function(
@@ -690,13 +693,23 @@ generate_kpi_violin <- function(
     target,
     y.min = 0,
     y.max) {
-  map <-   ggplot(
-    df |> filter(!!rlang::sym(interval) <= y.max, !!rlang::sym(interval) >= 0),
+  plot_data <- df |>
+    filter(!!rlang::sym(interval) <= y.max, !!rlang::sym(interval) >= 0)
+  if (nrow(plot_data) == 0L) {
+    return(ggplot2::ggplot() +
+             ggplot2::annotate("text", x = 0, y = 0,
+                               label = "No data available\nwithin the selected range",
+                               size = 3) +
+             ggplot2::theme_void())
+  }
+
+  map <- ggplot(
+    plot_data,
     aes(x = !!rlang::sym(country.label), y = !!rlang::sym(interval), fill = !!rlang::sym(priority_level))
   ) +
     geom_violin(na.rm = T, scale = "width", linewidth = 0, show.legend = TRUE) +
     stat_summary(
-      fun.y = median, geom = "text",
+      fun = median, geom = "text",
       size = 2, color = "black", aes(label = round(after_stat(y)))
     ) +
     faceting +
@@ -1289,7 +1302,7 @@ generate_lab_seqship_violin <- function(lab_data, afp_data,
   }
 
   plot <- generate_kpi_violin(lab_filtered |>
-                                dplyr::filter(seq.cat == "Shipped for sequencing"),
+                                dplyr::filter(stringr::str_to_lower(.data$seq.cat) == "shipped for sequencing"),
                               "ctry.short", "days.seq.ship",
                               "sg_priority_level",
                               facets, 7,
@@ -1396,7 +1409,7 @@ generate_lab_seqres_violin <- function(lab_data, afp_data,
   plot_mock_legend <- ggpubr::get_legend(plot_mock)
 
   plot_1 <- generate_kpi_violin(lab_filtered |>
-                                  dplyr::filter(seq.cat == "Shipped for sequencing"),
+                                  dplyr::filter(stringr::str_to_lower(.data$seq.cat) == "shipped for sequencing"),
                                 "ctry.short", "days.seq.rec.res",
                                 "sg_priority_level",
                                 facets, 7,
@@ -1407,7 +1420,7 @@ generate_lab_seqres_violin <- function(lab_data, afp_data,
                                na.value = "white")
 
   plot_2 <- generate_kpi_violin(lab_filtered |>
-                                  dplyr::filter(seq.cat == "Not shipped for sequencing"),
+                                  dplyr::filter(stringr::str_to_lower(.data$seq.cat) == "not shipped for sequencing"),
                                 "ctry.short", "days.seq.rec.res",
                                 "sg_priority_level",
                                 facets, 7,
@@ -1420,7 +1433,7 @@ generate_lab_seqres_violin <- function(lab_data, afp_data,
                             nrow = 1, ncol = 2, legend.grob = plot_mock_legend)
 
   ggplot2::ggsave(file.path(output_path, "kpi_lab_days_seq_res.png"),
-                  dpi = 400, height = 5, width = 12, bg = "white")
+                  plot = plot, dpi = 400, height = 5, width = 12, bg = "white")
 
   return(plot)
 }
@@ -1516,7 +1529,7 @@ generate_lab_itdres_seqres_violin <- function(lab_data, afp_data,
   plot_mock_legend <- ggpubr::get_legend(plot_mock)
 
   plot_1 <- generate_kpi_violin(lab_filtered |>
-                                  dplyr::filter(seq.cat == "Shipped for sequencing"),
+                                  dplyr::filter(stringr::str_to_lower(.data$seq.cat) == "shipped for sequencing"),
                                 "ctry.short", "days.itd.res.seq.res",
                                 "sg_priority_level",
                                 facets, 14,
@@ -1527,7 +1540,7 @@ generate_lab_itdres_seqres_violin <- function(lab_data, afp_data,
                                na.value = "white")
 
   plot_2 <- generate_kpi_violin(lab_filtered |>
-                                  dplyr::filter(seq.cat == "Not shipped for sequencing"),
+                                  dplyr::filter(stringr::str_to_lower(.data$seq.cat) == "not shipped for sequencing"),
                                 "ctry.short", "days.itd.res.seq.res",
                                 "sg_priority_level",
                                 facets, 7,
@@ -1540,7 +1553,7 @@ generate_lab_itdres_seqres_violin <- function(lab_data, afp_data,
                             nrow = 1, ncol = 2, legend.grob = plot_mock_legend)
 
   ggplot2::ggsave(file.path(output_path, "kpi_lab_days_itdres_seqres.png"),
-                  dpi = 400, height = 5, width = 12, bg = "white")
+                  plot = plot, dpi = 400, height = 5, width = 12, bg = "white")
 
   return(plot)
 }

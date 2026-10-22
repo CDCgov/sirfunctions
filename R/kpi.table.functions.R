@@ -1765,8 +1765,8 @@ generate_c4_table <- function(lab_data, afp_data, start_date, end_date) {
       #t5
       #Timeliness of sequencing results using ITD result as start date
       timely_itdres_seqres = sum((
-        (.data$seq.cat == "Not shipped for sequencing" & .data$days.itd.res.seq.res <= 7) |
-          (.data$seq.cat == "Shipped for sequencing" & .data$days.itd.res.seq.res <= 14)) &
+        (stringr::str_to_lower(.data$seq.cat) == "not shipped for sequencing" & .data$days.itd.res.seq.res <= 7) |
+          (stringr::str_to_lower(.data$seq.cat) == "shipped for sequencing" & .data$days.itd.res.seq.res <= 14)) &
           t5 == TRUE,
         na.rm = TRUE),
       t5 = sum(t5 == TRUE, na.rm = TRUE),
