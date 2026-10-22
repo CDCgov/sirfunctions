@@ -250,9 +250,67 @@ generate_GSAP_ctry_prioritization_checks <- function(
     ) |>
     dplyr::arrange(.data$ctry)
 
+  expected_guid_years <- length(
+    lubridate::year(start_date):lubridate::year(end_date)
+  )
+
+  guid_year_counts <- dist_pop |>
+    dplyr::filter(
+      .data$ctry %in% countries_check,
+      dplyr::between(
+        .data$year,
+        lubridate::year(start_date),
+        lubridate::year(end_date)
+      )
+    ) |>
+    dplyr::distinct(.data$ctry, .data$adm2guid, .data$year) |>
+    dplyr::count(.data$ctry, .data$adm2guid, name = "years_present") |>
+    dplyr::mutate(
+      guid_status = dplyr::if_else(
+        .data$years_present < expected_guid_years,
+        "Inconsistent",
+        "Consistent"
+      )
+    )
+
+  guid_consistency_check <- guid_year_counts |>
+    dplyr::group_by(.data$ctry) |>
+    dplyr::summarise(
+      expected_years = expected_guid_years,
+      total_district_guids = dplyr::n_distinct(.data$adm2guid),
+      inconsistent_district_guids = dplyr::n_distinct(
+        .data$adm2guid[.data$guid_status == "Inconsistent"]
+      ),
+      consistent_district_guids = dplyr::n_distinct(
+        .data$adm2guid[.data$guid_status == "Consistent"]
+      ),
+      .groups = "drop"
+    ) |>
+    dplyr::right_join(
+      tibble::tibble(ctry = as.character(countries_check)),
+      by = "ctry"
+    ) |>
+    dplyr::mutate(
+      expected_years = tidyr::replace_na(.data$expected_years, expected_guid_years),
+      total_district_guids = tidyr::replace_na(.data$total_district_guids, 0),
+      inconsistent_district_guids = tidyr::replace_na(
+        .data$inconsistent_district_guids, 0
+      ),
+      consistent_district_guids = tidyr::replace_na(
+        .data$consistent_district_guids, 0
+      )
+    ) |>
+    dplyr::arrange(.data$ctry)
+
+  inconsistent_guid_detail <- guid_year_counts |>
+    dplyr::filter(.data$guid_status == "Inconsistent") |>
+    dplyr::arrange(.data$ctry, .data$adm2guid)
+
   checks <- list(
     District_Population_Check = dist_pop_check_updated,
-    NPAFP_Age_Check = npafp_age_check
+    NPAFP_Age_Check = npafp_age_check,
+    GUID_Consistency_Check = guid_consistency_check,
+    Inconsistent_GUID_Detail = inconsistent_guid_detail
   )
 
   if (!is.null(output_path)) {
