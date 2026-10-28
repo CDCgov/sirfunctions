@@ -237,13 +237,13 @@ generate_kpi_template <- function(output_path, name, edav) {
   init <- paste0("init_kpi(", '"', output_path, '"', ",\n",
                  '         "', name, '", ', edav, ")")
 
-  # start dates
-  start_date <- '"2022-01-01"'
-  end_date <- '"2024-12-31"'
+  # dates: the template accepts only an end date and derives an inclusive rolling 2-year window
+  end_date <- '"2026-07-31"'
+  start_date <- 'lubridate::add_with_rollback(lubridate::as_date(end_date), -lubridate::years(2)) + lubridate::days(1)'
 
   # Shapefiles
-  ctry_sf <- 'ctry_sf <- load_clean_ctry_sp(st_year = 2022, type = "long")'
-  dist_sf <- 'dist_sf <- load_clean_dist_sp(st_year = 2022, type = "long")'
+  ctry_sf <- 'ctry_sf <- load_clean_ctry_sp(st_year = lubridate::year(start_date), type = "long")'
+  dist_sf <- 'dist_sf <- load_clean_dist_sp(st_year = lubridate::year(start_date), type = "long")'
 
   # Generate tables
   c1 <- 'c1 <- generate_c1_table(raw_data, start_date, end_date)'
@@ -295,13 +295,17 @@ generate_kpi_template <- function(output_path, name, edav) {
     "library(sirfunctions)",
     "library(dplyr)\n",
     init, "\n",
+    "# Dates: edit only end_date; start_date is the beginning of the inclusive rolling 2-year window ----",
+    paste0("end_date <- ", end_date),
+    paste0("start_date <- ", start_date), "\n",
     "# Obtaining shapefiles in long format ----",
-    "# Ensure st.year is the year of your start date.",
     ctry_sf, dist_sf, "\n",
     "# Prepare pre-cleaned lab data ----",
     "# init_kpi() loads cleaned_lab_data.rda from EDAV into lab_data.",
     paste0("start_date <- ", start_date), paste0("end_date <- ", end_date), "\n",
     'lab_data <- add_rolling_years(lab_data, start_date, end_date, "CaseDate")\n',
+    "# Cleaning lab data ----",
+    'lab_data <- clean_lab_data(lab_data, start_date, end_date, raw_data$afp)\n',
     "# Generate GPSAP C1-C4 tables ----",
     "# You may also specify and filter countries based on risk category ",
     c1, c1_rollup, c2, c2_dist, c3, c3_rollup, c4, "\n",

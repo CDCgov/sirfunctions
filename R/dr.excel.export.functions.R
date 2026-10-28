@@ -255,6 +255,7 @@ create_pop_check_export <- function(ctry.data, country = Sys.getenv("DR_COUNTRY"
 #' @export
 create_60_day_export <- function(cases.need60day, country = Sys.getenv("DR_COUNTRY"), excel_output_path = Sys.getenv("DR_TABLE_PATH")) {
   cases.need60day |>
+    dplyr::select(-doses.flag) |>
     dplyr::rename(
       "Year" = "year",
       "age in months" = "age.months",
@@ -266,7 +267,11 @@ create_60_day_export <- function(cases.need60day, country = Sys.getenv("DR_COUNT
       "Province" = "prov",
       "District" = "dist",
       "Adequate stool missing=good" = "adequacy.03",
-      "total OPV doses" = "doses.total",
+      "total Routine OPV doses" = "doses.opv.routine",
+      "total SIA OPV doses" = "doses.opv.sia",
+      "total OPV doses (used if OPV variables are missing)" = "doses.total",
+      "total OPV doses (used if doses.total is missing)" = "calcdosesrisi",
+      "doses.interp" = "doses.interpretation",
       "Potentially Compatible" = "pot.compatible",
       "Missing followup date but have findings" = "missing.fu.date"
     ) |>

@@ -57,6 +57,8 @@ f.color.schemes <- function(type) {
              "WILD 1" = "#e41a1c",
              "cVDPV 2" = "#4daf4a",
              "VDPV 2" = "#a6d854",
+             "cVDPV 3" = "#08519C",
+             "VDPV 3" = "#00A6A6",
              "cVDPV 1" = "#377eb8",
              "VDPV 1" = "#80b1d3",
              "COMPATIBLE" = "#ff7f00",
@@ -70,6 +72,8 @@ f.color.schemes <- function(type) {
              "WILD 1" = "#e41a1c",
              "cVDPV 2" = "#4daf4a",
              "VDPV 2" = "#a6d854",
+             "cVDPV 3" = "#08519C",
+             "VDPV 3" = "#00A6A6",
              "cVDPV 1" = "#377eb8",
              "VDPV 1" = "#80b1d3",
              "COMPATIBLE" = "#ff7f00"
@@ -117,10 +121,12 @@ f.color.schemes <- function(type) {
            c(
              "COMPATIBLE" = "black",
              "WILD 1" = "red",
-             "cVDPV 2" = "dark green",
-             "VDPV 2" = "light green",
-             "VDPV 1" = "light blue",
-             "cVDPV 1" = "dark blue"
+             "cVDPV 2" = "#4daf4a",
+             "VDPV 2" = "#a6d854",
+             "cVDPV 3" = "#08519C",
+             "VDPV 3" = "#00A6A6",
+             "cVDPV 1" = "#377eb8",
+             "VDPV 1" = "#80b1d3"
            ),
          "es" =
            c(
@@ -311,6 +317,7 @@ f.color.schemes <- function(type) {
            "No EV isolated" = "#f2f2f2",
            "NPEV only" = "darkgrey",
            "VDPV2" = "darkred",
+           "VDPV3" = "#00A6A6",
            "Sabin 1" = scales::brewer_pal(palette = "Set1")(9)[1],
            "Sabin 2" = scales::brewer_pal(palette = "Set1")(9)[8],
            "Sabin 1/Sabin 3" = scales::brewer_pal(palette = "Set1")(9)[2],
