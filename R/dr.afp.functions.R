@@ -215,6 +215,17 @@ add_zero_dose_col <- function(afp.data) {
         )] < 99),
       na.rm = T
     )) |>
+    dplyr::mutate(ipv.num.calc = rowSums(
+      afp.data[, c(
+        "doses.ipv.routine",
+        "doses.ipv.sia"
+      )] *
+        (afp.data[, c(
+          "doses.ipv.routine",
+          "doses.ipv.sia"
+        )] < 99),
+      na.rm = T
+    )) |>
     dplyr::mutate(
       dose.num.calc = dplyr::case_when(
         doses.opv.routine == 99 &
@@ -228,6 +239,15 @@ add_zero_dose_col <- function(afp.data) {
           is.na(doses.ipv.sia) &
           is.na(doses.ipv.number) ~ NA,
         T ~ dose.num.calc
+      )
+    ) |>
+    dplyr::mutate(
+      ipv.num.calc = dplyr::case_when(
+        doses.ipv.routine %in% c(99, 999) &
+          doses.ipv.sia %in% c(99, 999) ~ 999,
+        is.na(doses.ipv.routine) &
+          is.na(doses.ipv.sia) ~ NA,
+        T ~ ipv.num.calc
       )
     )
 
@@ -248,9 +268,69 @@ add_zero_dose_col <- function(afp.data) {
       "3",
       "1-2",
       "0"
+    ))) |>
+    dplyr::mutate(
+      opv_routine_cat = dplyr::case_when(
+        doses.opv.routine %in% c(99, 999) ~ "Unknown",
+        doses.opv.routine == 0 ~ "0",
+        doses.opv.routine == 1 ~ "1",
+        doses.opv.routine == 2 ~ "2",
+        doses.opv.routine == 3 ~ "3",
+        doses.opv.routine > 3 ~ "4+",
+        T ~ as.character(doses.opv.routine)
+      )
+    ) |>
+    dplyr::mutate(opv_routine_cat = factor(opv_routine_cat, levels = c(
+      "Unknown",
+      "4+",
+      "3",
+      "2",
+      "1",
+      "0"
+    ))) |>
+    dplyr::mutate(
+      opv_sia_cat = dplyr::case_when(
+        doses.opv.sia %in% c(99, 999) ~ "Unknown",
+        doses.opv.sia == 0 ~ "0",
+        doses.opv.sia == 1 ~ "1",
+        doses.opv.sia == 2 ~ "2",
+        doses.opv.sia == 3 ~ "3",
+        doses.opv.sia > 3 ~ "4+",
+        T ~ as.character(doses.opv.routine)
+      )
+    ) |>
+    dplyr::mutate(opv_sia_cat = factor(opv_sia_cat, levels = c(
+      "Unknown",
+      "4+",
+      "3",
+      "2",
+      "1",
+      "0"
+    ))) |>
+    dplyr::mutate(
+      ipv_cat = dplyr::case_when(
+        ipv.num.calc %in% c(99, 999) ~ "Unknown",
+        ipv.num.calc == 0 ~ "0",
+        ipv.num.calc == 1 ~"1",
+        ipv.num.calc == 2 ~ "2",
+        ipv.num.calc >= 3 ~ "3+",
+        T ~ as.character(ipv.num.calc)
+      )
+    ) |>
+    dplyr::mutate(ipv_cat = factor(ipv_cat, levels = c(
+      "Unknown",
+      "3+",
+      "2",
+      "1",
+      "0"
     )))
 
+
   afp.data$dose.cat <- forcats::fct_na_value_to_level(afp.data$dose.cat, "Missing")
+  afp.data$opv_routine_cat <- forcats::fct_na_value_to_level(afp.data$opv_routine_cat, "Missing")
+  afp.data$opv_sia_cat <- forcats::fct_na_value_to_level(afp.data$opv_sia_cat, "Missing")
+  afp.data$ipv_cat <- forcats::fct_na_value_to_level(afp.data$ipv_cat, "Missing")
+
   cli::cli_process_done()
   return(afp.data)
 }
@@ -967,7 +1047,66 @@ generate_60_day_table_data <- function(stool.data, start_date, end_date) {
         )
     ) |>
     # note if variables are all missing then this definition needs to be adjusted
-
+    # new logic that uses all available vaccine variables for potentially compatible
+    dplyr::mutate(
+      doses.flag=case_when(
+        # if has either OPV dose variables and they are >0, do not flag
+        (doses.opv.routine > 0 & doses.opv.routine < 99) |
+          (doses.opv.sia > 0 & doses.opv.sia < 99) ~ FALSE,
+        # if both OPV dose variables are 0, or one has 0 and the other is missing, FLAG
+        (doses.opv.routine == 0 & doses.opv.sia == 0) |
+          (doses.opv.routine == 0 & doses.opv.sia %in% c(NA, 99)) |
+          (doses.opv.routine %in% c(NA, 99) & doses.opv.sia == 0) ~ TRUE,
+        # if missing both dose variables, use old logic (note that there ARE some rows in the data that have 0 for
+        # both OPV SIA and routine but > 0 for doses.total and would get flagged)
+        doses.opv.routine %in% c(NA, 99) &
+          doses.opv.sia %in% c(NA, 99) &
+          doses.total < 3 ~ TRUE,
+        # if missing both dose variables, and doses.total but has calcdosesrisi use that
+        doses.opv.routine %in% c(NA, 99) &
+           doses.opv.sia %in% c(NA, 99) &
+          doses.total %in% c(NA, 99) &
+          calcdosesrisi < 3 ~ TRUE,
+        # flag if all are missing
+        doses.opv.routine %in% c(NA, 99) &
+           doses.opv.sia %in% c(NA, 99) &
+           doses.total %in% c(NA, 99) &
+           calcdosesrisi %in% c(NA, 99) ~ TRUE,
+        # otherwise, do not flag
+        TRUE ~ FALSE)
+        ) |>
+    dplyr::mutate(
+      doses.interpretation = dplyr::case_when(
+        doses.flag &
+          doses.opv.routine == 0 & doses.opv.sia == 0 ~
+          "0 routine and 0 SIA OPV doses",
+        doses.flag &
+          doses.opv.routine == 0 & doses.opv.sia %in% c(NA, 99) ~
+          "0 routine OPV doses; SIA OPV missing/unknown",
+        doses.flag &
+          doses.opv.routine %in% c(NA, 99) & doses.opv.sia == 0 ~
+          "Routine OPV missing/unknown; 0 SIA OPV doses",
+        doses.flag &
+          doses.opv.routine %in% c(NA, 99) &
+          doses.opv.sia %in% c(NA, 99) &
+          doses.total < 3 ~
+          "Fewer than 3 total doses",
+        doses.flag &
+          doses.opv.routine %in% c(NA, 99) &
+          doses.opv.sia %in% c(NA, 99) &
+          doses.total %in% c(NA, 99) &
+          calcdosesrisi < 3 ~
+          "Fewer than 3 calculated doses",
+        doses.flag &
+          doses.opv.routine %in% c(NA, 99) &
+          doses.opv.sia %in% c(NA, 99) &
+          doses.total %in% c(NA, 99) &
+          calcdosesrisi %in% c(NA, 99) ~
+          "All dose information missing/unknown",
+        !doses.flag ~ "Not flagged",
+        TRUE ~ "Other/unclear dose coding"
+      )
+    ) |>
     dplyr::mutate(
       pot.compatible = dplyr::if_else(
         (adequacy.final2 == "Inadequate") &
@@ -982,8 +1121,8 @@ generate_60_day_table_data <- function(stool.data, start_date, end_date) {
               is.na(followup.date) & is.na(followup.findings)
             )
         ) &
-          # doses are less than 3 or none
-          (doses.total < 3 | is.na(doses.total)) &
+          # doses are less than 3 total or no OPV doses or all missing
+          (doses.flag) &
           (
             classification %in% c("Discarded", "Pending") |
               is.na(classification) == T
@@ -1033,7 +1172,12 @@ generate_60_day_table_data <- function(stool.data, start_date, end_date) {
       "paralysis.rapid.progress",
       "paralysis.onset.fever",
       "pot.compatible",
+      "doses.flag",
+      "doses.opv.routine",
+      "doses.opv.sia",
       "doses.total",
+      "calcdosesrisi",
+      "doses.interpretation",
       "timeto60day",
       "followup.date",
       "classification",

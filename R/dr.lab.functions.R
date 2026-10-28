@@ -519,6 +519,10 @@ lab_data_errors_region <- function(lab.data,
     # dplyr::mutate_at(vars(DateStoolCollected:VDPV3), ~na_if(., "NULL")) %>%
     dplyr::mutate(
       country = stringr::str_to_upper(country),
+      country = ifelse(stringr::str_detect(country, "IVOIRE"),
+        "COTE D IVOIRE", country
+      ),
+      country = stringr::str_replace(country, "-", " "),
       year = lubridate::year(ParalysisOnsetDate),
       whoregion = get_region(country)
     )
@@ -557,6 +561,321 @@ lab_data_errors_region <- function(lab.data,
       # Met target yes/no
       met.targ.collect.lab = ifelse(days.collect.lab < 3, 1, 0),
       negative.spec = ifelse(!str_detect(FinalCellCultureResult, "ITD") & FinalITDResult == "NULL", 1, 0),
+      negative.spec = ifelse(!str_detect(FinalCellCultureResult, "ITD") &
+        FinalITDResult %in% c("NULL", ""), 1, 0),
+      met.lab.culture = ifelse(days.lab.culture < 14, 1, 0),
+    )
+
+  invalid_intervals <- lab.data |>
+    # filtering out negative time intervals
+    dplyr::filter((days.collect.lab < 0) |
+      (days.lab.culture < 0) |
+      (days.seq.ship < 0) |
+      (days.lab.seq < 0) |
+      (days.itd.seqres < 0) |
+      (days.itd.arriveseq < 0) |
+      (days.seq.rec.res < 0))
+
+  if (nrow(invalid_intervals) > 0) {
+    cli::cli_alert_warning(paste0(
+      "There are ", nrow(invalid_intervals),
+      " records with negative intervals."
+    ))
+  } else {
+    cli::cli_alert_success("No invalid intervals found.")
+  }
+
+  cli::cli_process_done()
+
+  cli::cli_process_start("Checking records where stool collection date is before paralysis.")
+  collection_before_paralysis <- lab.data |>
+    dplyr::filter((DateStoolCollected < ParalysisOnsetDate))
+
+  if (nrow(collection_before_paralysis) > 0) {
+    cli::cli_alert_warning(paste0(
+      "There are ", nrow(collection_before_paralysis),
+      " records where stool collection is before paralysis."
+    ))
+  } else {
+    cli::cli_alert_success("No records where stool collection is before paralysis.")
+  }
+
+  cli::cli_process_done()
+
+  # Filter to only the country of interest
+  if (!is.null(ctry_name)) {
+    ctry_name <- stringr::str_trim(stringr::str_to_upper(ctry_name))
+    # Handle when passing just one string comma delimited string
+    ctry_name <- stringr::str_replace_all(ctry_name, ", ", ",") |>
+      stringr::str_split(",") |>
+      unlist()
+    # Recode for COTE D'IVOIRE
+    ctry_name <- dplyr::if_else(stringr::str_detect(ctry_name, "(?i)IVOIRE"),
+      "COTE D'IVOIRE", ctry_name
+    )
+    cli::cli_process_start("Filtering country-specific lab data")
+    cli::cli_alert_warning(paste0(
+      "NOTE: Filtering will include rows where ctry is",
+      " N/A. Please review the dataset carefully after cleaning."
+    ))
+    lab_data <- lab_data |>
+      dplyr::filter(ctry %in% ctry_name | is.na(ctry))
+    cli::cli_process_done()
+  }
+
+  # adding additional subintervals (these aren't present in regional lab data, so are created as dummy variables)
+  lab_data <- lab_data |>
+    mutate(
+      days.coll.sent.field = NA,
+      days.sent.field.rec.nat = NA,
+      days.rec.nat.sent.lab = NA,
+      days.sent.lab.rec.lab = NA,
+      days.rec.lab.culture = NA,
+    )
+
+  return(lab_data)
+}
+
+
+
+# Public functions ----
+#' Table of information regarding testing labs in each country
+#'
+#' Imports information on testing labs for each country, either from a CSV file
+#' or downloaded from EDAV. If no argument is passed, the function will download
+#' the table from EDAV.
+#'
+#' @inheritParams clean_lab_data
+#'
+#' @returns `tibble` A table containing the test lab location information.
+#' @examples
+#' \dontrun{
+#' ctry.seq <- get_lab_locs()
+#' }
+#'
+#' @export
+
+get_lab_locs <- function(lab_locs_path = NULL, use_edav = TRUE) {
+  lab.locs <- NULL
+  if (is.null(lab_locs_path) & use_edav) {
+    tryCatch(
+      {
+        cli::cli_process_start("Downloading lab testing location file from EDAV.")
+        lab.locs <- sirfunctions::edav_io("read", file_loc = "Data/lab/Routine_lab_testing_locations.csv")
+        cli::cli_process_done()
+      },
+      error = function(e) {
+        stop(paste0(
+          "Download of lab testing location file from EDAV failed.",
+          "Please specify the path to the Routine lab testing location file ",
+          "and try again."
+        ))
+      }
+    )
+  } else if (!is.null(lab_locs_path)) {
+    lab.locs <- readr::read_csv(lab_locs_path)
+  } else {
+    cli::cli_abort("Please pass the path to the lab locations file in `lab_locs_path`.")
+  }
+
+  lab.locs <- lab.locs |>
+    dplyr::mutate(country = stringr::str_to_upper(country))
+
+  # Manual corrections
+  lab.locs.edited <- lab.locs |>
+    dplyr::filter(!is.na(country)) |>
+    dplyr::mutate(seq.capacity = stringr::str_to_lower(seq.capacity)) |>
+    dplyr::mutate(`wgs.lab` = stringr::str_replace_all(`wgs.lab`, "- ", "-"),
+                  seq.lab = stringr::str_replace_all(seq.lab, "- ", "-"),
+                  culture.itd.lab = stringr::str_replace_all(culture.itd.lab, "- ", "-")) |>
+    dplyr::mutate(`wgs.lab` = dplyr::case_when(
+      country == "OCCUPIED PALESTINIAN TERRITORY, INCLUDING EAST JERUSALEM" ~ "Unknown",
+      `wgs.lab` %in% c("-", NA) ~ "Unknown",
+      .default = `wgs.lab`)) |>
+    dplyr::mutate(culture.itd.lab = dplyr::case_when(
+      country == "OCCUPIED PALESTINIAN TERRITORY, INCLUDING EAST JERUSALEM" ~ "Jordan",
+      culture.itd.lab %in% c("-", NA) ~ "Unknown",
+      .default = culture.itd.lab
+    )) |>
+    dplyr::mutate(seq.lab = dplyr::case_when(
+      country == "OCCUPIED PALESTINIAN TERRITORY, INCLUDING EAST JERUSALEM" ~ "Jordan",
+      seq.lab %in% c("-", NA) ~ "Unknown",
+      .default = seq.lab
+    )) |>
+    dplyr::mutate(country = stringr::str_replace_all(country, "-", " "))
+
+
+  # Check for missing EPIDs in the AFP linelist
+  cli::cli_process_start("Checking for missing EPIDs in the AFP dataset.")
+  missing_epids <- lab.data |> dplyr::filter(!(EPID %in% afp.data$epid))
+
+
+  if (nrow(missing_epids) != 0) {
+    cli::cli_alert_warning(paste0("There are ", nrow(missing_epids), " lab cases not in the AFP linelist."))
+  } else {
+    cli::cli_alert_success("No lab cases missing in the AFP linelist.")
+  }
+  cli::cli_process_done()
+
+  error_log <- list()
+  error_log$duplicates <- duplicated
+  error_log$invalid_intervals <- invalid_intervals
+  error_log$collection_before_paralysis <- collection_before_paralysis
+  error_log$missing_epids <- missing_epids
+
+  writexl::write_xlsx(error_log, path = file.path(error_path, paste0("lab_errors_", Sys.Date() ,".xlsx")))
+  cli::cli_alert("Log saved in the errors folder. Report lab data issues to CDC so the upstream cleaning process can be updated.")
+}
+
+#' Checks for common data errors in WHO lab data
+#'
+#' This function is used internally within [lab_data_errors()]. This checks for potential errors in the
+#' WHO lab data.
+#'
+#' @inheritParams lab_data_errors
+#' @examples
+#' \dontrun{
+#' lab_path <- "C:/Users/XRG9/lab_data_who.csv"
+#' ctry.data <- init_dr("algeria", lab_data_path = lab_path)
+#' lab_data_errors_who(
+#'   ctry.data$lab.data, ctry.data$afp.all.2,
+#'   "2021-01-01", "2023-12-31"
+#' )
+#' }
+#' @keywords internal
+lab_data_errors_who <- function(lab.data, afp.data,
+                                start.date, end.date,
+                                ctry_name = Sys.getenv("DR_COUNTRY"),
+                                error_path = Sys.getenv("DR_ERROR_PATH"),
+                                ctry.data = lifecycle::deprecated()) {
+  if (!requireNamespace("writexl", quietly = TRUE)) {
+    stop(
+      'Package "writexl" must be installed to use this function.',
+      call. = FALSE
+    )
+  }
+
+  if (lifecycle::is_present(ctry.data)) {
+    lifecycle::deprecate_warn(
+      when = "1.3.0",
+      what = "lab_data_errors_who(ctry.data)",
+      details = "Please pass the dataframe directly to lab.data."
+    )
+
+    lab.data <- ctry.data$lab.data
+  }
+
+  start.date <- lubridate::as_date(start.date)
+  end.date <- lubridate::as_date(end.date)
+  ctry_name <- stringr::str_to_upper(ctry_name)
+  # Handle when passing just one string comma delimited string
+  ctry_name <- stringr::str_replace_all(ctry_name, ", ", ",") |>
+    stringr::str_split(",") |>
+    unlist()
+
+  cli::cli_process_start("Filtering to the country of interest")
+  lab.data <- suppressMessages(impute_missing_lab_geo(lab.data, afp.data))
+  lab.data <- lab.data |> dplyr::filter(ctry %in% ctry_name)
+  cli::cli_process_done()
+
+  cli::cli_process_start("Filtering for years of interest and cases")
+  lab.data <- lab.data |>
+    dplyr::filter(country %in% ctry_name)
+
+  # Cleaning for Cote D'Ivoire
+  lab.data <- lab.data |>
+      dplyr::mutate(country = dplyr::if_else(stringr::str_detect(country, "(?i)IVOIRE"),
+                                             "COTE D'IVIORE", country))
+
+  # Converting character dates to date columns
+  lab.data <- lab.data |>
+    dplyr::mutate(
+      dplyr::across(dplyr::any_of(c(
+        "CaseDate",
+        "ParalysisOnsetDate",
+        "DateStoolCollected",
+        "StoolDateSentToLab",
+        "DateStoolReceivedinLab",
+        "DateFinalCellCultureResult",
+        "DateFinalrRTPCRResults",
+        "ReportDateSequenceResultSent",
+        "DateIsolateRcvdForSeq",
+        "DateLArmIsolate",
+        "DateRArmIsolate",
+        "DateofSequencing",
+        "DateNotificationtoHQ"
+      )), \(x) as.Date.character(x, "%m/%d/%Y"))
+    )
+
+  # Cleaning for Cote D'Ivoire
+  lab.data <- lab.data |>
+      dplyr::mutate(country = dplyr::if_else(stringr::str_detect(
+        country,
+        "(?i)IVOIRE"
+      ),
+      "COTE D'IVOIRE", country
+      ))
+
+  # Filtering to the country of interest
+  cli::cli_process_start("Filtering to country of interest")
+  lab.data <- lab.data |>
+    dplyr::filter(country %in% ctry_name)
+  cli::cli_process_done()
+
+  # Check for duplicates
+  cli::cli_process_start("Checking for duplicate data")
+
+  duplicate.02 <- lab.data |>
+    dplyr::filter(dplyr::between(ParalysisOnsetDate, start.date, end.date)) |>
+    dplyr::distinct()
+
+  # Additional cleaning steps
+  duplicate.03 <- duplicate.02 |>
+    # Dropping rows with Specimen number 0 or >2
+    dplyr::filter(SpecimenNumber %in% c(1, 2)) |>
+    # replacing "NULL" with NA
+    # dplyr::mutate_at(vars(DateStoolCollected:VDPV3), ~na_if(., "NULL")) %>%
+    dplyr::mutate(
+      country = stringr::str_to_upper(country),
+      country = stringr::str_replace(country, "-", " "),
+      year = lubridate::year(ParalysisOnsetDate),
+      whoregion = get_region(country)
+    )
+
+  # Join lab locations
+  duplicate.04 <- duplicate.03 |>
+    # count duplicates with same EPID and specimen number
+    # there should be 2 records for each EPID, specimen 1 and 2
+    dplyr::group_by(EPID, SpecimenNumber) |>
+    dplyr::mutate(n = dplyr::n()) |>
+    dplyr::ungroup()
+
+  duplicated <- duplicate.04[duplicated(duplicate.04[c("EPID", "SpecimenNumber")]), ]
+
+  if (nrow(duplicated) > 0) {
+    cli::cli_alert_warning(paste0("There are ", nrow(duplicated), " duplicate lab entries."))
+  } else {
+    cli::cli_alert_success("No duplicate entries found.")
+  }
+
+  cli::cli_process_done()
+
+  # Check for invalid dates
+  cli::cli_process_start("Checking for negative time and N/A intervals")
+  lab.data <- lab.data |>
+    dplyr::mutate(
+      # Intervals
+      days.collect.lab = DateStoolReceivedinLab - DateStoolCollected,
+      days.lab.culture = DateFinalCellCultureResult - DateStoolReceivedinLab,
+      days.seq.ship = DateIsolateRcvdForSeq - ReportDateSequenceResultSent,
+      days.lab.seq = DateofSequencing - DateStoolReceivedinLab,
+      days.itd.seqres = DateofSequencing - DateFinalrRTPCRResults,
+      days.itd.arriveseq = DateIsolateRcvdForSeq - DateFinalrRTPCRResults,
+      days.seq.rec.res = DateofSequencing - DateIsolateRcvdForSeq,
+
+      # Met target yes/no
+      met.targ.collect.lab = ifelse(days.collect.lab < 3, 1, 0),
+      negative.spec = ifelse(!str_detect(FinalCellCultureResult, "ITD") & FinalITDResult %in% c("NULL", ""), 1, 0),
       met.lab.culture = ifelse(days.lab.culture < 14, 1, 0),
     )
 
@@ -616,7 +935,7 @@ lab_data_errors_region <- function(lab.data,
   error_log$missing_epids <- missing_epids
 
   writexl::write_xlsx(error_log, path = file.path(error_path, paste0("lab_errors_", Sys.Date() ,".xlsx")))
-  cli::cli_alert("Log saved in the errors folder. Report lab data issues to CDC so the upstream cleaning process can be updated.")
+  cli::cli_alert("Run clean_lab_data() to attempt data fixes and perform the check again. Log saved in the errors folder.")
 }
 
 #' Checks for common data errors in WHO lab data
