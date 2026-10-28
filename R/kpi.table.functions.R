@@ -1002,8 +1002,9 @@ generate_c1_rollup <- function(c1,
 #' @param pop_data `tibble` Population data.
 #' @param spatial_scale `str` Either `"ctry", "prov", "dist"`.
 #' @param lab_data `tibble` Optional cleaned laboratory data containing
-#'   `DateStoolReceivedinLab`. When supplied, this field replaces the AFP
-#'   `stooltolabdate` field for the shipment and optimized timeliness indicators.
+#'   `DateStoolReceivedinLab`. When supplied, this field is preferred for the
+#'   shipment and optimized timeliness indicators. If it is missing for an
+#'   EPID, the existing AFP `stooltolabdate` value is retained.
 #' @inheritParams generate_c1_table
 #'
 #' @returns `tibble` Summary table containing AFP KPIs.
@@ -1059,10 +1060,12 @@ generate_c2_table <- function(afp_data, pop_data, start_date, end_date,
 
     lab_arrival <- lab_data |>
       dplyr::transmute(
-        .lab_epid = as.character(.data[[lab_epid_col[[1]]]]),
-        .lab_received = as.Date(.data$DateStoolReceivedinLab)
+        .lab_epid = stringr::str_to_upper(
+          stringr::str_squish(as.character(.data[[lab_epid_col[[1]]]]))
+        ),
+        .lab_received = lubridate::as_date(.data$DateStoolReceivedinLab)
       ) |>
-      dplyr::filter(!is.na(.lab_epid)) |>
+      dplyr::filter(!is.na(.lab_epid), .lab_epid != "") |>
       dplyr::group_by(.lab_epid) |>
       dplyr::summarise(
         .lab_received = if (all(is.na(.lab_received))) {
@@ -1073,11 +1076,29 @@ generate_c2_table <- function(afp_data, pop_data, start_date, end_date,
         .groups = "drop"
       )
 
+    has_afp_stooltolabdate <- "stooltolabdate" %in% names(afp_data)
+
     afp_data <- afp_data |>
-      dplyr::mutate(.afp_epid = as.character(.data$epid)) |>
+      dplyr::mutate(
+        .afp_epid = stringr::str_to_upper(
+          stringr::str_squish(as.character(.data$epid))
+        ),
+        .afp_stooltolabdate = if (has_afp_stooltolabdate) {
+          lubridate::as_date(.data$stooltolabdate)
+        } else {
+          as.Date(NA)
+        }
+      ) |>
       dplyr::left_join(lab_arrival, by = c(".afp_epid" = ".lab_epid")) |>
-      dplyr::mutate(stooltolabdate = .data$.lab_received) |>
-      dplyr::select(-dplyr::any_of(c(".afp_epid", ".lab_received")))
+      dplyr::mutate(
+        stooltolabdate = dplyr::coalesce(
+          .data$.lab_received,
+          .data$.afp_stooltolabdate
+        )
+      ) |>
+      dplyr::select(-dplyr::any_of(
+        c(".afp_epid", ".lab_received", ".afp_stooltolabdate")
+      ))
   }
 
   cli::cli_progress_update()
