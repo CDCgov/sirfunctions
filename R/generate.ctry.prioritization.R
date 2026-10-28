@@ -885,6 +885,13 @@ calculate_GSAP_ctry_prioritization <- function(
         .data$`Virus within 200km (6m)` == "Yes" ~ 5,
         TRUE ~ 0
       ),
+      polio_risk_label = dplyr::case_when(
+        .data$polio_risk_score == 10 & .data$polio_recent ~
+          "25, Recent virus",
+        .data$polio_risk_score == 10 & .data$endemic ~ "25, Endemic",
+        .data$polio_risk_score == 5 ~ "12, Proximity to virus",
+        TRUE ~ "0"
+      ),
       zero_dose_score = score_GSAP_immunity_0_5_10(.data$zero.dose.pct),
       underimm_score = score_GSAP_immunity_0_5_10(.data$under.immun.pct),
       no_ipv_score = score_GSAP_immunity_0_5_10(.data$no.ipv1.pct),
@@ -950,9 +957,11 @@ calculate_GSAP_ctry_prioritization <- function(
       `WHO Region`, Country,
       `Previous GPSAP risk cat`,
       `Total risk score (0-100)` = display_score(
-        .data$total.risk.score, .data$num.surv.ind < min_surv_ind
+        .data$total.risk.score, is.na(.data$total.risk.score)
       ),
-      `cVDPV/WPV risk score (0-25)` = display_score(.data$polio.score.w),
+      `Proposed NEW risk cat` = NA_character_,
+      Comments = NA_character_,
+      `cVDPV/WPV risk score (0-25)` = .data$polio_risk_label,
       `Surveillance risk score (0-50)` = display_score(
         .data$surv.score.w, .data$num.surv.ind < min_surv_ind
       ),
@@ -966,17 +975,21 @@ calculate_GSAP_ctry_prioritization <- function(
       `Virus within 200km (6m)`, `Virus within 200km details (6m)`,
       `Zero dose, %` = .data$zero.dose.pct,
       `Underimmunized, %` = .data$under.immun.pct,
-      `No IPV1, %` = .data$no.ipv1.pct
+      `IPV1 immunity gap, %` = .data$no.ipv1.pct
     ) |>
-    dplyr::arrange(.data$`WHO Region`, dplyr::desc(.data$`Total risk score (0-100)`))
+    dplyr::arrange(
+      .data$`Total risk score (0-100)` == "insufficient data",
+      dplyr::desc(suppressWarnings(as.numeric(.data$`Total risk score (0-100)`))),
+      .data$Country
+    )
 
   notes <- dplyr::tribble(
     ~Field, ~Data_source, ~Definition_or_notes,
     "Total risk score (0-100)", "Legacy country prioritization", "Surveillance weighted to 50, immunity weighted to 25, and cVDPV/WPV risk weighted to 25.",
-    "cVDPV/WPV risk score (0-25)", "POLIS and country classification", "Endemic/recent virus scores 25; proximity to virus scores 12.5 before rounding.",
+    "cVDPV/WPV risk score (0-25)", "POLIS and country classification", "25, Recent virus (or 25, Endemic); 12, Proximity to virus; 0 when neither condition applies.",
     "Surveillance risk score (0-50)", "sirfunctions KPI outputs", "Seven indicators scored 0/5/10 and normalized to the number available.",
     "ES sites >=50% EV", "C1 ES EV detection rate", "Proportion of active ES sites meeting the >=50% EV detection target. (Active Sites include sites in operation for ≥12 months and with ≥10 samples in the 12-month period)",
-    "Immunity risk score (0-25)", "WUENIC workbook", "DTP1, DTP3, and IPV1 complements scored 0/5/10 and weighted to 25.",
+    "Immunity risk score (0-25)", "WUENIC workbook", "DTP1, DTP3, and IPV1 immunity-gap complements scored 0/5/10 and weighted to 25.",
     "Previous GPSAP risk cat", "Supplied risk table", "The category is taken from the supplied risk table; missing categories default to LOW.",
     "Country inclusion", "Country prioritization", if (include_all_countries) "All countries present in the AFP data are retained; scores requiring insufficient indicators are labelled insufficient data." else paste0("Countries are retained when at least ", min_surv_ind, " of 7 surveillance indicators are available, or when listed as HIGH, MEDIUM, or LOW (WATCHLIST) in the previous GPSAP risk table.")
   )
@@ -1453,6 +1466,7 @@ generate_GSAP_ctry_prioritization <- function(
         `Virus within 200km (6m)` == "Yes" ~ 5,
         TRUE ~ 0
       ),
+      polio_risk_label = polio_risk_cat,
       zero_dose_score = score_GSAP_immunity_0_5_10(zero.dose.pct),
       underimm_score = score_GSAP_immunity_0_5_10(under.immun.pct),
       no_ipv_score = score_GSAP_immunity_0_5_10(no.ipv1.pct),
@@ -1536,10 +1550,12 @@ generate_GSAP_ctry_prioritization <- function(
       `WHO Region`, Country,
       `Previous GPSAP risk cat`,
       `Total risk score (0-100)` = display_score(
-        total.risk.score, num.surv.ind < min_surv_ind
+        total.risk.score, is.na(total.risk.score)
       ),
+      `Proposed NEW risk cat` = NA_character_,
+      Comments = NA_character_,
       `Proposed GPSAP 2025-26 prioritization`,
-      `cVDPV/WPV risk score (0-25)` = display_score(polio.score.w),
+      `cVDPV/WPV risk score (0-25)` = polio_risk_label,
       `Surveillance risk score (0-50)` = display_score(
         surv.score.w, num.surv.ind < min_surv_ind
       ),
@@ -1555,17 +1571,21 @@ generate_GSAP_ctry_prioritization <- function(
       `Virus within 200km details (6m)`,
       `Zero dose, %` = zero.dose.pct,
       `Underimmunized, %` = under.immun.pct,
-      `No IPV1, %` = no.ipv1.pct
+      `IPV1 immunity gap, %` = no.ipv1.pct
     ) |>
-    dplyr::arrange(`WHO Region`, dplyr::desc(`Total risk score (0-100)`))
+    dplyr::arrange(
+      `Total risk score (0-100)` == "insufficient data",
+      dplyr::desc(suppressWarnings(as.numeric(`Total risk score (0-100)`))),
+      Country
+    )
 
   notes <- dplyr::tribble(
     ~Field, ~Data_source, ~Definition_or_notes,
     "Total risk score (0-100)", "--", "Sum of the three weighted component scores.",
     "Previous GPSAP risk cat", "GPSAP 2025-2026", "Category from the supplied risk table; missing categories default to LOW.",
-    "cVDPV/WPV risk score (0-25)", "--", "Endemic/recent virus scores 25; proximity to virus scores 12.5 before rounding.",
+    "cVDPV/WPV risk score (0-25)", "--", "25, Recent virus (or 25, Endemic); 12, Proximity to virus; 0 when neither condition applies.",
     "Surveillance risk score (0-50)", "--", "Surveillance indicators scored 0/5/10 and weighted to 50.",
-    "Immunity risk score (0-25)", "--", "DTP1, DTP3, and IPV1 complements scored 0/5/10 and weighted to 25.",
+    "Immunity risk score (0-25)", "--", "DTP1, DTP3, and IPV1 immunity-gap complements scored 0/5/10 and weighted to 25.",
     "Country inclusion", "GPSAP 2025-2026", if (include_all_countries) "All countries present in the AFP data are retained; scores requiring insufficient indicators are labelled insufficient data." else paste0("Retained when at least ", min_surv_ind, " of 7 surveillance indicators are available, or when listed as HIGH, MEDIUM, or LOW (WATCHLIST) in the previous GPSAP risk table."),
     "Detection within 46/35d, %", "sirfunctions", "Existing KPI timeliness-of-detection indicator; the label follows the requested final table.",
     "Proposed category", "Policy input", "Not assigned unless proposed_category or category_breaks is supplied."

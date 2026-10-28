@@ -286,7 +286,7 @@ build_GSAP_analysis_notes <- function(prioritization_output) {
     "Date of analysis: ", format(analysis_date, "%d-%b-%Y"), "\n",
     period_note, "\n",
     virus_period_note, "\n",
-    "Within each sheet, countries are arranged by region and total score"
+    "Countries are arranged by total risk score, highest to lowest; insufficient data are shown at the bottom"
   )
 
   notes_table <- data.frame(
@@ -300,7 +300,7 @@ build_GSAP_analysis_notes <- function(prioritization_output) {
       "WPV AFP/ES (last 6m)", "WPV AFP/ES (last 12m)",
       "cVDPV AFP/ES (last 6m)", "cVDPV AFP/ES (last 12m)",
       "Virus within 200km (6m)", "Virus within 200km details (6m)",
-      "Zero dose, %", "Underimmunized, %", "No IPV1, %"
+      "Zero dose, %", "Underimmunized, %", "IPV1 immunity gap, %"
     ),
     `Data source` = c(
       "POLIS", "GPSAP 2025-2026", "--", "--", "--", "--",
@@ -313,8 +313,8 @@ build_GSAP_analysis_notes <- function(prioritization_output) {
         "Restricted to countries with data on at least 4/7 surveillance indicators available"
       ),
       "Category from the supplied risk table.",
-      "Sum of the cVDPV/WPV, surveillance, and immunity weighted scores.",
-      "Sum of WPV and cVDPV indicators, weighted to 25.",
+      "Sum of the cVDPV/WPV, surveillance, and immunity weighted scores; countries without a calculable surveillance score are labelled insufficient data.",
+      "25, Recent virus (or 25, Endemic); 12, Proximity to virus; 0 when neither condition applies.",
       "Sum of seven surveillance indicators, weighted to 50 and normalized to the number available.",
       "Sum of DTP1, DTP3, and IPV1 complement scores, weighted to 25.",
       "NPAFP cases per 100,000 population aged <15 years, summarized nationally (missing age cases were assumed <15 yrs, and were therefore included in analysis).",
@@ -330,7 +330,7 @@ build_GSAP_analysis_notes <- function(prioritization_output) {
       "Count of cVDPV detections in the 12 months preceding the date of analysis.",
       "Country border is within 200 km of a qualifying detection in a neighboring country during the previous six months.",
       "Details of qualifying detections contributing to the 200-km indicator.",
-      "100% - DTP1%.", "100% - DTP3%.", "100% - IPV1%."
+      "100% - DTP1%.", "100% - DTP3%.", "100% - IPV1% (IPV1 immunity gap)."
     ),
     `Low (+0)` = c(
       "--", "--", "--", "--", "--", "--", ">=2", ">=80%",
@@ -389,24 +389,62 @@ export_GSAP_ctry_prioritization <- function(prioritization_output,
   openxlsx::addWorksheet(wb, "Results")
   openxlsx::addWorksheet(wb, "Analysis notes")
   results_for_export <- prioritization_output$results
-  score_names <- c(
-    "Total risk score (0-100)", "cVDPV/WPV risk score (0-25)",
-    "Surveillance risk score (0-50)", "Immunity risk score (0-25)"
-  )
-  for (score_name in intersect(score_names, names(results_for_export))) {
-    results_for_export[[score_name]] <- suppressWarnings(
-      as.numeric(as.character(results_for_export[[score_name]]))
-    )
+  total_score_name <- "Total risk score (0-100)"
+  if (total_score_name %in% names(results_for_export)) {
+    total_score_text <- trimws(as.character(results_for_export[[total_score_name]]))
+    total_score_numeric <- suppressWarnings(as.numeric(total_score_text))
+    insufficient <- is.na(total_score_numeric) |
+      tolower(total_score_text) == "insufficient data"
+    results_for_export <- results_for_export[
+      order(insufficient, -ifelse(is.na(total_score_numeric), -Inf,
+                                  total_score_numeric),
+            as.character(results_for_export$Country)),
+      , drop = FALSE
+    ]
   }
   header_style <- openxlsx::createStyle(
     textDecoration = "bold", halign = "center", border = "Bottom",
     wrapText = TRUE
   )
+  result_names <- names(results_for_export)
+  blank_if_num_error <- c(
+    "NPAFP (National)",
+    "Stool adequacy (National)",
+    "NPAFP (Subnational), %",
+    "Stool adequacy (Subnational), %",
+    "Detection within 46/35d, %",
+    "Onset to lab within 14/18d, %",
+    "ES sites >=50% EV"
+  )
+  for (column_name in intersect(blank_if_num_error, result_names)) {
+    column <- results_for_export[[column_name]]
+    if (is.numeric(column)) {
+      column[!is.finite(column)] <- NA_real_
+    } else {
+      column[trimws(as.character(column)) %in% c("#NUM!", "#NUM")] <- NA_character_
+    }
+    results_for_export[[column_name]] <- column
+  }
+  result_names <- names(results_for_export)
   openxlsx::writeData(
     wb, "Results", results_for_export,
     withFilter = TRUE, headerStyle = header_style
   )
-  result_names <- names(results_for_export)
+  blank_header_columns <- match(
+    c("Proposed NEW risk cat", "Comments"), result_names
+  )
+  blank_header_columns <- blank_header_columns[!is.na(blank_header_columns)]
+  if (length(blank_header_columns) > 0) {
+    openxlsx::addStyle(
+      wb, "Results",
+      openxlsx::createStyle(
+        fgFill = "#FFF2CC", textDecoration = "bold", halign = "center",
+        wrapText = TRUE, border = "Bottom"
+      ),
+      rows = 1, cols = blank_header_columns, gridExpand = TRUE,
+      stack = TRUE
+    )
+  }
   kpi_columns <- match(c(
     "NPAFP (National)", "Stool adequacy (National)",
     "NPAFP (Subnational), %", "Stool adequacy (Subnational), %",
@@ -434,26 +472,31 @@ export_GSAP_ctry_prioritization <- function(prioritization_output,
     )
   }
   if (!is.na(total_score_column) && length(result_rows) > 0) {
-    openxlsx::conditionalFormatting(
-      wb, "Results", cols = total_score_column, rows = result_rows,
-      type = "colorScale",
-      rule = c(0, 50, 100),
-      style = c("#5B9BD5", "#FFFDF5", "#F8696B")
-    )
-  }
-  surveillance_score_column <- match(
-    "Surveillance risk score (0-50)", result_names
-  )
-  if (!is.na(surveillance_score_column) &&
-      "Surveillance risk score (0-50)" %in% names(prioritization_output$results)) {
-    insufficient_rows <- which(
-      prioritization_output$results[["Surveillance risk score (0-50)"]] ==
-        "insufficient data"
-    )
-    for (row_index in insufficient_rows) {
-      openxlsx::writeData(
-        wb, "Results", "insufficient data", startRow = row_index + 1L,
-        startCol = surveillance_score_column, colNames = FALSE
+    total_score_text <- trimws(as.character(
+      results_for_export[["Total risk score (0-100)"]]
+    ))
+    total_score_numeric <- suppressWarnings(as.numeric(total_score_text))
+    mix_hex <- function(low, high, proportion) {
+      low_rgb <- grDevices::col2rgb(low)
+      high_rgb <- grDevices::col2rgb(high)
+      rgb_values <- round(low_rgb + (high_rgb - low_rgb) * proportion)
+      grDevices::rgb(rgb_values[1], rgb_values[2], rgb_values[3],
+                     maxColorValue = 255)
+    }
+    score_fill <- function(score) {
+      if (is.na(score)) return(NULL)
+      score <- max(0, min(100, score))
+      if (score <= 50) {
+        mix_hex("#5B9BD5", "#FFF2CC", score / 50)
+      } else {
+        mix_hex("#FFF2CC", "#C00000", (score - 50) / 50)
+      }
+    }
+    for (i in which(!is.na(total_score_numeric))) {
+      openxlsx::addStyle(
+        wb, "Results",
+        openxlsx::createStyle(fgFill = score_fill(total_score_numeric[i])),
+        rows = i + 1L, cols = total_score_column, stack = TRUE
       )
     }
   }
@@ -543,8 +586,10 @@ export_GSAP_ctry_prioritization <- function(prioritization_output,
   openxlsx::setRowHeights(
     wb, "Analysis notes", rows = c(12, 15, 22), heights = c(30, 30, 60)
   )
+  comments_column <- match("Comments", result_names)
+  freeze_column <- if (!is.na(comments_column)) comments_column + 1L else 5L
   openxlsx::freezePane(
-    wb, "Results", firstActiveRow = 2, firstActiveCol = 5
+    wb, "Results", firstActiveRow = 2, firstActiveCol = freeze_column
   )
   openxlsx::setColWidths(
     wb, "Results", cols = 2, widths = 30
