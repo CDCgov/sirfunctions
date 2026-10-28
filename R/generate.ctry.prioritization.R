@@ -74,16 +74,36 @@ score_GSAP_immunity_0_5_10 <- function(x, low = 6, high = 20) {
 #' @param missing_agemonths `logical` Whether district NPAFP eligibility checks
 #'   include cases with missing `age.months`. Defaults to `TRUE`, matching the
 #'   country-prioritization calculation.
+#' @param include_details_inconsisten_GUIDs `logical` Whether to include the
+#'   optional `C1_Checks` sheet containing inconsistent GUID details. Defaults
+#'   to `FALSE`.
+#' @param Full_KPI `logical` Whether to generate the expanded KPI checks
+#'   workbook. Defaults to `TRUE`, which currently adds placeholder sheets for
+#'   `Stool_Adequacy_Check` and `ES_EV_Check`. Set to `FALSE` for the compact
+#'   three-sheet country-prioritization workbook.
 #'
-#' @returns A list containing `npafp_age_check` and `dist_pop_check_updated`.
+#' @returns A list containing the three core check tables and any optional
+#'   requested check tables.
 #' @export
 #'
-generate_GSAP_ctry_prioritization_checks <- function(
+generate_checks <- function(
     raw_data,
     start_date,
     end_date,
     output_path = NULL,
-    missing_agemonths = TRUE) {
+    missing_agemonths = TRUE,
+    include_details_inconsisten_GUIDs = FALSE,
+    Full_KPI = TRUE) {
+  if (length(include_details_inconsisten_GUIDs) != 1 ||
+      is.na(include_details_inconsisten_GUIDs) ||
+      !is.logical(include_details_inconsisten_GUIDs)) {
+    cli::cli_abort(
+      "include_details_inconsisten_GUIDs must be TRUE or FALSE."
+    )
+  }
+  if (length(Full_KPI) != 1 || is.na(Full_KPI) || !is.logical(Full_KPI)) {
+    cli::cli_abort("Full_KPI must be TRUE or FALSE.")
+  }
   required_raw <- c("afp", "dist.pop")
   missing_raw <- setdiff(required_raw, names(raw_data))
   if (length(missing_raw) > 0) {
@@ -309,9 +329,21 @@ generate_GSAP_ctry_prioritization_checks <- function(
   checks <- list(
     District_Population_Check = dist_pop_check_updated,
     NPAFP_Age_Check = npafp_age_check,
-    GUID_Consistency_Check = guid_consistency_check,
-    Inconsistent_GUID_Detail = inconsistent_guid_detail
+    GUID_Consistency_Check = guid_consistency_check
   )
+  if (Full_KPI) {
+    checks$Stool_Adequacy_Check <- data.frame(
+      Check = character(), Result = character(), Notes = character(),
+      stringsAsFactors = FALSE
+    )
+    checks$ES_EV_Check <- data.frame(
+      Check = character(), Result = character(), Notes = character(),
+      stringsAsFactors = FALSE
+    )
+  }
+  if (Full_KPI && include_details_inconsisten_GUIDs) {
+    checks$C1_Checks <- inconsistent_guid_detail
+  }
 
   if (!is.null(output_path)) {
     if (!requireNamespace("writexl", quietly = TRUE)) {
@@ -321,6 +353,21 @@ generate_GSAP_ctry_prioritization_checks <- function(
   }
 
   checks
+}
+
+# Backward-compatible name for existing country-prioritization scripts.
+generate_GSAP_ctry_prioritization_checks <- function(
+    raw_data, start_date, end_date, output_path = NULL,
+    missing_agemonths = TRUE, include_c1_checks = FALSE) {
+  generate_checks(
+    raw_data = raw_data,
+    start_date = start_date,
+    end_date = end_date,
+    output_path = output_path,
+    missing_agemonths = missing_agemonths,
+    include_details_inconsisten_GUIDs = include_c1_checks,
+    Full_KPI = FALSE
+  )
 }
 
 #' Prepare country-prioritization source data
