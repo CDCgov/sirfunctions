@@ -21,13 +21,23 @@ library(sirfunctions)
 library(tidyverse)
 ```
 
-2.  **Set the desk review parameters**. `local_dr_path` is the folder where you would like to store desk reviews and associated files locally. If lab or ISS/eSurv data are unavailable locally, please assign the path values to `NULL`. Otherwise, assign the path to the local files for loading in R. For multiple countries, pass as a string vector, i.e. `c("djibouti", "somalia", "yemen")`.
+
+
+
+
+
+
+
+
+
+
+2.  **Set the desk review parameters**. `local_dr_path` is the folder where you would like to store desk reviews and associated files locally. Lab data are loaded from the pre-cleaned dataset on EDAV. If ISS/eSurv data are unavailable locally, assign `iss_data_path` to `NULL`. Otherwise, assign the path to the local file. For multiple countries, pass as a string vector, i.e. `c("djibouti", "somalia", "yemen")`.
 
 ```{r parameters}
 country_name <- ""
 local_dr_path <- file.path("")
 iss_data_path <- NULL
-lab_data_path <- NULL
+
 ```
 
 3.  **Initialize the desk review**. By default, the start date of the desk review is 3 years from the end date on January 1st. The end date is 6 weeks from today. You may modify the default start and end dates. For ES data, the start date is one year from the end date. Within the `param` folder, there will be a parameters file that is created when `init_dr()` is first run. This file saves the start date and end date of the desk review, to ensure consistency in analyzing data across multiple days. You will have the option to modify this parameter file in subsequent runs of `init_dr()`. 
@@ -39,22 +49,47 @@ The parameter `source = T` will download the desk review functions from `sirfunc
 ```{r init}
 init_dr(country_name, 
         local_dr_folder = local_dr_path,
-        lab_data_path = lab_data_path,
         iss_data_path = iss_data_path,
         branch = "main",
         use_edav = TRUE)
 ```
 
-4. **(Optional) Attaching lab data from EDAV.** If lab data is not saved locally, then you may access lab data from EDAV.
+
+
+
+
+
+
+
+
+
+
+4. **Prepare lab data for analysis.** `init_dr()` loads `cleaned_lab_data.rda` from EDAV into `lab_data`. Select the desk review countries and add rolling-year fields for the analysis period.
 
 ```{r edav.lab}
-sirfunctions::edav_io(
-  "read",
-  file_loc = get_constant("CLEANED_LAB_DATA")
-)
+lab_countries <- stringr::str_split(Sys.getenv("DR_COUNTRY"), ",")[[1]] |>
+  stringr::str_trim() |>
+  stringr::str_to_upper()
+lab_countries <- ifelse(stringr::str_detect(lab_countries, "IVOIRE"),
+                        "COTE D'IVOIRE", lab_countries)
 lab_data <- lab_data |>
-  dplyr::filter(!is.na(EPID))
+  dplyr::filter(!is.na(EPID), ctry %in% lab_countries)
+if (nrow(lab_data) > 0) {
+  lab_date_col <- if ("CaseDate" %in% names(lab_data)) "CaseDate" else "DateOfOnset"
+  lab_data <- add_rolling_years(lab_data, start_date, end_date, lab_date_col)
+}
+
 ```
+
+
+
+
+
+
+
+
+
+
 
 ## Data Cleaning
 
@@ -66,16 +101,25 @@ lab_data_errors(lab_data, ctry.data$afp.all.2)
 iss_data_errors(ctry.data$iss.data)
 ```
 
-2.  **Perform Data Cleaning**. The following will attempt to clean data issues flagged during the error checking process. There are instances where data cleaning, in particular with the lab and ISS data, can fail. This can occur during the imputation of missing data (year, province, district, etc...), which depend on EPIDs. For example, EPIDs from EMRO are separated by `/`, which means that it may be useful to set `delim='/'` in `clean_lab_data()`. 
+
+
+
+
+
+
+
+
+
+
+2.  **Perform Data Cleaning**. The following attempts to clean AFP and ISS/eSurv data issues flagged during the error checking process.
+
+Lab data are already cleaned before upload to EDAV. The desk review does not clean lab data. If lab data quality issues are identified, contact CDC so the upstream cleaning process can be updated.
 
 For ISS/eSURV data, it is advisable to take a look at the data before cleaning, and ensure the default parameters for `clean_iss_data()` are correct.
 
 ```{r data.cleaning}
 ctry.data <- clean_ctry_data(ctry.data)
-lab_data <- clean_lab_data(lab_data, start_date, end_date, 
-                                     ctry.data$afp.all.2, Sys.getenv("DR_COUNTRY")
-                                     )
-# NOTE: if lab data is cleaned, you may need to manually filter to the countries of interest
+
 ctry.data$iss.data <- clean_iss_data(ctry.data$iss.data, start_date, end_date)
 ```
 
@@ -136,8 +180,8 @@ If lab timeliness intervals from the lab data are available, uncomment `lab.time
 NOTE: If calculating for multiple countries as a group, make sure `spatial_scale="all`.
 
 ```{r lab.timeliness}
-lab.timeliness.ctry <- generate_lab_timeliness(lab_data |> dplyr::filter(ctry %in% Sys.getenv("DR_COUNTRY")), "ctry", start_date, end_date)
-lab.timeliness.prov <- generate_lab_timeliness(lab_data |> dplyr::filter(ctry %in% Sys.getenv("DR_COUNTRY")), "prov", start_date, end_date)
+lab.timeliness.ctry <- generate_lab_timeliness(lab_data, "ctry", start_date, end_date)
+lab.timeliness.prov <- generate_lab_timeliness(lab_data, "prov", start_date, end_date)
 ```
 
 #### Generate Stool Adequacy Summary Tables

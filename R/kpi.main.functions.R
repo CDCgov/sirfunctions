@@ -12,8 +12,12 @@
 #' Defaults to current working directory.
 #' @param name `str` Name of the KPI analysis folder. If not given any names, the
 #' folder will be named the date the function is ran.
-#' @param edav `logical` Whether to use EDAV to load the raw_data and lab_data files.
-#' Defaults to `TRUE`.
+#' @param edav `logical` Whether to use EDAV to load the global polio data.
+#' Defaults to `TRUE`. Lab data are always loaded from EDAV.
+#' @details Pre-cleaned lab data are downloaded from `CLEANED_LAB_DATA` on EDAV
+#' on every run, independently of `edav`. Previous lab caches are not used.
+#' A local snapshot is saved in the analysis data folder. The generated template
+#' adds rolling-year fields without calling [clean_lab_data()].
 #'
 #' @returns Does not return anything
 #' @export
@@ -75,7 +79,6 @@ init_kpi <- function(path = getwd(), name = NULL, edav = TRUE) {
   # List files
   data_files <- list.files(Sys.getenv("KPI_DATA"))
   global_files <- data_files[stringr::str_detect(data_files, "polio_data")]
-  lab_files <- data_files[stringr::str_detect(data_files, "lab_data")]
 
   # Load global polio data
   cli::cli_process_start("Loading global polio dataset")
@@ -121,47 +124,12 @@ init_kpi <- function(path = getwd(), name = NULL, edav = TRUE) {
   }
   cli::cli_process_done()
 
-  # Load lab data
-  cli::cli_process_start("Loading lab data")
-  if (length(lab_files) == 0 & edav == TRUE) {
-    edav_io("read", file_loc = get_constant("CLEANED_LAB_DATA"))
-    saveRDS(get("lab_data", envir = globalenv()), file.path(Sys.getenv("KPI_DATA"), paste0("lab_data_", today, ".rds")))
-  } else if (length(lab_files) == 0 & edav == FALSE) {
-    cli::cli_alert_info(paste0("Please load the lab data manually into the environment. ",
-                               " You may save the lab_data Rds to: ", Sys.getenv("KPI_DATA"),
-                               ".\nEnsure this file begins with 'lab_data' so it can be detected in the next init."))
-
-  } else if (length(lab_files) == 1) {
-    cli::cli_alert_info("Loading cached lab data")
-    cli::cli_li(lab_files[1])
-    lab_data <- readRDS(file.path(Sys.getenv("KPI_DATA"), lab_files[1]))
-    assign("lab_data", lab_data, envir = .GlobalEnv)
-  } else {
-    for (i in 1:length(lab_files)) {
-      print(paste0(i, ". ", lab_files[i]))
-    }
-
-    while (TRUE) {
-      cli::cli_alert_info("Please choose a file to load")
-      response <- readline("> ")
-      tryCatch(
-        expr = {
-          response <- as.numeric(stringr::str_trim(response))
-          if (response == 0 | response > length(lab_files)) {
-            "Invalid response."
-            next
-          } else {
-            raw_data <- readRDS(file.path(Sys.getenv("KPI_DATA"), lab_files[response]))
-            assign("raw_data", raw_data, envir = .GlobalEnv)
-            break
-          }
-        },
-        error = function(e) {
-          cli::cli_alert_warning("Invalid response.")
-        }
-      )
-    }
-  }
+  # Always load pre-cleaned lab data from EDAV, then save a local snapshot.
+  cli::cli_process_start("Loading cleaned lab data from EDAV")
+  edav_io("read", file_loc = get_constant("CLEANED_LAB_DATA"))
+  # Reading an RDA file loads lab_data into the global environment.
+  saveRDS(get("lab_data", envir = globalenv()),
+          file.path(Sys.getenv("KPI_DATA"), paste0("cleaned_lab_data_", today, ".rds")))
   cli::cli_process_done()
 
   cli::cli_alert_success("KPI analysis set up complete.")
@@ -252,7 +220,7 @@ get_ctry_abbrev <- function(afp_data) {
 #'
 #' @param output_path `str` Where to output the script to.
 #' @param name `str` Name of the KPI folder.
-#' @param edav `logical` Whether the init pulled data from EDAV or not.
+#' @param edav `logical` Whether the init pulls global polio data from EDAV.
 #'
 #' @returns None.
 #'
@@ -332,6 +300,10 @@ generate_kpi_template <- function(output_path, name, edav) {
     paste0("start_date <- ", start_date), "\n",
     "# Obtaining shapefiles in long format ----",
     ctry_sf, dist_sf, "\n",
+    "# Prepare pre-cleaned lab data ----",
+    "# init_kpi() loads cleaned_lab_data.rda from EDAV into lab_data.",
+    paste0("start_date <- ", start_date), paste0("end_date <- ", end_date), "\n",
+    'lab_data <- add_rolling_years(lab_data, start_date, end_date, "CaseDate")\n',
     "# Cleaning lab data ----",
     'lab_data <- clean_lab_data(lab_data, start_date, end_date, raw_data$afp)\n',
     "# Generate GPSAP C1-C4 tables ----",

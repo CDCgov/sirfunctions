@@ -2,7 +2,9 @@
 % Please edit documentation in R/dr.lab.functions.R
 \name{get_lab_locs}
 \alias{get_lab_locs}
-\title{Table of information regarding testing labs in each country}
+\title{Imports information on testing labs for each country, either from a CSV file
+or downloaded from EDAV. If no argument is passed, the function will download
+the table from EDAV.}
 \usage{
 get_lab_locs(lab_locs_path = NULL, use_edav = TRUE)
 }

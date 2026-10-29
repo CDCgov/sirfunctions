@@ -31,7 +31,8 @@ the function is ran.}
 \item{local_dr_folder}{\code{str} Folder where the desk review code is located.
 Defaults to the current working directory.}
 
-\item{lab_data_path}{\code{str} Location of the lab data. Defaults to \code{NULL}.}
+\item{lab_data_path}{Retained for compatibility and ignored. Lab data are always
+loaded from \code{CLEANED_LAB_DATA} on EDAV.}
 
 \item{iss_data_path}{\code{str} Location of the ISS data. Defaults to \code{NULL}.}
 
@@ -58,6 +59,11 @@ Prepares the folders and files required for the desk review. The function primar
 serves to organize the files used for the desk review and set standardized
 environmental variables (i.e., \code{\link[=Sys.getenv]{Sys.getenv()}}, where values for \code{x} related to
 the desk review is prefixed with \code{"DR"}) . The function only supports running one country at a time.
+}
+\details{
+Lab data are downloaded from EDAV on every run, independently of
+\code{use_edav}, which controls the POLIS data source. Local lab files and previous
+lab caches are not used. No lab cleaning is performed during the desk review.
 }
 \examples{
 \dontrun{

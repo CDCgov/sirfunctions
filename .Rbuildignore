@@ -1,12 +1,4 @@
 ^renv$
 ^renv\.lock$
-^sirfunctions\.Rproj$
+^.*\.Rproj$
 ^\.Rproj\.user$
-^LICENSE\.md$
-^misc
-^testing
-^.git
-^\.github$
-^_pkgdown\.yml$
-^docs$
-^pkgdown$

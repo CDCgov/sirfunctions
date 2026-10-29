@@ -13,8 +13,8 @@ Defaults to current working directory.}
 \item{name}{\code{str} Name of the KPI analysis folder. If not given any names, the
 folder will be named the date the function is ran.}
 
-\item{edav}{\code{logical} Whether to use EDAV to load the raw_data and lab_data files.
-Defaults to \code{TRUE}.}
+\item{edav}{\code{logical} Whether to use EDAV to load the global polio data.
+Defaults to \code{TRUE}. Lab data are always loaded from EDAV.}
 }
 \value{
 Does not return anything
@@ -24,6 +24,12 @@ Does not return anything
 
 Sets up folder structures and environmental variables, as well as download
 global polio data.
+}
+\details{
+Pre-cleaned lab data are downloaded from \code{CLEANED_LAB_DATA} on EDAV
+on every run, independently of \code{edav}. Previous lab caches are not used.
+A local snapshot is saved in the analysis data folder. The generated template
+adds rolling-year fields without calling \code{\link[=clean_lab_data]{clean_lab_data()}}.
 }
 \examples{
 \dontrun{
