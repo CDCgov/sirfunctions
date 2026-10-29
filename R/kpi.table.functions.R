@@ -28,7 +28,8 @@ get_es_site_age <- function(es_data, end_date) {
                                                           end_date)),
                      sampling_interval = lubridate::interval(min(collect.date),
                                                     max(collect.date)),
-                     site_age = sampling_interval / months(1, FALSE)
+                     site_age = sampling_interval / months(1, FALSE),
+                     .groups = "drop"
                      ) |>
     dplyr::ungroup() |>
     dplyr::arrange(ADM0_NAME, site.name)
@@ -2311,4 +2312,666 @@ get_lab_date_col_missingness <- function(lab_data, group_by = NULL) {
                      n_na = sum(is.na(value)),
                      prop_na = paste0(round(n_na / n * 100, 2), "%")
     )
+}
+#' Generate diagnostic checks workbook
+#'
+#' Creates the core surveillance diagnostic tables and optional expanded KPI
+#' check sheets. The same function can be used by the country-prioritization
+#' and KPI workflows.
+#'
+#' @param raw_data `list` Output of [get_all_polio_data()].
+#' @param start_date `Date` or date-like string. Start of the analysis period.
+#' @param end_date `Date` or date-like string. End of the analysis period.
+#' @param output_path Optional Excel output path. If `NULL`, no workbook is
+#'   written.
+#' @param missing_agemonths `logical` Whether district NPAFP eligibility checks
+#'   include cases with missing `age.months`. Defaults to `TRUE`, matching the
+#'   country-prioritization calculation.
+#' @param include_details_inconsisten_GUIDs `logical` Whether to include the
+#'   optional `C1_Checks` sheet containing inconsistent GUID details. Defaults
+#'   to `FALSE`.
+#' @returns A list containing the three core check tables, the ES site check,
+#'   and the optional inconsistent GUID detail table.
+#' @export
+#'
+generate_checks <- function(
+    raw_data,
+    start_date,
+    end_date,
+    output_path = NULL,
+    missing_agemonths = TRUE,
+    include_details_inconsisten_GUIDs = FALSE) {
+  if (length(include_details_inconsisten_GUIDs) != 1 ||
+      is.na(include_details_inconsisten_GUIDs) ||
+      !is.logical(include_details_inconsisten_GUIDs)) {
+    cli::cli_abort(
+      "include_details_inconsisten_GUIDs must be TRUE or FALSE."
+    )
+  }
+  required_raw <- c("afp", "dist.pop")
+  required_raw <- c(required_raw, "es")
+  missing_raw <- setdiff(required_raw, names(raw_data))
+  if (length(missing_raw) > 0) {
+    cli::cli_abort(paste0(
+      "raw_data is missing: ", paste(missing_raw, collapse = ", ")
+    ))
+  }
+
+  start_date <- suppressWarnings(lubridate::as_date(start_date))
+  end_date <- suppressWarnings(lubridate::as_date(end_date))
+  if (length(start_date) != 1 || length(end_date) != 1 ||
+      is.na(start_date) || is.na(end_date) || start_date > end_date) {
+    cli::cli_abort("Please provide valid start_date and end_date values.")
+  }
+
+  countries_check <- raw_data$afp |>
+    dplyr::transmute(ctry = .data$place.admin.0) |>
+    dplyr::mutate(
+      ctry = normalize_GSAP_country_names(.data$ctry),
+      ctry = dplyr::if_else(
+        stringr::str_detect(.data$ctry, "TANZANIA"),
+        "UNITED REPUBLIC OF TANZANIA",
+        .data$ctry
+      )
+    ) |>
+    dplyr::filter(!is.na(.data$ctry), .data$ctry != "") |>
+    dplyr::distinct(.data$ctry) |>
+    dplyr::arrange(.data$ctry) |>
+    dplyr::pull(.data$ctry)
+
+  npafp_age_check <- raw_data$afp |>
+    dplyr::transmute(
+      ctry = normalize_GSAP_country_names(.data$place.admin.0),
+      date = lubridate::as_date(.data$dateonset),
+      age.months = .data$age.months,
+      is_npafp_case = .data$cdc.classification.all2 %in% c(
+        "NPAFP", "PENDING", "LAB PENDING"
+      )
+    ) |>
+    dplyr::filter(
+      .data$ctry %in% countries_check,
+      dplyr::between(.data$date, start_date, end_date),
+      .data$is_npafp_case
+    ) |>
+    dplyr::group_by(.data$ctry) |>
+    dplyr::summarise(
+      total_npafp_cases = dplyr::n(),
+      missing_age_cases = sum(is.na(.data$age.months)),
+      missing_age_percent = round(
+        .data$missing_age_cases / .data$total_npafp_cases * 100, 1
+      ),
+      .groups = "drop"
+    ) |>
+    dplyr::right_join(
+      tibble::tibble(ctry = as.character(countries_check)),
+      by = "ctry"
+    ) |>
+    dplyr::mutate(
+      total_npafp_cases = tidyr::replace_na(.data$total_npafp_cases, 0),
+      missing_age_cases = tidyr::replace_na(.data$missing_age_cases, 0),
+      missing_age_percent = tidyr::replace_na(.data$missing_age_percent, 0)
+    ) |>
+    dplyr::arrange(.data$ctry)
+
+  get_col <- function(data, choices) {
+    found <- intersect(choices, names(data))
+    if (length(found) == 0) {
+      cli::cli_abort(paste0(
+        "None of these columns were found: ", paste(choices, collapse = ", ")
+      ))
+    }
+    found[[1]]
+  }
+
+  dist_pop <- raw_data$dist.pop
+  dist_pop_check <- dist_pop |>
+    dplyr::transmute(
+      ctry = .data[[get_col(dist_pop, c("ctry", "ADM0_NAME"))]],
+      adm2guid = .data[[get_col(dist_pop, c("adm2guid", "ADM2_GUID"))]],
+      year = suppressWarnings(as.integer(
+        .data[[get_col(dist_pop, "year")]]
+      )),
+      u15pop = suppressWarnings(as.numeric(.data[[get_col(
+        dist_pop, c("u15pop", "u15pop.prov")
+      )]]))
+    ) |>
+    dplyr::mutate(
+      ctry = normalize_GSAP_country_names(.data$ctry),
+      ctry = dplyr::if_else(
+        stringr::str_detect(.data$ctry, "TANZANIA"),
+        "UNITED REPUBLIC OF TANZANIA",
+        .data$ctry
+      )
+    ) |>
+    dplyr::filter(
+      .data$ctry %in% countries_check,
+      dplyr::between(
+        .data$year,
+        lubridate::year(start_date),
+        lubridate::year(end_date)
+      )
+    ) |>
+    dplyr::group_by(.data$ctry) |>
+    dplyr::summarise(
+      total_districts = dplyr::n_distinct(.data$adm2guid),
+      districts_missing_population = dplyr::n_distinct(
+        .data$adm2guid[is.na(.data$u15pop)]
+      ),
+      .groups = "drop"
+    ) |>
+    dplyr::right_join(
+      tibble::tibble(ctry = as.character(countries_check)),
+      by = "ctry"
+    ) |>
+    dplyr::mutate(
+      total_districts = tidyr::replace_na(.data$total_districts, 0),
+      districts_missing_population = tidyr::replace_na(
+        .data$districts_missing_population, 0
+      )
+    ) |>
+    dplyr::arrange(.data$ctry) |>
+    dplyr::mutate(Region = get_region(.data$ctry))
+
+  district_afp <- f.npafp.rate.01(
+    afp.data = raw_data$afp,
+    pop.data = raw_data$dist.pop,
+    start.date = start_date,
+    end.date = end_date,
+    spatial.scale = "dist",
+    rolling = TRUE,
+    pending = FALSE,
+    sp_continuity_validation = FALSE,
+    missing_agemonths = missing_agemonths
+  ) |>
+    dplyr::mutate(
+      ctry = normalize_GSAP_country_names(.data$ctry),
+      ctry = dplyr::if_else(
+        stringr::str_detect(.data$ctry, "TANZANIA"),
+        "UNITED REPUBLIC OF TANZANIA",
+        .data$ctry
+      )
+    ) |>
+    dplyr::filter(.data$ctry %in% countries_check)
+
+  # `raw_data$afp` is already restricted to AFP surveillance records. The
+  # `afp.case` output counts classified AFP records after excluding NOT-AFP;
+  # use >4 to identify districts reporting at least five AFP cases.
+  # Keep the diagnostic components separate: population eligibility is reported
+  # independently, while this field checks the reported NPAFP case count at
+  # each district against the region-specific threshold.
+  district_analysis_counts <- district_afp |>
+    dplyr::mutate(
+      Region = get_region(.data$ctry),
+      npafp_threshold = dplyr::case_when(
+        .data$ctry %in% c("AFGHANISTAN", "PAKISTAN") ~ 3,
+        .data$Region %in% c("AFRO", "EMRO", "SEARO") ~ 2,
+        .data$Region %in% c("AMRO", "EURO", "WPRO") ~ 1,
+        TRUE ~ NA_real_
+      )
+    ) |>
+    dplyr::group_by(.data$ctry) |>
+    dplyr::summarise(
+      districts_population_eligible = dplyr::n_distinct(
+        .data$adm2guid[.data$par >= 100000]
+      ),
+      `Sufficient_AFP_Reporting (≥5)` = dplyr::n_distinct(
+        .data$adm2guid[.data$afp.case > 4]
+      ),
+      `Sufficient_NPAFP_reporting (≥3,2,1)` = dplyr::n_distinct(
+        .data$adm2guid[
+          !is.na(.data$npafp_threshold) &
+            .data$n_npafp >= .data$npafp_threshold
+        ]
+      ),
+      .groups = "drop"
+    )
+
+  dist_pop_check_updated <- dist_pop_check |>
+    dplyr::left_join(district_analysis_counts, by = "ctry") |>
+    dplyr::mutate(
+      districts_population_eligible = tidyr::replace_na(
+        .data$districts_population_eligible, 0
+      ),
+      `Sufficient_AFP_Reporting (≥5)` = tidyr::replace_na(
+        .data$`Sufficient_AFP_Reporting (≥5)`, 0
+      ),
+      `Sufficient_NPAFP_reporting (≥3,2,1)` = tidyr::replace_na(
+        .data$`Sufficient_NPAFP_reporting (≥3,2,1)`, 0
+      )
+    ) |>
+    dplyr::arrange(.data$ctry) |>
+    dplyr::rename(Country = .data$ctry) |>
+    dplyr::select(
+      Region, Country,
+      -`Sufficient_NPAFP_reporting (≥3,2,1)`,
+      -`Sufficient_AFP_Reporting (≥5)`,
+      dplyr::everything(),
+      `Sufficient_NPAFP_reporting (≥3,2,1)`,
+      `Sufficient_AFP_Reporting (≥5)`
+    )
+
+  es_periods <- raw_data$es |>
+      add_rolling_years(start_date, end_date, "collect.date") |>
+      dplyr::distinct(
+        .data$year_label, .data$rolling_period, .data$analysis_year_end
+      ) |>
+      dplyr::filter(.data$analysis_year_end <= end_date)
+
+  es_sites_check <- purrr::map_dfr(seq_len(nrow(es_periods)), function(i) {
+      period <- es_periods[i, ]
+      period_sites <- get_es_site_age(
+        raw_data$es, period$analysis_year_end[[1]]
+      ) |>
+        dplyr::mutate(
+          Country = normalize_GSAP_country_names(.data$ADM0_NAME),
+          Region = get_region(.data$Country)
+        ) |>
+        # Use one common denominator so the component counts reconcile to
+        # Total ES Sites and cannot exceed it.
+        dplyr::filter(.data$n_samples_12_mo >= 1)
+
+      period_sites |>
+        dplyr::group_by(.data$Region, .data$Country) |>
+        dplyr::summarise(
+          `Total ES Sites` = dplyr::n(),
+          `#sites_age_<12mo` = sum(.data$site_age < 12, na.rm = TRUE),
+          `#sites_age_≥12mo` = sum(.data$site_age >= 12, na.rm = TRUE),
+          `#sites_w_≥10_samples_yr` = sum(
+            .data$n_samples_12_mo >= 10, na.rm = TRUE
+          ),
+          `#sites_w_<10_samples_yr` = sum(
+            .data$n_samples_12_mo < 10, na.rm = TRUE
+          ),
+          .groups = "drop"
+        ) |>
+        dplyr::mutate(
+          Rolling_Period = period$rolling_period[[1]]
+        )
+    }) |>
+      dplyr::select(
+        Country, Rolling_Period, dplyr::everything(), -Region
+      ) |>
+      dplyr::arrange(.data$Country, .data$Rolling_Period)
+
+  expected_guid_years <- length(
+    lubridate::year(start_date):lubridate::year(end_date)
+  )
+
+  guid_year_counts <- dist_pop |>
+    dplyr::filter(
+      .data$ctry %in% countries_check,
+      dplyr::between(
+        .data$year,
+        lubridate::year(start_date),
+        lubridate::year(end_date)
+      )
+    ) |>
+    dplyr::distinct(.data$ctry, .data$adm2guid, .data$year) |>
+    dplyr::count(.data$ctry, .data$adm2guid, name = "years_present") |>
+    dplyr::mutate(
+      guid_status = dplyr::if_else(
+        .data$years_present < expected_guid_years,
+        "Inconsistent",
+        "Consistent"
+      )
+    )
+
+  guid_consistency_check <- guid_year_counts |>
+    dplyr::group_by(.data$ctry) |>
+    dplyr::summarise(
+      expected_years = expected_guid_years,
+      total_district_guids = dplyr::n_distinct(.data$adm2guid),
+      inconsistent_district_guids = dplyr::n_distinct(
+        .data$adm2guid[.data$guid_status == "Inconsistent"]
+      ),
+      consistent_district_guids = dplyr::n_distinct(
+        .data$adm2guid[.data$guid_status == "Consistent"]
+      ),
+      .groups = "drop"
+    ) |>
+    dplyr::right_join(
+      tibble::tibble(ctry = as.character(countries_check)),
+      by = "ctry"
+    ) |>
+    dplyr::mutate(
+      expected_years = tidyr::replace_na(.data$expected_years, expected_guid_years),
+      total_district_guids = tidyr::replace_na(.data$total_district_guids, 0),
+      inconsistent_district_guids = tidyr::replace_na(
+        .data$inconsistent_district_guids, 0
+      ),
+      consistent_district_guids = tidyr::replace_na(
+        .data$consistent_district_guids, 0
+      )
+    ) |>
+    dplyr::arrange(.data$ctry)
+
+  inconsistent_guid_detail <- guid_year_counts |>
+    dplyr::filter(.data$guid_status == "Inconsistent") |>
+    dplyr::arrange(.data$ctry, .data$adm2guid)
+
+  rolling_core <- generate_core_checks_by_period(
+    raw_data = raw_data,
+    start_date = start_date,
+    end_date = end_date,
+    missing_agemonths = missing_agemonths
+  )
+  npafp_age_check <- rolling_core$NPAFP_Age_Check
+  dist_pop_check_updated <- rolling_core$District_Population_Check
+  guid_consistency_check <- rolling_core$GUID_Consistency_Check
+  inconsistent_guid_detail <- rolling_core$C1_Checks
+
+  checks <- list(
+    District_Population_Check = dist_pop_check_updated,
+    NPAFP_Age_Check = npafp_age_check,
+    GUID_Consistency_Check = guid_consistency_check
+  )
+  checks$ES_Sites_Check <- es_sites_check
+  if (include_details_inconsisten_GUIDs) {
+    checks$C1_Checks <- inconsistent_guid_detail
+  }
+
+  if (!is.null(output_path)) {
+    if (!requireNamespace("openxlsx", quietly = TRUE)) {
+      cli::cli_abort("Package 'openxlsx' is required to write the checks workbook.")
+    }
+    wb <- openxlsx::createWorkbook()
+    for (sheet_name in names(checks)) {
+      openxlsx::addWorksheet(wb, sheet_name)
+      openxlsx::writeData(
+        wb,
+        sheet = sheet_name,
+        x = checks[[sheet_name]],
+        withFilter = TRUE
+      )
+    }
+    openxlsx::saveWorkbook(wb, output_path, overwrite = TRUE)
+  }
+
+  checks
+}
+
+# Backward-compatible name for existing country-prioritization scripts.
+
+generate_core_checks_by_period <- function(raw_data, start_date, end_date,
+                                           missing_agemonths = TRUE) {
+  periods <- raw_data$afp |>
+    add_rolling_years(start_date, end_date, "dateonset") |>
+    dplyr::distinct(
+      .data$year_label, .data$rolling_period,
+      .data$analysis_year_start, .data$analysis_year_end
+    ) |>
+    dplyr::filter(.data$analysis_year_end <= end_date) |>
+    dplyr::arrange(.data$analysis_year_start)
+
+  countries <- raw_data$afp |>
+    dplyr::transmute(ctry = normalize_GSAP_country_names(.data$place.admin.0)) |>
+    dplyr::mutate(ctry = dplyr::if_else(
+      stringr::str_detect(.data$ctry, "TANZANIA"),
+      "UNITED REPUBLIC OF TANZANIA", .data$ctry
+    )) |>
+    dplyr::filter(!is.na(.data$ctry), .data$ctry != "") |>
+    dplyr::distinct(.data$ctry)
+
+  get_col <- function(data, choices) {
+    found <- intersect(choices, names(data))
+    if (!length(found)) cli::cli_abort(paste0(
+      "None of these columns were found: ", paste(choices, collapse = ", ")))
+    found[[1]]
+  }
+
+  pop <- raw_data$dist.pop |>
+    dplyr::transmute(
+      ctry = .data[[get_col(raw_data$dist.pop, c("ctry", "ADM0_NAME"))]],
+      adm2guid = .data[[get_col(raw_data$dist.pop, c("adm2guid", "ADM2_GUID"))]],
+      year = suppressWarnings(as.integer(
+        .data[[get_col(raw_data$dist.pop, "year")]]
+      )),
+      u15pop = suppressWarnings(as.numeric(.data[[get_col(
+        raw_data$dist.pop, c("u15pop", "u15pop.prov")
+      )]]))
+    ) |>
+    dplyr::mutate(
+      ctry = normalize_GSAP_country_names(.data$ctry),
+      ctry = dplyr::if_else(
+        stringr::str_detect(.data$ctry, "TANZANIA"),
+        "UNITED REPUBLIC OF TANZANIA", .data$ctry
+      )
+    )
+
+  period_info <- function(period) {
+    list(
+      start = period$analysis_year_start[[1]],
+      end = period$analysis_year_end[[1]],
+      rolling = period$rolling_period[[1]]
+    )
+  }
+
+  age_check <- purrr::map_dfr(seq_len(nrow(periods)), function(i) {
+    p <- period_info(periods[i, ])
+    raw_data$afp |>
+      dplyr::transmute(
+        ctry = normalize_GSAP_country_names(.data$place.admin.0),
+        date = lubridate::as_date(.data$dateonset),
+        age.months = .data$age.months,
+        is_npafp_case = .data$cdc.classification.all2 %in%
+          c("NPAFP", "PENDING", "LAB PENDING")
+      ) |>
+      dplyr::filter(
+        .data$ctry %in% countries$ctry,
+        dplyr::between(.data$date, p$start, p$end),
+        .data$is_npafp_case
+      ) |>
+      dplyr::group_by(.data$ctry) |>
+      dplyr::summarise(
+        total_npafp_cases = dplyr::n(),
+        missing_age_cases = sum(is.na(.data$age.months)),
+        missing_age_percent = round(
+          .data$missing_age_cases / .data$total_npafp_cases * 100, 1
+        ),
+        .groups = "drop"
+      ) |>
+      dplyr::right_join(countries, by = "ctry") |>
+      dplyr::mutate(
+        total_npafp_cases = tidyr::replace_na(.data$total_npafp_cases, 0),
+        missing_age_cases = tidyr::replace_na(.data$missing_age_cases, 0),
+        missing_age_percent = tidyr::replace_na(
+          .data$missing_age_percent, 0
+        ),
+        Rolling_Period = p$rolling
+      ) |>
+      dplyr::select(Country = ctry, Rolling_Period, dplyr::everything())
+  })
+
+  district_check <- purrr::map_dfr(seq_len(nrow(periods)), function(i) {
+    p <- period_info(periods[i, ])
+    pop_check <- pop |>
+      dplyr::filter(
+        .data$ctry %in% countries$ctry,
+        dplyr::between(.data$year, lubridate::year(p$start),
+                       lubridate::year(p$end))
+      ) |>
+      dplyr::group_by(.data$ctry) |>
+      dplyr::summarise(
+        total_districts = dplyr::n_distinct(.data$adm2guid),
+        districts_missing_population = dplyr::n_distinct(
+          .data$adm2guid[is.na(.data$u15pop)]
+        ),
+        .groups = "drop"
+      ) |>
+      dplyr::right_join(countries, by = "ctry") |>
+      dplyr::mutate(
+        total_districts = tidyr::replace_na(.data$total_districts, 0),
+        districts_missing_population = tidyr::replace_na(
+          .data$districts_missing_population, 0
+        ),
+        Region = get_region(.data$ctry)
+      )
+
+    district_afp <- f.npafp.rate.01(
+      raw_data$afp, raw_data$dist.pop, p$start, p$end, "dist",
+      pending = FALSE, missing_agemonths = missing_agemonths,
+      rolling = TRUE, sp_continuity_validation = FALSE
+    ) |>
+      dplyr::mutate(
+        ctry = normalize_GSAP_country_names(.data$ctry),
+        Region = get_region(.data$ctry),
+        threshold = dplyr::case_when(
+          .data$ctry %in% c("AFGHANISTAN", "PAKISTAN") ~ 3,
+          .data$Region %in% c("AFRO", "EMRO", "SEARO") ~ 2,
+          .data$Region %in% c("AMRO", "EURO", "WPRO") ~ 1,
+          TRUE ~ NA_real_
+        )
+      ) |>
+      dplyr::group_by(.data$ctry) |>
+      dplyr::summarise(
+        population_eligible = dplyr::n_distinct(
+          .data$adm2guid[.data$par >= 100000]
+        ),
+        sufficient_afp = dplyr::n_distinct(
+          .data$adm2guid[.data$afp.case > 4]
+        ),
+        sufficient_npafp = dplyr::n_distinct(
+          .data$adm2guid[
+            !is.na(.data$threshold) &
+              .data$n_npafp >= .data$threshold
+          ]
+        ),
+        .groups = "drop"
+      )
+
+    result <- pop_check |>
+      dplyr::left_join(district_afp, by = "ctry") |>
+      dplyr::mutate(
+        population_eligible = tidyr::replace_na(
+          .data$population_eligible, 0
+        ),
+        sufficient_afp = tidyr::replace_na(.data$sufficient_afp, 0),
+        sufficient_npafp = tidyr::replace_na(.data$sufficient_npafp, 0),
+        Rolling_Period = p$rolling
+      ) |>
+    dplyr::rename(Country = ctry) |>
+      dplyr::rename(
+        districts_population_eligible = population_eligible
+      ) |>
+      dplyr::mutate(
+        `missing pop data` = dplyr::if_else(
+          .data$total_districts > 0 &
+            .data$total_districts == .data$districts_missing_population,
+          "Missing Pop",
+          "No"
+        ),
+        Sufficient_NPAFP_reporting = .data$sufficient_npafp,
+        Sufficient_AFP_Reporting = .data$sufficient_afp
+      ) |>
+      dplyr::relocate(
+        `missing pop data`,
+        .after = districts_missing_population
+      ) |>
+      dplyr::select(
+        Region, Country, Rolling_Period,
+        dplyr::everything(),
+        -dplyr::all_of(c("sufficient_npafp", "sufficient_afp"))
+      )
+
+    names(result)[names(result) == "Sufficient_NPAFP_reporting"] <-
+      paste0("Sufficient_NPAFP_reporting (", "\u22653,2,1)")
+    names(result)[names(result) == "Sufficient_AFP_Reporting"] <-
+      paste0("Sufficient_AFP_Reporting (", "\u22655)")
+    result
+  }) |>
+    dplyr::arrange(.data$Region, .data$Country, .data$Rolling_Period)
+
+  guid_check <- purrr::map_dfr(seq_len(nrow(periods)), function(i) {
+    p <- period_info(periods[i, ])
+    expected <- length(lubridate::year(p$start):lubridate::year(p$end))
+    pop |>
+      dplyr::filter(
+        .data$ctry %in% countries$ctry,
+        dplyr::between(.data$year, lubridate::year(p$start),
+                       lubridate::year(p$end))
+      ) |>
+      dplyr::distinct(.data$ctry, .data$adm2guid, .data$year) |>
+      dplyr::count(.data$ctry, .data$adm2guid, name = "years_present") |>
+      dplyr::mutate(
+        guid_status = dplyr::if_else(
+          .data$years_present < expected,
+          "Inconsistent", "Consistent"
+        )
+      ) |>
+      dplyr::group_by(.data$ctry) |>
+      dplyr::summarise(
+        expected_years = expected,
+        total_district_guids = dplyr::n_distinct(.data$adm2guid),
+        inconsistent_district_guids = dplyr::n_distinct(
+          .data$adm2guid[.data$guid_status == "Inconsistent"]
+        ),
+        consistent_district_guids = dplyr::n_distinct(
+          .data$adm2guid[.data$guid_status == "Consistent"]
+        ),
+        .groups = "drop"
+      ) |>
+      dplyr::right_join(countries, by = "ctry") |>
+      dplyr::mutate(
+        expected_years = tidyr::replace_na(.data$expected_years, expected),
+        total_district_guids = tidyr::replace_na(
+          .data$total_district_guids, 0
+        ),
+        inconsistent_district_guids = tidyr::replace_na(
+          .data$inconsistent_district_guids, 0
+        ),
+        consistent_district_guids = tidyr::replace_na(
+          .data$consistent_district_guids, 0
+        ),
+        Rolling_Period = p$rolling
+      )
+  }) |>
+    dplyr::rename(Country = ctry) |>
+    dplyr::select(Country, Rolling_Period, dplyr::everything()) |>
+    dplyr::arrange(.data$Country, .data$Rolling_Period)
+
+  guid_detail <- purrr::map_dfr(seq_len(nrow(periods)), function(i) {
+    p <- period_info(periods[i, ])
+    expected <- length(lubridate::year(p$start):lubridate::year(p$end))
+    pop |>
+      dplyr::filter(
+        .data$ctry %in% countries$ctry,
+        dplyr::between(.data$year, lubridate::year(p$start),
+                       lubridate::year(p$end))
+      ) |>
+      dplyr::distinct(.data$ctry, .data$adm2guid, .data$year) |>
+      dplyr::count(.data$ctry, .data$adm2guid, name = "years_present") |>
+      dplyr::mutate(
+        guid_status = dplyr::if_else(
+          .data$years_present < expected,
+          "Inconsistent", "Consistent"
+        )
+      ) |>
+      dplyr::filter(.data$guid_status == "Inconsistent") |>
+      dplyr::mutate(Rolling_Period = p$rolling)
+  })
+
+  guid_detail <- guid_detail |>
+    dplyr::rename(Country = ctry) |>
+    dplyr::select(Country, Rolling_Period, dplyr::everything()) |>
+    dplyr::arrange(.data$Country, .data$Rolling_Period, .data$adm2guid)
+
+  list(
+    District_Population_Check = district_check,
+    NPAFP_Age_Check = age_check,
+    GUID_Consistency_Check = guid_check,
+    C1_Checks = guid_detail
+  )
+}
+
+generate_GSAP_ctry_prioritization_checks <- function(
+    raw_data, start_date, end_date, output_path = NULL,
+    missing_agemonths = TRUE, include_c1_checks = FALSE) {
+  generate_checks(
+    raw_data = raw_data,
+    start_date = start_date,
+    end_date = end_date,
+    output_path = output_path,
+    missing_agemonths = missing_agemonths,
+    include_details_inconsisten_GUIDs = include_c1_checks
+  )
 }

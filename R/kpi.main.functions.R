@@ -285,6 +285,16 @@ generate_kpi_template <- function(output_path, name, edav) {
   c3 <- 'c3 <- generate_c3_table(raw_data$es, start_date, end_date)'
   c3_rollup <- 'c3_rollup <- generate_c3_rollup(c3)'
   c4 <- 'c4 <- generate_c4_table(lab_data, raw_data$afp, start_date, end_date)'
+  kpi_checks <- c(
+    'kpi_checks_file <- file.path(Sys.getenv("KPI_TABLES"), "kpi_checks.xlsx")',
+    'kpi_checks <- generate_checks(',
+    '  raw_data = raw_data,',
+    '  start_date = start_date,',
+    '  end_date = end_date,',
+    '  output_path = kpi_checks_file,',
+    '  include_details_inconsisten_GUIDs = FALSE',
+    ')'
+  )
 
   # Get years available
   year_list <- 'year_list <- unique(c2$year_label)'
@@ -337,6 +347,10 @@ generate_kpi_template <- function(output_path, name, edav) {
     "# Generate GPSAP C1-C4 tables ----",
     "# You may also specify and filter countries based on risk category ",
     c1, c1_rollup, c2, c2_dist, c3, c3_rollup, c4, "\n",
+    "# Generate KPI checks workbook ----",
+    "# Core checks and ES site checks are generated automatically; GUID details remain excluded by default.",
+    "if (!nzchar(Sys.getenv(\"KPI_TABLES\"))) stop(\"Run init_kpi() in this R session before generating the KPI checks workbook.\")",
+    kpi_checks, "\n",
     "# Getting a list of years and regions",
     year_list, region_list, "\n",
     "# Generate figures ----",
