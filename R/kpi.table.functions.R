@@ -2496,32 +2496,15 @@ generate_checks <- function(
   # `raw_data$afp` is already restricted to AFP surveillance records. The
   # `afp.case` output counts classified AFP records after excluding NOT-AFP;
   # use >4 to identify districts reporting at least five AFP cases.
-  # Keep the diagnostic components separate: population eligibility is reported
-  # independently, while this field checks the reported NPAFP case count at
-  # each district against the region-specific threshold.
+  # Keep population eligibility separate from the AFP reporting count.
   district_analysis_counts <- district_afp |>
-    dplyr::mutate(
-      Region = get_region(.data$ctry),
-      npafp_threshold = dplyr::case_when(
-        .data$ctry %in% c("AFGHANISTAN", "PAKISTAN") ~ 3,
-        .data$Region %in% c("AFRO", "EMRO", "SEARO") ~ 2,
-        .data$Region %in% c("AMRO", "EURO", "WPRO") ~ 1,
-        TRUE ~ NA_real_
-      )
-    ) |>
     dplyr::group_by(.data$ctry) |>
     dplyr::summarise(
       districts_population_eligible = dplyr::n_distinct(
         .data$adm2guid[.data$par >= 100000]
       ),
-      `Sufficient_AFP_Reporting (≥5)` = dplyr::n_distinct(
+      `NPAFP ≥5` = dplyr::n_distinct(
         .data$adm2guid[.data$afp.case > 4]
-      ),
-      `Sufficient_NPAFP_reporting (≥3,2,1)` = dplyr::n_distinct(
-        .data$adm2guid[
-          !is.na(.data$npafp_threshold) &
-            .data$n_npafp >= .data$npafp_threshold
-        ]
       ),
       .groups = "drop"
     )
@@ -2532,22 +2515,15 @@ generate_checks <- function(
       districts_population_eligible = tidyr::replace_na(
         .data$districts_population_eligible, 0
       ),
-      `Sufficient_AFP_Reporting (≥5)` = tidyr::replace_na(
-        .data$`Sufficient_AFP_Reporting (≥5)`, 0
-      ),
-      `Sufficient_NPAFP_reporting (≥3,2,1)` = tidyr::replace_na(
-        .data$`Sufficient_NPAFP_reporting (≥3,2,1)`, 0
-      )
+      `NPAFP ≥5` = tidyr::replace_na(.data$`NPAFP ≥5`, 0)
     ) |>
     dplyr::arrange(.data$ctry) |>
     dplyr::rename(Country = .data$ctry) |>
     dplyr::select(
       Region, Country,
-      -`Sufficient_NPAFP_reporting (≥3,2,1)`,
-      -`Sufficient_AFP_Reporting (≥5)`,
+      -`NPAFP ≥5`,
       dplyr::everything(),
-      `Sufficient_NPAFP_reporting (≥3,2,1)`,
-      `Sufficient_AFP_Reporting (≥5)`
+      `NPAFP ≥5`
     )
 
   es_periods <- raw_data$es |>
@@ -2575,6 +2551,11 @@ generate_checks <- function(
         dplyr::summarise(
           `Total ES Sites` = dplyr::n(),
           `#sites_age_<12mo` = sum(.data$site_age < 12, na.rm = TRUE),
+          ineligible_site_age = dplyr::if_else(
+            `#sites_age_<12mo` == `Total ES Sites`,
+            "ineligible_site_age",
+            "No"
+          ),
           `#sites_age_≥12mo` = sum(.data$site_age >= 12, na.rm = TRUE),
           `#sites_w_≥10_samples_yr` = sum(
             .data$n_samples_12_mo >= 10, na.rm = TRUE
@@ -2582,8 +2563,14 @@ generate_checks <- function(
           `#sites_w_<10_samples_yr` = sum(
             .data$n_samples_12_mo < 10, na.rm = TRUE
           ),
+          `ineligible_site_sample_#` = dplyr::if_else(
+            `#sites_w_<10_samples_yr` == `Total ES Sites`,
+            "ineligible_site_sample_#",
+            "No"
+          ),
           .groups = "drop"
         ) |>
+        dplyr::relocate(ineligible_site_age, .after = 4) |>
         dplyr::mutate(
           Rolling_Period = period$rolling_period[[1]]
         )
@@ -2670,18 +2657,145 @@ generate_checks <- function(
     checks$C1_Checks <- inconsistent_guid_detail
   }
 
+  rolling_order <- raw_data$afp |>
+    add_rolling_years(start_date, end_date, "dateonset") |>
+    dplyr::distinct(.data$analysis_year_start, .data$rolling_period) |>
+    dplyr::arrange(.data$analysis_year_start) |>
+    dplyr::pull(.data$rolling_period)
+
+  # Standardize all check sheets with Region as the first column.
+  checks <- purrr::map(checks, function(check_data) {
+    country_cols <- intersect(c("Country", "ctry"), names(check_data))
+    if (!"Region" %in% names(check_data) && length(country_cols) > 0) {
+      check_data$Region <- get_region(check_data[[country_cols[[1]]]])
+    }
+    check_data <- dplyr::relocate(check_data, Region, .before = 1)
+    if (all(c("Country", "Rolling_Period") %in% names(check_data))) {
+      check_data <- check_data |>
+        dplyr::mutate(.period_order = match(
+          .data$Rolling_Period,
+          rolling_order
+        )) |>
+        dplyr::arrange(.data$Country, .data$.period_order) |>
+        dplyr::select(-dplyr::all_of(".period_order"))
+    }
+    check_data
+  })
+
+  # Draft documentation sheet for the exported checks workbook.
+  checks$read_me <- tibble::tribble(
+    ~Sheet, ~Variable, ~description, ~`KPI Impacted`,
+    "All", "Region", "WHO region associated with the country.", "",
+    "All", "Country", "Country included in the check.", "",
+    "All", "Rolling_Period", "Rolling analysis period represented by the row.", "",
+    "District_Population_Check", "total_districts", "Total number of district GUIDs in the population data for the period.", "",
+    "District_Population_Check", "missing pop data", "Flags countries where all listed districts are missing population data.", "NPAFP Rate (requires district to have U15 pop ≥ 100K)",
+    "District_Population_Check", "districts_missing_population", "Number of districts with missing under-15 population data.", "NPAFP Rate (requires district to have U15 pop ≥ 100K)",
+    "District_Population_Check", "districts_population_eligible", "Number of districts with at least 100,000 children under age 15.", "NPAFP Rate (requires district to have U15 pop ≥ 100K)",
+    "District_Population_Check", "ineligible population district", "Flags when fewer than five districts have a U15 population ≥100K; otherwise No.", "NPAFP Rate (requires district to have U15 pop ≥ 100K)",
+    "District_Population_Check", paste0("NPAFP ", "\u22655"), "Number of districts reporting at least five AFP surveillance records.", "Stool Adequacy (requires at least 5 samples per district to calculate)",
+    "District_Population_Check", "Insuficient reporting", "Flags when no district meets the NPAFP ≥5 AFP-record criterion; otherwise No.", "Stool Adequacy (requires at least 5 samples per district to calculate)",
+    "NPAFP_Age_Check", "total_npafp_cases", "Total NPAFP, pending, and lab-pending cases included in the age check.", "NPAFP Rate (requires samples from those ≤15)",
+    "NPAFP_Age_Check", "missing_age_cases", "Number of included NPAFP cases with missing age in months.", "NPAFP Rate (requires samples from those ≤15)",
+    "NPAFP_Age_Check", "missing_age_percent", "Percentage of included NPAFP cases with missing age in months.", "NPAFP Rate (requires samples from those ≤15)",
+    "ES_Sites_Check", "Total ES Sites", "Number of environmental surveillance sites with at least one sample in the 12-month period.", "ES Sites Check",
+    "ES_Sites_Check", "#sites_age_<12mo", "Number of ES sites operating for less than 12 months.", "ES Sites Check",
+    "ES_Sites_Check", "ineligible_site_age", "Flags ineligible_site_age when all ES sites are operating for less than 12 months.", "ES Sites Check",
+    "ES_Sites_Check", paste0("#sites_age_", "\u2265", "12mo"), "Number of ES sites operating for at least 12 months.", "ES Sites Check",
+    "ES_Sites_Check", paste0("#sites_w_", "\u2265", "10_samples_yr"), "Number of ES sites with at least 10 samples in the 12-month period.", "ES Sites Check",
+    "ES_Sites_Check", "#sites_w_<10_samples_yr", "Number of ES sites with fewer than 10 samples in the 12-month period.", "ES Sites Check",
+    "ES_Sites_Check", "ineligible_site_sample_#", "Flags ineligible_site_sample_# when all ES sites have fewer than 10 samples in the 12-month period.", "ES Sites Check",
+    "GUID_Consistency_Check", "total_district_guids", "Total number of district GUIDs present in the population data.", "NPAFP and/or Stool Adequacy (requires assigning score to a district over time)",
+    "GUID_Consistency_Check", "inconsistent_district_guids", "Number of district GUIDs not present for every expected year in the analysis period.", "NPAFP and/or Stool Adequacy (requires assigning score to a district over time)",
+    "GUID_Consistency_Check", "consistent_district_guids", "Number of district GUIDs present for every expected year in the analysis period.", "NPAFP and/or Stool Adequacy (requires assigning score to a district over time)",
+    "GUID_Consistency_Check", "inconsistent_guid", "Flags GUID_Inconsistent when inconsistent district GUIDs equal total district GUIDs; otherwise No.", "NPAFP and/or Stool Adequacy (requires assigning score to a district over time)",
+    "C1_Checks", "adm2guid", "District administrative identifier in the optional inconsistent-GUID detail sheet.", "",
+    "C1_Checks", "year", "Population-data year associated with the district GUID detail.", "",
+    "C1_Checks", "years_present", "Number of analysis years in which the district GUID appears.", "",
+    "C1_Checks", "guid_status", "District GUID status based on whether it appears in every expected year.", ""
+  )
+
   if (!is.null(output_path)) {
     if (!requireNamespace("openxlsx", quietly = TRUE)) {
       cli::cli_abort("Package 'openxlsx' is required to write the checks workbook.")
     }
     wb <- openxlsx::createWorkbook()
+    header_style <- openxlsx::createStyle(textDecoration = "bold")
     for (sheet_name in names(checks)) {
       openxlsx::addWorksheet(wb, sheet_name)
-      openxlsx::writeData(
+      if (identical(sheet_name, "read_me")) {
+        openxlsx::writeData(
+          wb,
+          sheet = sheet_name,
+          x = data.frame(
+            Sheet = "Note: Labeled flags of data checks aim to assist in interpretation, but should be used with caution and discretion when determining whether a country has insufficient or ineligible data.",
+            Variable = "",
+            description = "",
+            `KPI Impacted` = "",
+            check.names = FALSE
+          ),
+          startRow = 1,
+          colNames = FALSE
+        )
+        openxlsx::mergeCells(wb, sheet = sheet_name, cols = 1:4, rows = 1)
+        openxlsx::writeData(
+          wb,
+          sheet = sheet_name,
+          x = checks[[sheet_name]],
+          startRow = 3,
+          withFilter = TRUE
+        )
+      } else {
+        openxlsx::writeData(
+          wb,
+          sheet = sheet_name,
+          x = checks[[sheet_name]],
+          withFilter = TRUE
+        )
+      }
+      if (!identical(sheet_name, "read_me")) {
+        sheet_widths <- rep(18, ncol(checks[[sheet_name]]))
+        names(sheet_widths) <- names(checks[[sheet_name]])
+        sheet_widths[names(sheet_widths) == "Region"] <- 18
+        sheet_widths[names(sheet_widths) == "Country"] <- 28
+        sheet_widths[names(sheet_widths) == "Rolling_Period"] <- 25
+        sheet_widths[grepl("missing|ineligible|inconsistent|status", names(sheet_widths), ignore.case = TRUE)] <- 30
+        sheet_widths[grepl("sites|samples|population|district", names(sheet_widths), ignore.case = TRUE)] <- 26
+        openxlsx::setColWidths(
+          wb,
+          sheet = sheet_name,
+          cols = seq_along(sheet_widths),
+          widths = unname(sheet_widths)
+        )
+      }
+      header_row <- if (identical(sheet_name, "read_me")) 3 else 1
+      openxlsx::addStyle(
         wb,
         sheet = sheet_name,
-        x = checks[[sheet_name]],
-        withFilter = TRUE
+        style = header_style,
+        rows = header_row,
+        cols = seq_len(ncol(checks[[sheet_name]])),
+        gridExpand = TRUE,
+        stack = TRUE
+      )
+      if (identical(sheet_name, "read_me")) {
+        openxlsx::setColWidths(
+          wb,
+          sheet = sheet_name,
+          cols = 1:4,
+          widths = c(30, 34, 100, 62)
+        )
+        openxlsx::setRowHeights(
+          wb,
+          sheet = sheet_name,
+          rows = 1,
+          heights = 42
+        )
+      }
+      openxlsx::freezePane(
+        wb,
+        sheet = sheet_name,
+        firstActiveRow = if (identical(sheet_name, "read_me")) 4 else 2
       )
     }
     openxlsx::saveWorkbook(wb, output_path, overwrite = TRUE)
@@ -2815,26 +2929,14 @@ generate_core_checks_by_period <- function(raw_data, start_date, end_date,
       dplyr::mutate(
         ctry = normalize_GSAP_country_names(.data$ctry),
         Region = get_region(.data$ctry),
-        threshold = dplyr::case_when(
-          .data$ctry %in% c("AFGHANISTAN", "PAKISTAN") ~ 3,
-          .data$Region %in% c("AFRO", "EMRO", "SEARO") ~ 2,
-          .data$Region %in% c("AMRO", "EURO", "WPRO") ~ 1,
-          TRUE ~ NA_real_
-        )
       ) |>
       dplyr::group_by(.data$ctry) |>
       dplyr::summarise(
         population_eligible = dplyr::n_distinct(
           .data$adm2guid[.data$par >= 100000]
         ),
-        sufficient_afp = dplyr::n_distinct(
+        npafp_5 = dplyr::n_distinct(
           .data$adm2guid[.data$afp.case > 4]
-        ),
-        sufficient_npafp = dplyr::n_distinct(
-          .data$adm2guid[
-            !is.na(.data$threshold) &
-              .data$n_npafp >= .data$threshold
-          ]
         ),
         .groups = "drop"
       )
@@ -2845,8 +2947,7 @@ generate_core_checks_by_period <- function(raw_data, start_date, end_date,
         population_eligible = tidyr::replace_na(
           .data$population_eligible, 0
         ),
-        sufficient_afp = tidyr::replace_na(.data$sufficient_afp, 0),
-        sufficient_npafp = tidyr::replace_na(.data$sufficient_npafp, 0),
+        npafp_5 = tidyr::replace_na(.data$npafp_5, 0),
         Rolling_Period = p$rolling
       ) |>
     dplyr::rename(Country = ctry) |>
@@ -2860,8 +2961,17 @@ generate_core_checks_by_period <- function(raw_data, start_date, end_date,
           "Missing Pop",
           "No"
         ),
-        Sufficient_NPAFP_reporting = .data$sufficient_npafp,
-        Sufficient_AFP_Reporting = .data$sufficient_afp
+        `NPAFP ≥5` = .data$npafp_5,
+        `ineligible population district` = dplyr::if_else(
+          .data$districts_population_eligible < 5,
+          "Ineligible Pop",
+          "No"
+        ),
+        `Insuficient reporting` = dplyr::if_else(
+          .data$`NPAFP ≥5` == 0,
+          "Insuficient Reporting",
+          "No"
+        )
       ) |>
       dplyr::relocate(
         `missing pop data`,
@@ -2870,13 +2980,21 @@ generate_core_checks_by_period <- function(raw_data, start_date, end_date,
       dplyr::select(
         Region, Country, Rolling_Period,
         dplyr::everything(),
-        -dplyr::all_of(c("sufficient_npafp", "sufficient_afp"))
+        -dplyr::all_of("npafp_5"),
+        -dplyr::all_of(c(
+          "districts_population_eligible",
+          "ineligible population district",
+          "NPAFP ≥5",
+          "Insuficient reporting"
+        )),
+        dplyr::all_of(c(
+          "districts_population_eligible",
+          "ineligible population district",
+          "NPAFP ≥5",
+          "Insuficient reporting"
+        ))
       )
 
-    names(result)[names(result) == "Sufficient_NPAFP_reporting"] <-
-      paste0("Sufficient_NPAFP_reporting (", "\u22653,2,1)")
-    names(result)[names(result) == "Sufficient_AFP_Reporting"] <-
-      paste0("Sufficient_AFP_Reporting (", "\u22655)")
     result
   }) |>
     dplyr::arrange(.data$Region, .data$Country, .data$Rolling_Period)
@@ -2900,7 +3018,6 @@ generate_core_checks_by_period <- function(raw_data, start_date, end_date,
       ) |>
       dplyr::group_by(.data$ctry) |>
       dplyr::summarise(
-        expected_years = expected,
         total_district_guids = dplyr::n_distinct(.data$adm2guid),
         inconsistent_district_guids = dplyr::n_distinct(
           .data$adm2guid[.data$guid_status == "Inconsistent"]
@@ -2912,7 +3029,6 @@ generate_core_checks_by_period <- function(raw_data, start_date, end_date,
       ) |>
       dplyr::right_join(countries, by = "ctry") |>
       dplyr::mutate(
-        expected_years = tidyr::replace_na(.data$expected_years, expected),
         total_district_guids = tidyr::replace_na(
           .data$total_district_guids, 0
         ),
@@ -2921,6 +3037,11 @@ generate_core_checks_by_period <- function(raw_data, start_date, end_date,
         ),
         consistent_district_guids = tidyr::replace_na(
           .data$consistent_district_guids, 0
+        ),
+        inconsistent_guid = dplyr::if_else(
+          .data$inconsistent_district_guids == .data$total_district_guids,
+          "GUID_Inconsistent",
+          "No"
         ),
         Rolling_Period = p$rolling
       )
