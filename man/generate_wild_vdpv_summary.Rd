@@ -27,8 +27,7 @@ which will download the information directly from EDAV.}
 
 \item{lab_locs}{\code{tibble} Summary of the sequencing capacities of labs.
 Output of \code{\link[=get_lab_locs]{get_lab_locs()}}. Defaults to \code{NULL}, which will download the information
-directly from EDAV.
-.}
+directly from EDAV.}
 
 \item{.group_by}{How to group the results by.}
 }

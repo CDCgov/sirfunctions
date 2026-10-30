@@ -12,7 +12,8 @@ generate_c2_table(
   spatial_scale,
   risk_category = NULL,
   lab_locs = NULL,
-  risk_table = NULL
+  risk_table = NULL,
+  lab_data = NULL
 )
 }
 \arguments{
@@ -31,11 +32,15 @@ Defaults to \code{NULL}. Valid values are: \verb{"LOW, LOW (WATCHLIST), MEDIUM, 
 
 \item{lab_locs}{\code{tibble} Summary of the sequencing capacities of labs.
 Output of \code{\link[=get_lab_locs]{get_lab_locs()}}. Defaults to \code{NULL}, which will download the information
-directly from EDAV.
-.}
+directly from EDAV.}
 
 \item{risk_table}{\code{tibble} Priority level of each country. Defaults to \code{NULL},
 which will download the information directly from EDAV.}
+
+\item{lab_data}{\code{tibble} Optional cleaned laboratory data containing
+\code{DateStoolReceivedinLab}. When supplied, this field is preferred for the
+shipment and optimized timeliness indicators. If it is missing for an
+EPID, the existing AFP \code{stooltolabdate} value is retained.}
 }
 \value{
 \code{tibble} Summary table containing AFP KPIs.
