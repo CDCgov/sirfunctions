@@ -553,6 +553,26 @@ generate_dr_ppt2 <- function(ctry.data,
     ppt
   }
 
+  iss_unreported_path <- file.path(
+    fig.path, "iss.unreported.afp.prov.year.png"
+  )
+  add_iss_unreported_slide <- function(ppt) {
+    if (is.null(ctry.data$iss.data) || !file.exists(iss_unreported_path)) {
+      return(ppt)
+    }
+
+    ppt %>%
+      officer::add_slide(layout = "Title and Content", master = "1_Office Theme") %>%
+      officer::ph_with(
+        value = "Unreported AFP Detections by Province",
+        location = officer::ph_location_type("title")
+      ) %>%
+      officer::ph_with(
+        officer::external_img(iss_unreported_path),
+        location = officer::ph_location(top = 2, left = 1, height = 8, width = 14)
+      )
+  }
+
   officer::layout_summary(tempi)
   officer::layout_properties(x = tempi, layout = "Two Content", master = "1_Office Theme")
   officer::layout_properties(x = tempi, layout = "Title and Content", master = "1_Office Theme")
@@ -783,15 +803,7 @@ generate_dr_ppt2 <- function(ctry.data,
     officer::add_slide(layout = "Title Slide", master = "1_Office Theme") %>%
     officer::ph_with(value = "Active Surveillance", location = officer::ph_location_type("ctrTitle")) %>%
     # Unreported AFP detections by province and year ----
-    officer::add_slide(layout = "Title and Content", master = "1_Office Theme") %>%
-    officer::ph_with(
-      value = "Unreported AFP Detections by Province",
-      location = officer::ph_location_type("title")
-    ) %>%
-    officer::ph_with(
-      officer::external_img(file.path(fig.path, "iss.unreported.afp.prov.year.png")),
-      location = officer::ph_location(top = 2, left = 1, height = 8, width = 14)
-    ) %>%
+    add_iss_unreported_slide() %>%
     # Annual active surveillance visits by priority level (bar graph) (NOT DONE)----
     officer::add_slide(layout = "Title and Content", master = "1_Office Theme") %>%
     officer::ph_with(

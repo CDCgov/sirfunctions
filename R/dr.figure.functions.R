@@ -840,6 +840,16 @@ generate_es_timely <- function(es.data,
 
   # Timeliness of ES
   # Excludes those with bad data (e.g. negative timeliness)
+  valid.timeliness <- as.numeric(es.data$timely)
+  valid.timeliness <- valid.timeliness[
+    is.finite(valid.timeliness) & valid.timeliness >= 0
+  ]
+  y.breaks <- if (length(valid.timeliness) > 0) {
+    seq(0, max(pretty(valid.timeliness)), 6)
+  } else {
+    0
+  }
+
   es.timely <- ggplot2::ggplot() +
     ggplot2::geom_hline(
       yintercept = timely_threshold,
@@ -856,9 +866,7 @@ generate_es_timely <- function(es.data,
     ) +
     ggplot2::scale_y_continuous(
       labels = scales::number_format(accuracy = 1),
-      breaks = c(seq(0, max(
-        pretty(es.data$timely)
-      ), 6))
+      breaks = y.breaks
     ) +
     ggplot2::labs(x = "Date of collection", y = "Transport time to lab (days)", color = "Site Name") +
     ggplot2::labs(title = per.timely.title, caption = num.miss.capt) +
