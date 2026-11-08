@@ -286,7 +286,13 @@ build_GSAP_analysis_notes <- function(prioritization_output) {
     "Date of analysis: ", format(analysis_date, "%d-%b-%Y"), "\n",
     period_note, "\n",
     virus_period_note, "\n",
-    "Countries are arranged by total risk score, highest to lowest; insufficient data are shown at the bottom"
+    paste0(
+      "Countries are arranged by total risk score, highest to lowest; ",
+      "insufficient data are shown at the bottom. In initial country ",
+      "analysis, only countries with AFP cases are considered and included. ",
+      "If additional countries with no AFP cases require consideration, ",
+      "this must be manually inserted."
+    )
   )
 
   notes_table <- data.frame(
