@@ -10,7 +10,9 @@ generate_c1_table(
   end_date,
   risk_category = NULL,
   risk_table = NULL,
-  lab_locs = NULL
+  lab_locs = NULL,
+  missing_agemonths = FALSE,
+  stool_na_if_no_gt5_npafp = FALSE
 )
 }
 \arguments{
@@ -29,7 +31,14 @@ which will download the information directly from EDAV.}
 
 \item{lab_locs}{\code{tibble} Summary of the sequencing capacities of labs.
 Output of \code{\link[=get_lab_locs]{get_lab_locs()}}. Defaults to \code{NULL}, which will download the information
-directly from EDAV.
+directly from EDAV.}
+
+\item{missing_agemonths}{\code{logical} Whether to include AFP cases with missing
+\code{age.months} in the NPAFP calculation. Defaults to \code{FALSE}.}
+
+\item{stool_na_if_no_gt5_npafp}{\code{logical} Whether to return \code{NA} for
+subnational stool adequacy when no district has more than five AFP cases.
+Defaults to \code{FALSE}.
 .}
 }
 \value{
