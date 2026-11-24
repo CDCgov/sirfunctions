@@ -44,8 +44,9 @@ generate_ctry_timeliness_graph <- function(int.data,
     )
   }
 
+  # Exclude negative intervals and retain only valid (non-missing) medians.
   int.data <- int.data |>
-    dplyr::filter(medi >= 0 | !is.na(medi))
+    dplyr::filter(!is.na(medi), medi >= 0)
 
   if (nrow(int.data) == 0) {
     return(output_empty_image(output_path, "timely_nation.png"))
@@ -145,8 +146,9 @@ generate_prov_timeliness_graph <- function(int.data,
     )
   }
 
+  # Exclude negative intervals and retain only valid (non-missing) medians.
   int.data <- int.data |>
-    dplyr::filter(medi >= 0 | !is.na(medi))
+    dplyr::filter(!is.na(medi), medi >= 0)
 
   if (!is.numeric(max_prov_per_plot) || length(max_prov_per_plot) != 1 ||
       is.na(max_prov_per_plot) || max_prov_per_plot < 1) {
@@ -809,6 +811,11 @@ generate_es_timely <- function(es.data,
       es.data$collect.date,
       units = "days"
     )
+
+  # Exclude negative transport intervals from all figure calculations.
+  # Missing intervals are retained so they can still be reported as missing.
+  es.data <- es.data |>
+    dplyr::filter(timely >= 0 | is.na(timely))
 
   per.time <- es.data %>%
     dplyr::count(timely > timely_threshold) %>%
