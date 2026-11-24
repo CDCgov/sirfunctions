@@ -2,11 +2,11 @@
 % Please edit documentation in R/kpi.table.functions.R
 \name{generate_c1_rollup}
 \alias{generate_c1_rollup}
-\title{Generate C1 rollup for high-priority countries}
+\title{Generate C1 rollup by priority level and WHO region}
 \usage{
 generate_c1_rollup(
   c1,
-  priority_level = "HIGH",
+  priority_level = c("LOW (WATCHLIST)", "MEDIUM", "HIGH"),
   who_region = NULL,
   .group_by = "rolling_period",
   npafp_target = 80,
@@ -18,7 +18,8 @@ generate_c1_rollup(
 \arguments{
 \item{c1}{\code{tibble} The output of \code{\link[=generate_c1_table]{generate_c1_table()}}.}
 
-\item{priority_level}{\verb{str or list} Priority level. Defaults to \code{"HIGH"}. Valid
+\item{priority_level}{\verb{str or list} Priority level. Defaults to
+\code{c("LOW (WATCHLIST)", "MEDIUM", "HIGH")}. Valid
 values are \verb{"LOW", "LOW (WATCHLIST)", "MEDIUM", "HIGH"}}
 
 \item{who_region}{\code{str} WHO region to summarize the data to.}
