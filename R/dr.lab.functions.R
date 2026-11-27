@@ -705,27 +705,8 @@ get_lab_locs <- function(lab_locs_path = NULL, use_edav = TRUE) {
     dplyr::mutate(country = stringr::str_replace_all(country, "-", " "))
 
 
-  # Check for missing EPIDs in the AFP linelist
-  cli::cli_process_start("Checking for missing EPIDs in the AFP dataset.")
-  missing_epids <- lab.data |> dplyr::filter(!(EPID %in% afp.data$epid))
-
-
-  if (nrow(missing_epids) != 0) {
-    cli::cli_alert_warning(paste0("There are ", nrow(missing_epids), " lab cases not in the AFP linelist."))
-  } else {
-    cli::cli_alert_success("No lab cases missing in the AFP linelist.")
+return(lab.locs.edited)
   }
-  cli::cli_process_done()
-
-  error_log <- list()
-  error_log$duplicates <- duplicated
-  error_log$invalid_intervals <- invalid_intervals
-  error_log$collection_before_paralysis <- collection_before_paralysis
-  error_log$missing_epids <- missing_epids
-
-  writexl::write_xlsx(error_log, path = file.path(error_path, paste0("lab_errors_", Sys.Date() ,".xlsx")))
-  cli::cli_alert("Log saved in the errors folder. Report lab data issues to CDC so the upstream cleaning process can be updated.")
-}
 
 #' Checks for common data errors in WHO lab data
 #'
