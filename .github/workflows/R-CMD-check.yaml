@@ -40,6 +40,12 @@ jobs:
           http-user-agent: ${{ matrix.config.http-user-agent }}
           use-public-rspm: true
 
+      - name: Install XQuartz for gdtools/flextable
+        if: runner.os == 'macOS'
+        run: |
+          brew install --cask xquartz
+          test -r /opt/X11/lib/libXrender.1.dylib
+
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: any::rcmdcheck

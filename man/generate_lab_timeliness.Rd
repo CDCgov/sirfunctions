@@ -14,8 +14,7 @@ generate_lab_timeliness(
 )
 }
 \arguments{
-\item{lab_data}{\code{tibble} Lab data. Ensure that this lab data is cleaned using
-\code{\link[=clean_lab_data]{clean_lab_data()}} before running the function.}
+\item{lab_data}{\code{tibble} Pre-cleaned lab data loaded from EDAV by \code{\link[=init_dr]{init_dr()}}.}
 
 \item{spatial.scale}{\code{str} Spatial scale to analyze the data. Valid values are \verb{"ctry", "prov", "all"}.}
 
@@ -35,9 +34,9 @@ Generates a summary of the timeliness of samples for specific intervals.
 }
 \examples{
 \dontrun{
-lab_path <- "C:/Users/XRG9/lab_data_who.csv"
-ctry.data <- init_dr("algeria", lab_data_path = lab_path)
-ctry.data$lab_data <- clean_lab_data(ctry.data, "2021-01-01", "2023-12-31")
-lab.timeliness.ctry <- generate_lab_timeliness(ctry.data$lab_data, "ctry", start_date, end_date)
+init_dr("algeria", start_date = "2021-01-01", end_date = "2023-12-31")
+lab.timeliness.ctry <- generate_lab_timeliness(
+  dplyr::filter(lab_data, ctry == "ALGERIA"), "ctry", start_date, end_date
+)
 }
 }

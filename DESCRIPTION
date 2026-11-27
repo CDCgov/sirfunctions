@@ -1,6 +1,6 @@
 Package: sirfunctions
 Title: Key Functions to Analyze Global Polio Surveillance Data
-Version: 2.1.9
+Version: 2.2.0
 Authors@R: c(
     person("Nishant", "Kishore", , "ynm2@cdc.gov", role = c("aut"),
            comment = c(ORCID = "0000-0003-0408-2747")),
@@ -48,7 +48,8 @@ Imports:
     rappdirs,
     rmarkdown,
     grDevices,
-    pins
+    pins,    
+    readxl
 Suggests:
     arrow,
     qs2,
@@ -63,7 +64,6 @@ Suggests:
     prettyunits,
     rnaturalearth,
     janitor,
-    readxl,
     tibble,
     tools,
     knitr,
@@ -82,4 +82,5 @@ VignetteBuilder:
 Config/testthat/edition: 3
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-Config/roxygen2/version: 8.1.0
+Config/roxygen2/version: 8.1.1
+RoxygenNote: 7.3.3

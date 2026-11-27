@@ -339,6 +339,16 @@ generate_dr_ppt <- function(ctry.data, start_date, end_date,
     # Section header: Active surveillance ----
     officer::add_slide(layout = "Title Slide", master = "1_Office Theme") %>%
     officer::ph_with(value = "Active Surveillance", location = officer::ph_location_type("ctrTitle")) %>%
+    # Unreported AFP detections by province and year ----
+    officer::add_slide(layout = "Title and Content", master = "1_Office Theme") %>%
+    officer::ph_with(
+      value = "Unreported AFP Detections by Province",
+      location = officer::ph_location_type("title")
+    ) %>%
+    officer::ph_with(
+      officer::external_img(file.path(fig.path, "iss.unreported.afp.prov.year.png")),
+      location = officer::ph_location(top = 2, left = 1, height = 8, width = 14)
+    ) %>%
     # Annual active surveillance visits by priority level (bar graph) (NOT DONE)----
     officer::add_slide(layout = "Title and Content", master = "1_Office Theme") %>%
     officer::ph_with(
@@ -513,6 +523,56 @@ generate_dr_ppt2 <- function(ctry.data,
 
   tempi <- officer::read_pptx(ppt_template_path)
 
+  prov_timeliness_files <- list.files(
+    fig.path,
+    pattern = "^timely_prov_[0-9]+\\.png$",
+    full.names = TRUE
+  )
+  if (length(prov_timeliness_files) == 0) {
+    prov_timeliness_files <- file.path(fig.path, "timely_prov.png")
+  } else {
+    prov_timeliness_files <- prov_timeliness_files[order(prov_timeliness_files)]
+  }
+
+  add_prov_timeliness_slides <- function(ppt, figure_files) {
+    for (i in seq_along(figure_files)) {
+      ppt <- ppt %>%
+        officer::add_slide(layout = "Title and Content", master = "1_Office Theme") %>%
+        officer::ph_with(
+          value = paste0(
+            "Timeliness by province and year",
+            if (length(figure_files) > 1) paste0(" (", i, " of ", length(figure_files), ")") else ""
+          ),
+          location = officer::ph_location_type("title")
+        ) %>%
+        officer::ph_with(
+          officer::external_img(figure_files[[i]]),
+          location = officer::ph_location(top = 2, left = 1, height = 10, width = 14)
+        )
+    }
+    ppt
+  }
+
+  iss_unreported_path <- file.path(
+    fig.path, "iss.unreported.afp.prov.year.png"
+  )
+  add_iss_unreported_slide <- function(ppt) {
+    if (is.null(ctry.data$iss.data) || !file.exists(iss_unreported_path)) {
+      return(ppt)
+    }
+
+    ppt %>%
+      officer::add_slide(layout = "Title and Content", master = "1_Office Theme") %>%
+      officer::ph_with(
+        value = "Unreported AFP Detections by Province",
+        location = officer::ph_location_type("title")
+      ) %>%
+      officer::ph_with(
+        officer::external_img(iss_unreported_path),
+        location = officer::ph_location(top = 2, left = 1, height = 8, width = 14)
+      )
+  }
+
   officer::layout_summary(tempi)
   officer::layout_properties(x = tempi, layout = "Two Content", master = "1_Office Theme")
   officer::layout_properties(x = tempi, layout = "Title and Content", master = "1_Office Theme")
@@ -600,6 +660,26 @@ generate_dr_ppt2 <- function(ctry.data,
     ) %>%
     officer::ph_with(officer::external_img(file.path(fig.path, "afp.dets.prov.year.png")),
       location = officer::ph_location(top = 2, left = 1, height = 5, width = 14)
+    ) %>%
+    # Case sex distribution ----
+    officer::add_slide(layout = "Title and Content", master = "1_Office Theme") %>%
+    officer::ph_with(
+      value = "AFP Case Sex Distribution by Year",
+      location = officer::ph_location_type("title")
+    ) %>%
+    officer::ph_with(
+      officer::external_img(file.path(fig.path, "case.sex.g.png")),
+      location = officer::ph_location(top = 2, left = 1, height = 8, width = 14)
+    ) %>%
+    # Case age distribution ----
+    officer::add_slide(layout = "Title and Content", master = "1_Office Theme") %>%
+    officer::ph_with(
+      value = "NPAFP Case Age Distribution by Year",
+      location = officer::ph_location_type("title")
+    ) %>%
+    officer::ph_with(
+      officer::external_img(file.path(fig.path, "case.age.g.png")),
+      location = officer::ph_location(top = 2, left = 1, height = 8, width = 14)
     ) %>%
     officer::add_slide(layout = "Two Content", master = "1_Office Theme") %>%
     officer::ph_with(
@@ -722,6 +802,8 @@ generate_dr_ppt2 <- function(ctry.data,
     # Section header: Active surveillance ----
     officer::add_slide(layout = "Title Slide", master = "1_Office Theme") %>%
     officer::ph_with(value = "Active Surveillance", location = officer::ph_location_type("ctrTitle")) %>%
+    # Unreported AFP detections by province and year ----
+    add_iss_unreported_slide() %>%
     # Annual active surveillance visits by priority level (bar graph) (NOT DONE)----
     officer::add_slide(layout = "Title and Content", master = "1_Office Theme") %>%
     officer::ph_with(
@@ -751,12 +833,7 @@ generate_dr_ppt2 <- function(ctry.data,
     ) %>%
     officer::ph_with(officer::external_img(file.path(fig.path, "timely_nation.png")), location = officer::ph_location(top = 2, left = 1, height = 4, width = 14)) %>%
     # Timeliness at provincial level (bar graph) ----
-    officer::add_slide(layout = "Title and Content", master = "1_Office Theme") %>%
-    officer::ph_with(
-      value = "Timeliness by province and year",
-      location = officer::ph_location_type("title")
-    ) %>%
-    officer::ph_with(officer::external_img(file.path(fig.path, "timely_prov.png")), location = officer::ph_location(top = 2, left = 1, height = 10, width = 14)) %>%
+    add_prov_timeliness_slides(prov_timeliness_files) %>%
     # Timeliness across provinces (multi map) ----
     officer::add_slide(layout = "Title and Content", master = "1_Office Theme") %>%
     officer::ph_with(

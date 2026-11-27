@@ -28,7 +28,8 @@ get_es_site_age <- function(es_data, end_date) {
                                                           end_date)),
                      sampling_interval = lubridate::interval(min(collect.date),
                                                     max(collect.date)),
-                     site_age = sampling_interval / months(1, FALSE)
+                     site_age = sampling_interval / months(1, FALSE),
+                     .groups = "drop"
                      ) |>
     dplyr::ungroup() |>
     dplyr::arrange(ADM0_NAME, site.name)
@@ -66,26 +67,110 @@ add_risk_category <- function(df, risk_table = NULL, ctry_col = "ctry") {
 #' Title
 #'
 #' @param df `tibble` Dataset with at least a country column to join to.
+#' @param ctry_col `str` Country column in `df`. Defaults to `"ctry"`.
 #' @param lab_locs `tibble` Lab testing information table. Defaults to `NULL`. If
 #' `NULL`, attempts to download the table from EDAV.
+#' @param lab_data_cleaned `tibble` Cleaned lab data information table. Defaults
+#' to `NULL`. If `NULL`, uses the lab testing information table.
+#' @param date_col `str` Date column in `df` used to determine sequencing capacity.
+#' Defaults to `"dateonset"`. Use `"date"` for standardized AFP data and
+#' `"collect.date"` for environmental surveillance data.
 #'
-#' @returns `tibble` A dataset with country lab information attached.
+#' @returns `tibble` A dataset with country sequencing capacity information attached.
 #' @keywords internal
-add_seq_capacity <- function(df, ctry_col = "ctry", lab_locs = NULL) {
+add_seq_capacity <- function(df, ctry_col = "ctry", lab_locs = NULL,
+                             lab_data_cleaned = NULL, date_col = "dateonset") {
+
   if (is.null(lab_locs)) {
     lab_locs <- suppressMessages(get_lab_locs())
   }
 
-  cli::cli_process_start("Adding country lab information")
-  df <- df |>
-    dplyr::left_join(
-      lab_locs |>
-        dplyr::filter(!is.na(.data$country)) |>
-        dplyr::select("country":"num.ship.seq.samples"),
-      by = setNames("country", ctry_col)
-    )
+  if (is.null(lab_data_cleaned) | !("seq.capacity" %in% names(lab_data_cleaned))) {
 
-  cli::cli_process_done()
+    cli::cli_alert_danger("Cleaned lab data not passed, adding most recent lab capacity from lab locs and manual adjustment.")
+
+    cli::cli_process_start("Adding country lab information from lab locs file.")
+
+    df <- df |>
+      dplyr::left_join(
+        lab_locs |>
+          dplyr::filter(!is.na(.data$country)) |>
+          dplyr::select("country":"num.ship.seq.samples"),
+        by = setNames("country", ctry_col)
+      )
+
+    # Manual edit based on changes to the sequencing lab list in Feb 2025
+    # Use the caller's onset or collection date to classify sequencing capacity.
+    #list of labs that sent samples to CDC for sequencing prior to February 2025, Nigeria and Uganda started doing their own sequencing.
+    #Adding in redundancy for Nigeria in case lines above get deleted, lab locs file gets changed
+    df <- df |>
+      mutate(seq.lab = case_when(.data[[date_col]] < as_date("2025-02-01") & culture.itd.lab %in% c("Cameroon","KEMRI-Kenya","IBADAN-Nigeria","Ibadan-Nigeria","Nigeria","Senegal","Ethiopia","Oman/Jordan") ~ "CDC-Atlanta",
+                                 .data[[date_col]] < as_date("2025-02-01") & .data[[ctry_col]] == "UGANDA" ~ "Noguchi-Ghana",
+                                 .default = seq.lab),
+             seq.cat = if_else(.data[[ctry_col]] %in% c("NIGERIA", "UGANDA") & .data[[date_col]] < as_date("2025-02-01"), "Shipped for sequencing", seq.cat),
+             seq.capacity = if_else(.data[[ctry_col]] %in% c("NIGERIA", "UGANDA") & .data[[date_col]] < as_date("2025-02-01"), "no", seq.capacity))
+
+    cli::cli_process_done()
+
+  }else{
+
+    cli::cli_process_start("Getting country lab information from cleaned lab data")
+    # get longitudinal lab locs from cleaned lab data
+    lab_locs_long <- lab_data_cleaned |>
+      #need to get country/month/year-level lab sequencing capacity
+      dplyr::select(country, DateStoolCollected, who.region:num.ship.seq.samples) |>
+      dplyr::distinct() |>
+      #get the month and year from the date for merging
+      dplyr::mutate(year = lubridate::year(DateStoolCollected),
+                    month_num = lubridate::month(DateStoolCollected)) |>
+      dplyr::select(-DateStoolCollected) |>
+      dplyr::distinct() |>
+      #need to re-word the seq.capacity column to the values expected by the function
+      dplyr::mutate(seq.capacity=case_when(seq.capacity == "No sequencing capacity" ~ "no",
+                                           seq.capacity == "Sequencing capacity" ~ "yes"))
+
+    #list of countries in lab locs not in clean lab data
+    addctry <- setdiff(lab_locs$country, unique(lab_data_cleaned$country))
+
+    addctrys <- lab_locs |>
+      dplyr::select(("country":"num.ship.seq.samples")) |>
+      dplyr::filter(country %in% addctry & !is.na(seq.capacity)) |>
+      dplyr::mutate(year = lubridate::year(end_date),
+                    month_num = lubridate::month(end_date))
+
+    #put together
+    lab_locs_long_complete <- bind_rows(lab_locs_long, addctrys) |>
+      tidyr::complete(country, year, month_num) |>
+      # fill in future sequencing capacity if lab data is old
+      dplyr::arrange(country, year, month_num) |>
+      dplyr::group_by(country) |>
+      #assume the latest status carries backwards, unless there is no future status, then carry forward
+      tidyr::fill(who.region:num.ship.seq.samples, .direction = "updown") |>
+      dplyr::ungroup() |>
+      # string hyphen for merging
+      mutate(country=str_replace(country, "-", " "))
+    cli::cli_process_done()
+
+    cli::cli_process_start("Adding country lab information from cleaned lab data")
+
+    df <- df |>
+      # Match onset or collection dates to monthly lab sequencing capacity.
+      dplyr::mutate(year = lubridate::year(.data[[date_col]]),
+                    month_num = lubridate::month(.data[[date_col]])) |>
+      dplyr::left_join(lab_locs_long_complete,
+                       by = c(setNames("country", ctry_col), "year", "month_num"))  |>
+      dplyr::group_by(.data[[ctry_col]]) |>
+      # fill in future sequencing capacity if lab data is old
+      dplyr::arrange(year, month_num) |>
+      #assume the latest status carries backwards, unless there is no future status, then carry forward
+      tidyr::fill(who.region:num.ship.seq.samples, .direction = "updown") |>
+      dplyr::ungroup()
+
+
+    cli::cli_process_done()
+
+  }
+
   return(df)
 }
 
@@ -155,17 +240,6 @@ generate_pos_timeliness <- function(raw_data, start_date, end_date,
   pos <- add_risk_category(pos, risk_table, ctry_col = "place.admin.0")
   pos <- add_rolling_years(pos, start_date, end_date, "dateonset")
   pos <- add_seq_capacity(pos, ctry_col = "place.admin.0", lab_locs)
-
-  # Manual edit based on changes to the sequencing lab list in Feb 2025
-  # There is no collection date, so will use dateonset to classify
-  #list of labs that sent samples to CDC for sequencing prior to February 2025, Nigeria and Uganda started doing their own sequencing.
-  #Adding in redundancy for Nigeria in case lines above get deleted, lab locs file gets changed
-  pos <- pos |>
-    mutate(seq.lab = case_when(dateonset < as_date("2025-02-01") & culture.itd.lab %in% c("Cameroon","KEMRI-Kenya","IBADAN-Nigeria","Ibadan-Nigeria","Nigeria","Senegal","Ethiopia","Oman/Jordan") ~ "CDC-Atlanta",
-                               dateonset < as_date("2025-02-01") & place.admin.0 == "UGANDA" ~ "Noguchi-Ghana",
-                               .default = seq.lab),
-           seq.cat = if_else(place.admin.0 %in% c("NIGERIA", "UGANDA") & dateonset < as_date("2025-02-01"), "Shipped for sequencing", seq.cat),
-           seq.capacity = if_else(place.admin.0 %in% c("NIGERIA", "UGANDA") & dateonset < as_date("2025-02-01"), "no", seq.capacity))
 
   pos_summary <- pos |>
     dplyr::mutate(
@@ -302,10 +376,9 @@ generate_wild_vdpv_summary <- function(raw_data, start_date, end_date,
 #' @returns `tibble` lab data with timeliness columns.
 #'
 #' @keywords internal
-generate_kpi_lab_timeliness <- function(lab_data, start_date, end_date, afp_data) {
+generate_kpi_lab_timeliness <- function(lab_data, start_date, end_date, afp_data = NULL) {
   start_date <- lubridate::as_date(start_date)
   end_date <- lubridate::as_date(end_date)
-  lab_data <- clean_lab_data(lab_data, start_date, end_date, afp_data)
 
   lab_data <- lab_data |>
     dplyr::mutate(
@@ -552,6 +625,11 @@ add_rolling_years <- function(df, start_date, end_date, date_col, period = month
 #' @param lab_locs `tibble` Summary of the sequencing capacities of labs.
 #' Output of [get_lab_locs()]. Defaults to `NULL`, which will download the information
 #' directly from EDAV.
+#' @param missing_agemonths `logical` Whether to include AFP cases with missing
+#' `age.months` in the NPAFP calculation. Defaults to `FALSE`.
+#' @param stool_na_if_no_gt5_npafp `logical` Whether to return `NA` for
+#' subnational stool adequacy when no district has more than five AFP cases.
+#' Defaults to `FALSE`.
 #' .
 #' @returns `tibble` Summary table of GPSAP KPIs.
 #'
@@ -565,7 +643,9 @@ add_rolling_years <- function(df, start_date, end_date, date_col, period = month
 generate_c1_table <- function(raw_data, start_date, end_date,
                               risk_category = NULL,
                               risk_table = NULL,
-                              lab_locs = NULL) {
+                              lab_locs = NULL,
+                              missing_agemonths = FALSE,
+                              stool_na_if_no_gt5_npafp = FALSE) {
   cli::cli_progress_bar("Creating C1 table", total = 8)
 
   start_date <- lubridate::as_date(start_date)
@@ -628,6 +708,7 @@ generate_c1_table <- function(raw_data, start_date, end_date,
         min(.data$analysis_year_start),
         max(.data$analysis_year_end),
         "dist",
+        missing_agemonths = missing_agemonths,
         rolling = TRUE,
         sp_continuity_validation = FALSE
       )),
@@ -830,7 +911,12 @@ generate_c1_table <- function(raw_data, start_date, end_date,
     dplyr::summarise(
       dist_stool = sum(adequacy.denominator >= 5, na.rm = TRUE),
       met_stool = sum(per.stool.ad >= 80 & adequacy.denominator >= 5, na.rm = TRUE),
-      prop_met_stool = met_stool / dist_stool * 100,
+      prop_met_stool = dplyr::if_else(
+        stool_na_if_no_gt5_npafp &
+          sum(.data$afp.cases > 5, na.rm = TRUE) == 0,
+        NA_real_,
+        met_stool / dist_stool * 100
+      ),
       stool_label = paste0(met_stool, "/", dist_stool)
     )
 
@@ -902,16 +988,17 @@ generate_c1_table <- function(raw_data, start_date, end_date,
   return(combine)
 }
 
-#' Generate C1 rollup for high-priority countries
+#' Generate C1 rollup by priority level and WHO region
 #'
 #' @description
 #' `r lifecycle::badge("experimental")`
 #'
-#' Generates a summary of how many of the high priority countries have met their
-#' AFP and ES indicators.
+#' Generates a summary of how many countries in each selected priority level and
+#' WHO region have met their AFP and ES indicators.
 #'
 #' @param c1 `tibble` The output of [generate_c1_table()].
-#' @param priority_level `str or list` Priority level. Defaults to `"HIGH"`. Valid
+#' @param priority_level `str or list` Priority level. Defaults to
+#' `c("LOW (WATCHLIST)", "MEDIUM", "HIGH")`. Valid
 #' values are `"LOW", "LOW (WATCHLIST)", "MEDIUM", "HIGH"`
 #' @param who_region `str` WHO region to summarize the data to.
 #' @param .group_by `str` How the rollup should be grouped. Defaults to the column `"rolling_period"`.
@@ -934,7 +1021,7 @@ generate_c1_table <- function(raw_data, start_date, end_date,
 #' c1_rollup <- generate_c1_rollup(c1)
 #' }
 generate_c1_rollup <- function(c1,
-                               priority_level = "HIGH",
+                               priority_level = c("LOW (WATCHLIST)", "MEDIUM", "HIGH"),
                                who_region = NULL,
                                .group_by = "rolling_period",
                                npafp_target = 80,
@@ -942,39 +1029,107 @@ generate_c1_rollup <- function(c1,
                                ev_target = 80,
                                timely_wpv_vdpv_target = 80) {
 
+  c1_all <- c1
+
+  if (!is.null(who_region)) {
+    c1_all <- c1_all |>
+      dplyr::filter(Region %in% who_region)
+    c1 <- c1 |>
+      dplyr::filter(Region %in% who_region)
+  }
 
   if (!is.null(priority_level)) {
     c1 <- c1 |>
       dplyr::filter(`SG Priority Level` %in% priority_level)
   }
 
-  if (!is.null(who_region)) {
-    c1 <- c1 |>
-      dplyr::filter(Region %in% who_region)
+  region_rollup_regions <- c("AFRO", "EMRO", "SEARO", "WPRO")
+  wpro_rollup_countries <- c(
+    "CAMBODIA", "INDONESIA", "JAPAN", "MALAYSIA",
+    "PAPUA NEW GUINEA", "PHILIPPINES", "VIET NAM", "VIETNAM"
+  )
+
+  is_region_rollup_country <- function(region, country) {
+    region %in% c("AFRO", "EMRO", "SEARO") |
+      (region == "WPRO" & country %in% wpro_rollup_countries)
   }
 
-  c1_rollup <- c1 |>
-    dplyr::filter(`SG Priority Level` %in% priority_level) |>
-    dplyr::group_by(dplyr::across(dplyr::all_of(.group_by))) |>
-    dplyr::summarize(
-      met_npafp = sum(prop_met_npafp >= npafp_target, na.rm = TRUE),
-      npafp_denom = sum(!is.na(prop_met_npafp)),
-      stool_denom = sum(!is.na(prop_met_stool)),
-      ev_denom = sum(!is.na(prop_met_ev)),
-      det_denom = sum(!is.na(prop_timely_wild_vdpv)),
-      met_stool = sum(prop_met_stool >= stool_target, na.rm = TRUE),
-      met_ev = sum(prop_met_ev >= ev_target, na.rm = TRUE),
-      met_timely_wild_vdpv = sum(prop_timely_wild_vdpv >= timely_wpv_vdpv_target, na.rm = TRUE),
-      prop_met_npafp = met_npafp / npafp_denom * 100,
-      prop_met_stool = met_stool / stool_denom * 100,
-      prop_met_ev = met_ev / ev_denom * 100,
-      prop_met_timely_wild_vdpv = met_timely_wild_vdpv / det_denom * 100,
-      met_npafp_label = paste0(met_npafp, "/",npafp_denom),
-      met_stool_label = paste0(met_stool, "/", stool_denom),
-      met_ev_label = paste0(met_ev, "/", ev_denom),
-      met_timely_wild_vdpv_label = paste0(met_timely_wild_vdpv, "/", det_denom)
-    ) |>
-    dplyr::ungroup()
+  region_c1 <- c1_all |>
+    dplyr::filter(
+      Region %in% region_rollup_regions,
+      is_region_rollup_country(Region, stringr::str_to_upper(stringr::str_trim(ctry)))
+    )
+
+  summarize_rollup <- function(data, group_by, risk_group_label = NULL,
+                               region_label = NULL) {
+    excluded_countries <- function(country, metric) {
+      countries <- sort(unique(country[metric %in% TRUE]))
+      countries <- countries[!is.na(countries)]
+      if (length(countries) == 0) "None" else paste(countries, collapse = ", ")
+    }
+
+    data <- data |>
+      dplyr::mutate(
+        .npafp_excluded = is.na(prop_met_npafp),
+        .stool_excluded = is.na(prop_met_stool),
+        .ev_excluded = is.na(prop_met_ev),
+        .timely_wpv_vdpv_excluded = is.na(prop_timely_wild_vdpv)
+      )
+
+    result <- data |>
+      dplyr::group_by(dplyr::across(dplyr::all_of(group_by))) |>
+      dplyr::summarize(
+        met_npafp = sum(prop_met_npafp >= npafp_target, na.rm = TRUE),
+        npafp_denom = sum(!is.na(prop_met_npafp)),
+        stool_denom = sum(!is.na(prop_met_stool)),
+        ev_denom = sum(!is.na(prop_met_ev)),
+        det_denom = sum(!is.na(prop_timely_wild_vdpv)),
+        met_stool = sum(prop_met_stool >= stool_target, na.rm = TRUE),
+        met_ev = sum(prop_met_ev >= ev_target, na.rm = TRUE),
+        met_timely_wild_vdpv = sum(prop_timely_wild_vdpv >= timely_wpv_vdpv_target, na.rm = TRUE),
+        prop_met_npafp = met_npafp / npafp_denom * 100,
+        prop_met_stool = met_stool / stool_denom * 100,
+        prop_met_ev = met_ev / ev_denom * 100,
+        prop_met_timely_wild_vdpv = met_timely_wild_vdpv / det_denom * 100,
+        met_npafp_label = paste0(met_npafp, "/", npafp_denom),
+        met_stool_label = paste0(met_stool, "/", stool_denom),
+        met_ev_label = paste0(met_ev, "/", ev_denom),
+        met_timely_wild_vdpv_label = paste0(met_timely_wild_vdpv, "/", det_denom),
+        npafp_excluded = excluded_countries(ctry, .npafp_excluded),
+        stool_excluded = excluded_countries(ctry, .stool_excluded),
+        ev_excluded = excluded_countries(ctry, .ev_excluded),
+        timely_wpv_vdpv_excluded = excluded_countries(ctry, .timely_wpv_vdpv_excluded),
+        .groups = "drop"
+      )
+
+    if (!is.null(risk_group_label)) {
+      result <- result |>
+        dplyr::mutate(`SG Priority Level` = risk_group_label)
+    }
+
+    if (!is.null(region_label)) {
+      result <- result |>
+        dplyr::mutate(Region = region_label)
+    }
+
+    result
+  }
+
+  risk_rollup <- summarize_rollup(
+    c1,
+    unique(c(.group_by, "SG Priority Level")),
+    region_label = "All Regions"
+  )
+
+  region_rollup <- summarize_rollup(
+    region_c1,
+    unique(c(.group_by, "Region")),
+    risk_group_label = "All Risk Groups"
+  )
+
+  c1_rollup <- dplyr::bind_rows(risk_rollup, region_rollup) |>
+    dplyr::select(dplyr::all_of(.group_by), `SG Priority Level`, Region,
+                  dplyr::everything())
 
   return(c1_rollup)
 }
@@ -988,6 +1143,10 @@ generate_c1_rollup <- function(c1,
 #' @param afp_data `tibble` AFP linelist data.
 #' @param pop_data `tibble` Population data.
 #' @param spatial_scale `str` Either `"ctry", "prov", "dist"`.
+#' @param lab_data `tibble` Optional cleaned laboratory data containing
+#'   `DateStoolReceivedinLab`. When supplied, this field is preferred for the
+#'   shipment and optimized timeliness indicators. If it is missing for an
+#'   EPID, the existing AFP `stooltolabdate` value is retained.
 #' @inheritParams generate_c1_table
 #'
 #' @returns `tibble` Summary table containing AFP KPIs.
@@ -1002,7 +1161,8 @@ generate_c2_table <- function(afp_data, pop_data, start_date, end_date,
                               spatial_scale,
                               risk_category = NULL,
                               lab_locs = NULL,
-                              risk_table = NULL) {
+                              risk_table = NULL,
+                              lab_data = NULL) {
   check_spatial_scale(pop_data, spatial_scale)
 
   cli::cli_progress_bar("Creating C2 table", total = 5)
@@ -1022,12 +1182,73 @@ generate_c2_table <- function(afp_data, pop_data, start_date, end_date,
     cdc.classification.all = "cdc.class"
   )
 
+  # Use the laboratory receipt date when laboratory data are supplied. Lab
+  # data can contain more than one row per AFP case, so retain the latest
+  # available receipt date for each EPID, corresponding to the final stool.
+  if (!is.null(lab_data)) {
+    lab_epid_col <- intersect(c("EpidNumber", "EPID", "epid"), names(lab_data))
+
+    if (length(lab_epid_col) == 0) {
+      cli::cli_abort(
+        "lab_data must contain an EPID column named `EpidNumber`, `EPID`, or `epid`."
+      )
+    }
+
+    if (!"DateStoolReceivedinLab" %in% names(lab_data)) {
+      cli::cli_abort(
+        "lab_data must contain `DateStoolReceivedinLab`."
+      )
+    }
+
+    lab_arrival <- lab_data |>
+      dplyr::transmute(
+        .lab_epid = stringr::str_to_upper(
+          stringr::str_squish(as.character(.data[[lab_epid_col[[1]]]]))
+        ),
+        .lab_received = lubridate::as_date(.data$DateStoolReceivedinLab)
+      ) |>
+      dplyr::filter(!is.na(.lab_epid), .lab_epid != "") |>
+      dplyr::group_by(.lab_epid) |>
+      dplyr::summarise(
+        .lab_received = if (all(is.na(.lab_received))) {
+          as.Date(NA)
+        } else {
+          max(.lab_received, na.rm = TRUE)
+        },
+        .groups = "drop"
+      )
+
+    has_afp_stooltolabdate <- "stooltolabdate" %in% names(afp_data)
+
+    afp_data <- afp_data |>
+      dplyr::mutate(
+        .afp_epid = stringr::str_to_upper(
+          stringr::str_squish(as.character(.data$epid))
+        ),
+        .afp_stooltolabdate = if (has_afp_stooltolabdate) {
+          lubridate::as_date(.data$stooltolabdate)
+        } else {
+          as.Date(NA)
+        }
+      ) |>
+      dplyr::left_join(lab_arrival, by = c(".afp_epid" = ".lab_epid")) |>
+      dplyr::mutate(
+        stooltolabdate = dplyr::coalesce(
+          .data$.lab_received,
+          .data$.afp_stooltolabdate
+        )
+      ) |>
+      dplyr::select(-dplyr::any_of(
+        c(".afp_epid", ".lab_received", ".afp_stooltolabdate")
+      ))
+  }
+
   cli::cli_progress_update()
 
   # Add required columns
   # NOTE: NAs are removed from rolling calculations as they can't be tagged
   afp_data <- afp_data |>
-    add_seq_capacity(lab_locs = lab_locs) |>
+    add_seq_capacity(lab_locs = lab_locs, date_col = "date") |>
     col_to_datecol() |>
     add_rolling_years(start_date, end_date, "date") |>
     # Removes years earlier than the start date
@@ -1422,7 +1643,7 @@ generate_c3_table <- function(es_data, start_date, end_date,
   start_date <- lubridate::as_date(start_date)
   end_date <- lubridate::as_date(end_date)
   es_data <- es_data |>
-    add_seq_capacity("ADM0_NAME", lab_locs) |>
+    add_seq_capacity("ADM0_NAME", lab_locs, date_col = "collect.date") |>
     add_rolling_years(start_date, end_date, "collect.date")
 
   # Get established ES sites first and then filter to appropriate start and end dates
@@ -1695,8 +1916,8 @@ generate_c4_table <- function(lab_data, afp_data, start_date, end_date) {
       #t5
       #Timeliness of sequencing results using ITD result as start date
       timely_itdres_seqres = sum((
-        (.data$seq.cat == "Not shipped for sequencing" & .data$days.itd.res.seq.res <= 7) |
-          (.data$seq.cat == "Shipped for sequencing" & .data$days.itd.res.seq.res <= 14)) &
+        (stringr::str_to_lower(.data$seq.cat) == "not shipped for sequencing" & .data$days.itd.res.seq.res <= 7) |
+          (stringr::str_to_lower(.data$seq.cat) == "shipped for sequencing" & .data$days.itd.res.seq.res <= 14)) &
           t5 == TRUE,
         na.rm = TRUE),
       t5 = sum(t5 == TRUE, na.rm = TRUE),
@@ -1778,9 +1999,9 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
         dplyr::rename_with(\(x) stringr::str_to_lower(x)) |>
         dplyr::rename_with(\(x) stringr::str_replace_all(x, "[\\. ]", "_")) |>
         dplyr::mutate(dplyr::across(
-          (dplyr::starts_with("prop") |
-             dplyr::starts_with("timely") | dplyr::starts_with("median")) &
-            -dplyr::ends_with("label"),
+          dplyr::where(is.numeric) &
+            (dplyr::starts_with("prop") |
+             dplyr::starts_with("timely") | dplyr::starts_with("median")),
           \(x) round(x, 0)
         ))
       return(x)
@@ -1812,7 +2033,8 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
                                       ev_target = 90,
                                       timely_wpv_vdpv_target = 90)
     } else {
-      c1_rollup <- generate_c1_rollup(c1)
+      c1_rollup <- generate_c1_rollup(c1,
+                                      priority_level = c("LOW (WATCHLIST)", "MEDIUM", "HIGH"))
     }
   } else {
     c1_rollup <- NULL
@@ -1843,7 +2065,7 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
     c4_seq <- NULL
   }
 
-  export_list <- list(`c1 - kpi` = c1, `c1 - high risk summary` = c1_rollup,
+  export_list <- list(`c1 - kpi` = c1, `c1 - priority summary` = c1_rollup,
                       `c2 -  national AFP indicators` = c2,
                       `c3 - es indicators by site` = c3,
                       `c4 - culture itd lab summary` = c4_itd,
@@ -1878,7 +2100,7 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
       dplyr::rename_with(recode,
                        rolling_period = "Rolling 12 Months",
                        region = "WHO Region",
-                       sg_priority_level = "GPSAP Risk Category",
+                       sg_priority_level = "Risk Group",
                        ctry = "Country",
                        prop_met_npafp = "Non-polio AFP rate \u2013 subnational, %",
                        prop_met_stool = "Stool adequacy \u2013 subnational, %",
@@ -1888,9 +2110,9 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
                       )
   }
 
-  # c1 high risk formatting
+  # c1 priority-level summary formatting
   if (!is.null(c1_rollup)) {
-    export_list$`c1 - high risk summary` <- export_list$`c1 - high risk summary` %>%
+    export_list$`c1 - priority summary` <- export_list$`c1 - priority summary` %>%
       {
         if (!drop_label_cols) {
           dplyr::mutate(.,
@@ -1904,15 +2126,28 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
           .
         }
       } |>
-      dplyr::arrange(dplyr::desc(rolling_period)) |>
+      dplyr::mutate(
+        group = dplyr::if_else(
+          sg_priority_level == "All Risk Groups", region, sg_priority_level
+        )
+      ) |>
+      dplyr::select(group, rolling_period, dplyr::everything()) |>
+      dplyr::arrange(group, dplyr::desc(rolling_period)) |>
       dplyr::rename_with(recode,
                          rolling_period = "Rolling 12 Months",
+                         group = "Group",
                          prop_met_npafp = "Non-polio AFP rate \u2013 subnational, %",
                          prop_met_stool = "Stool adequacy \u2013 subnational, %",
                          prop_met_ev = "ES EV detection rate \u2013 national, %",
-                         prop_met_timely_wild_vdpv = "Timeliness of detection for WPV/VDPV, %"
+                         prop_met_timely_wild_vdpv = "Timeliness of detection for WPV/VDPV, %",
+                         npafp_excluded = "NPAFP  -Excluded Countries",
+                         stool_excluded = "SA -Excluded Countries",
+                         ev_excluded = "ESEV Detection -  Excluded Countries",
+                         timely_wpv_vdpv_excluded = "WPV/VDPV Timeliness -Excluded Countries"
       ) |>
-      dplyr::select(-dplyr::starts_with("met"), -dplyr::ends_with("denom"))
+      dplyr::select(-sg_priority_level, -region,
+                    -dplyr::starts_with("met"),
+                    -dplyr::ends_with("denom"))
   }
 
   # c2 formatting
@@ -1937,7 +2172,7 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
       dplyr::rename_with(recode,
                          rolling_period = "Rolling 12 Months",
                          region = "WHO Region",
-                         sg_priority_level = "GPSAP Risk Category",
+                         sg_priority_level = "Risk Group",
                          ctry = "Country",
                          prov = "Province",
                          dist = "District",
@@ -1994,7 +2229,7 @@ export_kpi_table <- function(c1 = NULL, c2 = NULL, c3 = NULL, c4 = NULL,
       dplyr::rename_with(recode,
                          rolling_period = "Rolling 12 Months",
                          region = "WHO Region",
-                         sg_priority_level = "GPSAP Risk Category",
+                         sg_priority_level = "Risk Group",
                          ctry = "Country",
                          prov = "Province",
                          dist = "District",
@@ -2232,4 +2467,787 @@ get_lab_date_col_missingness <- function(lab_data, group_by = NULL) {
                      n_na = sum(is.na(value)),
                      prop_na = paste0(round(n_na / n * 100, 2), "%")
     )
+}
+#' Generate diagnostic checks workbook
+#'
+#' Creates the core surveillance diagnostic tables and optional expanded KPI
+#' check sheets. The same function can be used by the country-prioritization
+#' and KPI workflows.
+#'
+#' @param raw_data `list` Output of [get_all_polio_data()].
+#' @param start_date `Date` or date-like string. Start of the analysis period.
+#' @param end_date `Date` or date-like string. End of the analysis period.
+#' @param output_path Optional Excel output path. If `NULL`, no workbook is
+#'   written.
+#' @param missing_agemonths `logical` Whether district NPAFP eligibility checks
+#'   include cases with missing `age.months`. Defaults to `TRUE`, matching the
+#'   country-prioritization calculation.
+#' @param include_details_inconsisten_GUIDs `logical` Whether to include the
+#'   optional `C1_Checks` sheet containing inconsistent GUID details. Defaults
+#'   to `FALSE`.
+#' @returns A list containing the three core check tables, the ES site check,
+#'   and the optional inconsistent GUID detail table.
+#' @export
+#'
+generate_checks <- function(
+    raw_data,
+    start_date,
+    end_date,
+    output_path = NULL,
+    missing_agemonths = TRUE,
+    include_details_inconsisten_GUIDs = FALSE) {
+  if (length(include_details_inconsisten_GUIDs) != 1 ||
+      is.na(include_details_inconsisten_GUIDs) ||
+      !is.logical(include_details_inconsisten_GUIDs)) {
+    cli::cli_abort(
+      "include_details_inconsisten_GUIDs must be TRUE or FALSE."
+    )
+  }
+  required_raw <- c("afp", "dist.pop")
+  required_raw <- c(required_raw, "es")
+  missing_raw <- setdiff(required_raw, names(raw_data))
+  if (length(missing_raw) > 0) {
+    cli::cli_abort(paste0(
+      "raw_data is missing: ", paste(missing_raw, collapse = ", ")
+    ))
+  }
+
+  start_date <- suppressWarnings(lubridate::as_date(start_date))
+  end_date <- suppressWarnings(lubridate::as_date(end_date))
+  if (length(start_date) != 1 || length(end_date) != 1 ||
+      is.na(start_date) || is.na(end_date) || start_date > end_date) {
+    cli::cli_abort("Please provide valid start_date and end_date values.")
+  }
+
+  countries_check <- raw_data$afp |>
+    dplyr::transmute(ctry = .data$place.admin.0) |>
+    dplyr::mutate(
+      ctry = normalize_GSAP_country_names(.data$ctry),
+      ctry = dplyr::if_else(
+        stringr::str_detect(.data$ctry, "TANZANIA"),
+        "UNITED REPUBLIC OF TANZANIA",
+        .data$ctry
+      )
+    ) |>
+    dplyr::filter(!is.na(.data$ctry), .data$ctry != "") |>
+    dplyr::distinct(.data$ctry) |>
+    dplyr::arrange(.data$ctry) |>
+    dplyr::pull(.data$ctry)
+
+  npafp_age_check <- raw_data$afp |>
+    dplyr::transmute(
+      ctry = normalize_GSAP_country_names(.data$place.admin.0),
+      date = lubridate::as_date(.data$dateonset),
+      age.months = .data$age.months,
+      is_npafp_case = .data$cdc.classification.all2 %in% c(
+        "NPAFP", "PENDING", "LAB PENDING"
+      )
+    ) |>
+    dplyr::filter(
+      .data$ctry %in% countries_check,
+      dplyr::between(.data$date, start_date, end_date),
+      .data$is_npafp_case
+    ) |>
+    dplyr::group_by(.data$ctry) |>
+    dplyr::summarise(
+      total_npafp_cases = dplyr::n(),
+      missing_age_cases = sum(is.na(.data$age.months)),
+      missing_age_percent = round(
+        .data$missing_age_cases / .data$total_npafp_cases * 100, 1
+      ),
+      .groups = "drop"
+    ) |>
+    dplyr::right_join(
+      tibble::tibble(ctry = as.character(countries_check)),
+      by = "ctry"
+    ) |>
+    dplyr::mutate(
+      total_npafp_cases = tidyr::replace_na(.data$total_npafp_cases, 0),
+      missing_age_cases = tidyr::replace_na(.data$missing_age_cases, 0),
+      missing_age_percent = tidyr::replace_na(.data$missing_age_percent, 0)
+    ) |>
+    dplyr::arrange(.data$ctry)
+
+  get_col <- function(data, choices) {
+    found <- intersect(choices, names(data))
+    if (length(found) == 0) {
+      cli::cli_abort(paste0(
+        "None of these columns were found: ", paste(choices, collapse = ", ")
+      ))
+    }
+    found[[1]]
+  }
+
+  dist_pop <- raw_data$dist.pop
+  dist_pop_check <- dist_pop |>
+    dplyr::transmute(
+      ctry = .data[[get_col(dist_pop, c("ctry", "ADM0_NAME"))]],
+      adm2guid = .data[[get_col(dist_pop, c("adm2guid", "ADM2_GUID"))]],
+      year = suppressWarnings(as.integer(
+        .data[[get_col(dist_pop, "year")]]
+      )),
+      u15pop = suppressWarnings(as.numeric(.data[[get_col(
+        dist_pop, c("u15pop", "u15pop.prov")
+      )]]))
+    ) |>
+    dplyr::mutate(
+      ctry = normalize_GSAP_country_names(.data$ctry),
+      ctry = dplyr::if_else(
+        stringr::str_detect(.data$ctry, "TANZANIA"),
+        "UNITED REPUBLIC OF TANZANIA",
+        .data$ctry
+      )
+    ) |>
+    dplyr::filter(
+      .data$ctry %in% countries_check,
+      dplyr::between(
+        .data$year,
+        lubridate::year(start_date),
+        lubridate::year(end_date)
+      )
+    ) |>
+    dplyr::group_by(.data$ctry) |>
+    dplyr::summarise(
+      total_districts = dplyr::n_distinct(.data$adm2guid),
+      districts_missing_population = dplyr::n_distinct(
+        .data$adm2guid[is.na(.data$u15pop)]
+      ),
+      .groups = "drop"
+    ) |>
+    dplyr::right_join(
+      tibble::tibble(ctry = as.character(countries_check)),
+      by = "ctry"
+    ) |>
+    dplyr::mutate(
+      total_districts = tidyr::replace_na(.data$total_districts, 0),
+      districts_missing_population = tidyr::replace_na(
+        .data$districts_missing_population, 0
+      )
+    ) |>
+    dplyr::arrange(.data$ctry) |>
+    dplyr::mutate(Region = get_region(.data$ctry))
+
+  district_afp <- f.npafp.rate.01(
+    afp.data = raw_data$afp,
+    pop.data = raw_data$dist.pop,
+    start.date = start_date,
+    end.date = end_date,
+    spatial.scale = "dist",
+    rolling = TRUE,
+    pending = FALSE,
+    sp_continuity_validation = FALSE,
+    missing_agemonths = missing_agemonths
+  ) |>
+    dplyr::mutate(
+      ctry = normalize_GSAP_country_names(.data$ctry),
+      ctry = dplyr::if_else(
+        stringr::str_detect(.data$ctry, "TANZANIA"),
+        "UNITED REPUBLIC OF TANZANIA",
+        .data$ctry
+      )
+    ) |>
+    dplyr::filter(.data$ctry %in% countries_check)
+
+  # `raw_data$afp` is already restricted to AFP surveillance records. The
+  # `afp.case` output counts classified AFP records after excluding NOT-AFP;
+  # use >4 to identify districts reporting at least five AFP cases.
+  # Keep population eligibility separate from the AFP reporting count.
+  district_analysis_counts <- district_afp |>
+    dplyr::group_by(.data$ctry) |>
+    dplyr::summarise(
+      districts_population_eligible = dplyr::n_distinct(
+        .data$adm2guid[.data$par >= 100000]
+      ),
+      `NPAFP ≥5` = dplyr::n_distinct(
+        .data$adm2guid[.data$afp.case > 4]
+      ),
+      .groups = "drop"
+    )
+
+  dist_pop_check_updated <- dist_pop_check |>
+    dplyr::left_join(district_analysis_counts, by = "ctry") |>
+    dplyr::mutate(
+      districts_population_eligible = tidyr::replace_na(
+        .data$districts_population_eligible, 0
+      ),
+      `NPAFP ≥5` = tidyr::replace_na(.data$`NPAFP ≥5`, 0)
+    ) |>
+    dplyr::arrange(.data$ctry) |>
+    dplyr::rename(Country = .data$ctry) |>
+    dplyr::select(
+      Region, Country,
+      -`NPAFP ≥5`,
+      dplyr::everything(),
+      `NPAFP ≥5`
+    )
+
+  es_periods <- raw_data$es |>
+      add_rolling_years(start_date, end_date, "collect.date") |>
+      dplyr::distinct(
+        .data$year_label, .data$rolling_period, .data$analysis_year_end
+      ) |>
+      dplyr::filter(.data$analysis_year_end <= end_date)
+
+  es_sites_check <- purrr::map_dfr(seq_len(nrow(es_periods)), function(i) {
+      period <- es_periods[i, ]
+      period_sites <- get_es_site_age(
+        raw_data$es, period$analysis_year_end[[1]]
+      ) |>
+        dplyr::mutate(
+          Country = normalize_GSAP_country_names(.data$ADM0_NAME),
+          Region = get_region(.data$Country)
+        ) |>
+        # Use one common denominator so the component counts reconcile to
+        # Total ES Sites and cannot exceed it.
+        dplyr::filter(.data$n_samples_12_mo >= 1)
+
+      period_sites |>
+        dplyr::group_by(.data$Region, .data$Country) |>
+        dplyr::summarise(
+          `Total ES Sites` = dplyr::n(),
+          `#sites_age_<12mo` = sum(.data$site_age < 12, na.rm = TRUE),
+          ineligible_site_age = dplyr::if_else(
+            `#sites_age_<12mo` == `Total ES Sites`,
+            "ineligible_site_age",
+            "No"
+          ),
+          `#sites_age_≥12mo` = sum(.data$site_age >= 12, na.rm = TRUE),
+          `#sites_w_≥10_samples_yr` = sum(
+            .data$n_samples_12_mo >= 10, na.rm = TRUE
+          ),
+          `#sites_w_<10_samples_yr` = sum(
+            .data$n_samples_12_mo < 10, na.rm = TRUE
+          ),
+          `ineligible_site_sample_#` = dplyr::if_else(
+            `#sites_w_<10_samples_yr` == `Total ES Sites`,
+            "ineligible_site_sample_#",
+            "No"
+          ),
+          .groups = "drop"
+        ) |>
+        dplyr::relocate(ineligible_site_age, .after = 4) |>
+        dplyr::mutate(
+          Rolling_Period = period$rolling_period[[1]]
+        )
+    }) |>
+      dplyr::select(
+        Country, Rolling_Period, dplyr::everything(), -Region
+      ) |>
+      dplyr::arrange(.data$Country, .data$Rolling_Period)
+
+  expected_guid_years <- length(
+    lubridate::year(start_date):lubridate::year(end_date)
+  )
+
+  guid_year_counts <- dist_pop |>
+    dplyr::filter(
+      .data$ctry %in% countries_check,
+      dplyr::between(
+        .data$year,
+        lubridate::year(start_date),
+        lubridate::year(end_date)
+      )
+    ) |>
+    dplyr::distinct(.data$ctry, .data$adm2guid, .data$year) |>
+    dplyr::count(.data$ctry, .data$adm2guid, name = "years_present") |>
+    dplyr::mutate(
+      guid_status = dplyr::if_else(
+        .data$years_present < expected_guid_years,
+        "Inconsistent",
+        "Consistent"
+      )
+    )
+
+  guid_consistency_check <- guid_year_counts |>
+    dplyr::group_by(.data$ctry) |>
+    dplyr::summarise(
+      expected_years = expected_guid_years,
+      total_district_guids = dplyr::n_distinct(.data$adm2guid),
+      inconsistent_district_guids = dplyr::n_distinct(
+        .data$adm2guid[.data$guid_status == "Inconsistent"]
+      ),
+      consistent_district_guids = dplyr::n_distinct(
+        .data$adm2guid[.data$guid_status == "Consistent"]
+      ),
+      .groups = "drop"
+    ) |>
+    dplyr::right_join(
+      tibble::tibble(ctry = as.character(countries_check)),
+      by = "ctry"
+    ) |>
+    dplyr::mutate(
+      expected_years = tidyr::replace_na(.data$expected_years, expected_guid_years),
+      total_district_guids = tidyr::replace_na(.data$total_district_guids, 0),
+      inconsistent_district_guids = tidyr::replace_na(
+        .data$inconsistent_district_guids, 0
+      ),
+      consistent_district_guids = tidyr::replace_na(
+        .data$consistent_district_guids, 0
+      )
+    ) |>
+    dplyr::arrange(.data$ctry)
+
+  inconsistent_guid_detail <- guid_year_counts |>
+    dplyr::filter(.data$guid_status == "Inconsistent") |>
+    dplyr::arrange(.data$ctry, .data$adm2guid)
+
+  rolling_core <- generate_core_checks_by_period(
+    raw_data = raw_data,
+    start_date = start_date,
+    end_date = end_date,
+    missing_agemonths = missing_agemonths
+  )
+  npafp_age_check <- rolling_core$NPAFP_Age_Check
+  dist_pop_check_updated <- rolling_core$District_Population_Check
+  guid_consistency_check <- rolling_core$GUID_Consistency_Check
+  inconsistent_guid_detail <- rolling_core$C1_Checks
+
+  checks <- list(
+    District_Population_Check = dist_pop_check_updated,
+    NPAFP_Age_Check = npafp_age_check,
+    GUID_Consistency_Check = guid_consistency_check
+  )
+  checks$ES_Sites_Check <- es_sites_check
+  if (include_details_inconsisten_GUIDs) {
+    checks$C1_Checks <- inconsistent_guid_detail
+  }
+
+  rolling_order <- raw_data$afp |>
+    add_rolling_years(start_date, end_date, "dateonset") |>
+    dplyr::distinct(.data$analysis_year_start, .data$rolling_period) |>
+    dplyr::arrange(.data$analysis_year_start) |>
+    dplyr::pull(.data$rolling_period)
+
+  # Standardize all check sheets with Region as the first column.
+  checks <- purrr::map(checks, function(check_data) {
+    country_cols <- intersect(c("Country", "ctry"), names(check_data))
+    if (!"Region" %in% names(check_data) && length(country_cols) > 0) {
+      check_data$Region <- get_region(check_data[[country_cols[[1]]]])
+    }
+    check_data <- dplyr::relocate(check_data, Region, .before = 1)
+    if (all(c("Country", "Rolling_Period") %in% names(check_data))) {
+      check_data <- check_data |>
+        dplyr::mutate(.period_order = match(
+          .data$Rolling_Period,
+          rolling_order
+        )) |>
+        dplyr::arrange(.data$Country, .data$.period_order) |>
+        dplyr::select(-dplyr::all_of(".period_order"))
+    }
+    check_data
+  })
+
+  # Draft documentation sheet for the exported checks workbook.
+  checks$read_me <- tibble::tribble(
+    ~Sheet, ~Variable, ~description, ~`KPI Impacted`,
+    "All", "Region", "WHO region associated with the country.", "",
+    "All", "Country", "Country included in the check.", "",
+    "All", "Rolling_Period", "Rolling analysis period represented by the row.", "",
+    "District_Population_Check", "total_districts", "Total number of district GUIDs in the population data for the period.", "",
+    "District_Population_Check", "missing pop data", "Flags countries where all listed districts are missing population data.", "NPAFP Rate (requires district to have U15 pop ≥ 100K)",
+    "District_Population_Check", "districts_missing_population", "Number of districts with missing under-15 population data.", "NPAFP Rate (requires district to have U15 pop ≥ 100K)",
+    "District_Population_Check", "districts_population_eligible", "Number of districts with at least 100,000 children under age 15.", "NPAFP Rate (requires district to have U15 pop ≥ 100K)",
+    "District_Population_Check", "ineligible population district", "Flags when fewer than five districts have a U15 population ≥100K; otherwise No.", "NPAFP Rate (requires district to have U15 pop ≥ 100K)",
+    "District_Population_Check", paste0("NPAFP ", "\u22655"), "Number of districts reporting at least five AFP surveillance records.", "Stool Adequacy (requires at least 5 samples per district to calculate)",
+    "District_Population_Check", "Insuficient reporting", "Flags when no district meets the NPAFP ≥5 AFP-record criterion; otherwise No.", "Stool Adequacy (requires at least 5 samples per district to calculate)",
+    "NPAFP_Age_Check", "total_npafp_cases", "Total NPAFP, pending, and lab-pending cases included in the age check.", "NPAFP Rate (requires samples from those ≤15)",
+    "NPAFP_Age_Check", "missing_age_cases", "Number of included NPAFP cases with missing age in months.", "NPAFP Rate (requires samples from those ≤15)",
+    "NPAFP_Age_Check", "missing_age_percent", "Percentage of included NPAFP cases with missing age in months.", "NPAFP Rate (requires samples from those ≤15)",
+    "ES_Sites_Check", "Total ES Sites", "Number of environmental surveillance sites with at least one sample in the 12-month period.", "ES Sites Check",
+    "ES_Sites_Check", "#sites_age_<12mo", "Number of ES sites operating for less than 12 months.", "ES Sites Check",
+    "ES_Sites_Check", "ineligible_site_age", "Flags ineligible_site_age when all ES sites are operating for less than 12 months.", "ES Sites Check",
+    "ES_Sites_Check", paste0("#sites_age_", "\u2265", "12mo"), "Number of ES sites operating for at least 12 months.", "ES Sites Check",
+    "ES_Sites_Check", paste0("#sites_w_", "\u2265", "10_samples_yr"), "Number of ES sites with at least 10 samples in the 12-month period.", "ES Sites Check",
+    "ES_Sites_Check", "#sites_w_<10_samples_yr", "Number of ES sites with fewer than 10 samples in the 12-month period.", "ES Sites Check",
+    "ES_Sites_Check", "ineligible_site_sample_#", "Flags ineligible_site_sample_# when all ES sites have fewer than 10 samples in the 12-month period.", "ES Sites Check",
+    "GUID_Consistency_Check", "total_district_guids", "Total number of district GUIDs present in the population data.", "NPAFP and/or Stool Adequacy (requires assigning score to a district over time)",
+    "GUID_Consistency_Check", "inconsistent_district_guids", "Number of district GUIDs not present for every expected year in the analysis period.", "NPAFP and/or Stool Adequacy (requires assigning score to a district over time)",
+    "GUID_Consistency_Check", "consistent_district_guids", "Number of district GUIDs present for every expected year in the analysis period.", "NPAFP and/or Stool Adequacy (requires assigning score to a district over time)",
+    "GUID_Consistency_Check", "inconsistent_guid", "Flags GUID_Inconsistent when inconsistent district GUIDs equal total district GUIDs; otherwise No.", "NPAFP and/or Stool Adequacy (requires assigning score to a district over time)",
+    "C1_Checks", "adm2guid", "District administrative identifier in the optional inconsistent-GUID detail sheet.", "",
+    "C1_Checks", "year", "Population-data year associated with the district GUID detail.", "",
+    "C1_Checks", "years_present", "Number of analysis years in which the district GUID appears.", "",
+    "C1_Checks", "guid_status", "District GUID status based on whether it appears in every expected year.", ""
+  )
+
+  if (!is.null(output_path)) {
+    if (!requireNamespace("openxlsx", quietly = TRUE)) {
+      cli::cli_abort("Package 'openxlsx' is required to write the checks workbook.")
+    }
+    wb <- openxlsx::createWorkbook()
+    header_style <- openxlsx::createStyle(textDecoration = "bold")
+    for (sheet_name in names(checks)) {
+      openxlsx::addWorksheet(wb, sheet_name)
+      if (identical(sheet_name, "read_me")) {
+        openxlsx::writeData(
+          wb,
+          sheet = sheet_name,
+          x = data.frame(
+            Sheet = "Note: Labeled flags of data checks aim to assist in interpretation, but should be used with caution and discretion when determining whether a country has insufficient or ineligible data.",
+            Variable = "",
+            description = "",
+            `KPI Impacted` = "",
+            check.names = FALSE
+          ),
+          startRow = 1,
+          colNames = FALSE
+        )
+        openxlsx::mergeCells(wb, sheet = sheet_name, cols = 1:4, rows = 1)
+        openxlsx::writeData(
+          wb,
+          sheet = sheet_name,
+          x = checks[[sheet_name]],
+          startRow = 3,
+          withFilter = TRUE
+        )
+      } else {
+        openxlsx::writeData(
+          wb,
+          sheet = sheet_name,
+          x = checks[[sheet_name]],
+          withFilter = TRUE
+        )
+      }
+      if (!identical(sheet_name, "read_me")) {
+        sheet_widths <- rep(18, ncol(checks[[sheet_name]]))
+        names(sheet_widths) <- names(checks[[sheet_name]])
+        sheet_widths[names(sheet_widths) == "Region"] <- 18
+        sheet_widths[names(sheet_widths) == "Country"] <- 28
+        sheet_widths[names(sheet_widths) == "Rolling_Period"] <- 25
+        sheet_widths[grepl("missing|ineligible|inconsistent|status", names(sheet_widths), ignore.case = TRUE)] <- 30
+        sheet_widths[grepl("sites|samples|population|district", names(sheet_widths), ignore.case = TRUE)] <- 26
+        openxlsx::setColWidths(
+          wb,
+          sheet = sheet_name,
+          cols = seq_along(sheet_widths),
+          widths = unname(sheet_widths)
+        )
+      }
+      header_row <- if (identical(sheet_name, "read_me")) 3 else 1
+      openxlsx::addStyle(
+        wb,
+        sheet = sheet_name,
+        style = header_style,
+        rows = header_row,
+        cols = seq_len(ncol(checks[[sheet_name]])),
+        gridExpand = TRUE,
+        stack = TRUE
+      )
+      if (identical(sheet_name, "read_me")) {
+        openxlsx::setColWidths(
+          wb,
+          sheet = sheet_name,
+          cols = 1:4,
+          widths = c(30, 34, 100, 62)
+        )
+        openxlsx::setRowHeights(
+          wb,
+          sheet = sheet_name,
+          rows = 1,
+          heights = 42
+        )
+      }
+      openxlsx::freezePane(
+        wb,
+        sheet = sheet_name,
+        firstActiveRow = if (identical(sheet_name, "read_me")) 4 else 2
+      )
+    }
+    openxlsx::saveWorkbook(wb, output_path, overwrite = TRUE)
+  }
+
+  checks
+}
+
+# Backward-compatible name for existing country-prioritization scripts.
+
+generate_core_checks_by_period <- function(raw_data, start_date, end_date,
+                                           missing_agemonths = TRUE) {
+  periods <- raw_data$afp |>
+    add_rolling_years(start_date, end_date, "dateonset") |>
+    dplyr::distinct(
+      .data$year_label, .data$rolling_period,
+      .data$analysis_year_start, .data$analysis_year_end
+    ) |>
+    dplyr::filter(.data$analysis_year_end <= end_date) |>
+    dplyr::arrange(.data$analysis_year_start)
+
+  countries <- raw_data$afp |>
+    dplyr::transmute(ctry = normalize_GSAP_country_names(.data$place.admin.0)) |>
+    dplyr::mutate(ctry = dplyr::if_else(
+      stringr::str_detect(.data$ctry, "TANZANIA"),
+      "UNITED REPUBLIC OF TANZANIA", .data$ctry
+    )) |>
+    dplyr::filter(!is.na(.data$ctry), .data$ctry != "") |>
+    dplyr::distinct(.data$ctry)
+
+  get_col <- function(data, choices) {
+    found <- intersect(choices, names(data))
+    if (!length(found)) cli::cli_abort(paste0(
+      "None of these columns were found: ", paste(choices, collapse = ", ")))
+    found[[1]]
+  }
+
+  pop <- raw_data$dist.pop |>
+    dplyr::transmute(
+      ctry = .data[[get_col(raw_data$dist.pop, c("ctry", "ADM0_NAME"))]],
+      adm2guid = .data[[get_col(raw_data$dist.pop, c("adm2guid", "ADM2_GUID"))]],
+      year = suppressWarnings(as.integer(
+        .data[[get_col(raw_data$dist.pop, "year")]]
+      )),
+      u15pop = suppressWarnings(as.numeric(.data[[get_col(
+        raw_data$dist.pop, c("u15pop", "u15pop.prov")
+      )]]))
+    ) |>
+    dplyr::mutate(
+      ctry = normalize_GSAP_country_names(.data$ctry),
+      ctry = dplyr::if_else(
+        stringr::str_detect(.data$ctry, "TANZANIA"),
+        "UNITED REPUBLIC OF TANZANIA", .data$ctry
+      )
+    )
+
+  period_info <- function(period) {
+    list(
+      start = period$analysis_year_start[[1]],
+      end = period$analysis_year_end[[1]],
+      rolling = period$rolling_period[[1]]
+    )
+  }
+
+  age_check <- purrr::map_dfr(seq_len(nrow(periods)), function(i) {
+    p <- period_info(periods[i, ])
+    raw_data$afp |>
+      dplyr::transmute(
+        ctry = normalize_GSAP_country_names(.data$place.admin.0),
+        date = lubridate::as_date(.data$dateonset),
+        age.months = .data$age.months,
+        is_npafp_case = .data$cdc.classification.all2 %in%
+          c("NPAFP", "PENDING", "LAB PENDING")
+      ) |>
+      dplyr::filter(
+        .data$ctry %in% countries$ctry,
+        dplyr::between(.data$date, p$start, p$end),
+        .data$is_npafp_case
+      ) |>
+      dplyr::group_by(.data$ctry) |>
+      dplyr::summarise(
+        total_npafp_cases = dplyr::n(),
+        missing_age_cases = sum(is.na(.data$age.months)),
+        missing_age_percent = round(
+          .data$missing_age_cases / .data$total_npafp_cases * 100, 1
+        ),
+        .groups = "drop"
+      ) |>
+      dplyr::right_join(countries, by = "ctry") |>
+      dplyr::mutate(
+        total_npafp_cases = tidyr::replace_na(.data$total_npafp_cases, 0),
+        missing_age_cases = tidyr::replace_na(.data$missing_age_cases, 0),
+        missing_age_percent = tidyr::replace_na(
+          .data$missing_age_percent, 0
+        ),
+        Rolling_Period = p$rolling
+      ) |>
+      dplyr::select(Country = ctry, Rolling_Period, dplyr::everything())
+  })
+
+  district_check <- purrr::map_dfr(seq_len(nrow(periods)), function(i) {
+    p <- period_info(periods[i, ])
+    pop_check <- pop |>
+      dplyr::filter(
+        .data$ctry %in% countries$ctry,
+        dplyr::between(.data$year, lubridate::year(p$start),
+                       lubridate::year(p$end))
+      ) |>
+      dplyr::group_by(.data$ctry) |>
+      dplyr::summarise(
+        total_districts = dplyr::n_distinct(.data$adm2guid),
+        districts_missing_population = dplyr::n_distinct(
+          .data$adm2guid[is.na(.data$u15pop)]
+        ),
+        .groups = "drop"
+      ) |>
+      dplyr::right_join(countries, by = "ctry") |>
+      dplyr::mutate(
+        total_districts = tidyr::replace_na(.data$total_districts, 0),
+        districts_missing_population = tidyr::replace_na(
+          .data$districts_missing_population, 0
+        ),
+        Region = get_region(.data$ctry)
+      )
+
+    district_afp <- f.npafp.rate.01(
+      raw_data$afp, raw_data$dist.pop, p$start, p$end, "dist",
+      pending = FALSE, missing_agemonths = missing_agemonths,
+      rolling = TRUE, sp_continuity_validation = FALSE
+    ) |>
+      dplyr::mutate(
+        ctry = normalize_GSAP_country_names(.data$ctry),
+        Region = get_region(.data$ctry),
+      ) |>
+      dplyr::group_by(.data$ctry) |>
+      dplyr::summarise(
+        population_eligible = dplyr::n_distinct(
+          .data$adm2guid[.data$par >= 100000]
+        ),
+        npafp_5 = dplyr::n_distinct(
+          .data$adm2guid[.data$afp.case > 4]
+        ),
+        .groups = "drop"
+      )
+
+    result <- pop_check |>
+      dplyr::left_join(district_afp, by = "ctry") |>
+      dplyr::mutate(
+        population_eligible = tidyr::replace_na(
+          .data$population_eligible, 0
+        ),
+        npafp_5 = tidyr::replace_na(.data$npafp_5, 0),
+        Rolling_Period = p$rolling
+      ) |>
+    dplyr::rename(Country = ctry) |>
+      dplyr::rename(
+        districts_population_eligible = population_eligible
+      ) |>
+      dplyr::mutate(
+        `missing pop data` = dplyr::if_else(
+          .data$total_districts > 0 &
+            .data$total_districts == .data$districts_missing_population,
+          "Missing Pop",
+          "No"
+        ),
+        `NPAFP ≥5` = .data$npafp_5,
+        `ineligible population district` = dplyr::if_else(
+          .data$districts_population_eligible < 5,
+          "Ineligible Pop",
+          "No"
+        ),
+        `Insuficient reporting` = dplyr::if_else(
+          .data$`NPAFP ≥5` == 0,
+          "Insuficient Reporting",
+          "No"
+        )
+      ) |>
+      dplyr::relocate(
+        `missing pop data`,
+        .after = districts_missing_population
+      ) |>
+      dplyr::select(
+        Region, Country, Rolling_Period,
+        dplyr::everything(),
+        -dplyr::all_of("npafp_5"),
+        -dplyr::all_of(c(
+          "districts_population_eligible",
+          "ineligible population district",
+          "NPAFP ≥5",
+          "Insuficient reporting"
+        )),
+        dplyr::all_of(c(
+          "districts_population_eligible",
+          "ineligible population district",
+          "NPAFP ≥5",
+          "Insuficient reporting"
+        ))
+      )
+
+    result
+  }) |>
+    dplyr::arrange(.data$Region, .data$Country, .data$Rolling_Period)
+
+  guid_check <- purrr::map_dfr(seq_len(nrow(periods)), function(i) {
+    p <- period_info(periods[i, ])
+    expected <- length(lubridate::year(p$start):lubridate::year(p$end))
+    pop |>
+      dplyr::filter(
+        .data$ctry %in% countries$ctry,
+        dplyr::between(.data$year, lubridate::year(p$start),
+                       lubridate::year(p$end))
+      ) |>
+      dplyr::distinct(.data$ctry, .data$adm2guid, .data$year) |>
+      dplyr::count(.data$ctry, .data$adm2guid, name = "years_present") |>
+      dplyr::mutate(
+        guid_status = dplyr::if_else(
+          .data$years_present < expected,
+          "Inconsistent", "Consistent"
+        )
+      ) |>
+      dplyr::group_by(.data$ctry) |>
+      dplyr::summarise(
+        total_district_guids = dplyr::n_distinct(.data$adm2guid),
+        inconsistent_district_guids = dplyr::n_distinct(
+          .data$adm2guid[.data$guid_status == "Inconsistent"]
+        ),
+        consistent_district_guids = dplyr::n_distinct(
+          .data$adm2guid[.data$guid_status == "Consistent"]
+        ),
+        .groups = "drop"
+      ) |>
+      dplyr::right_join(countries, by = "ctry") |>
+      dplyr::mutate(
+        total_district_guids = tidyr::replace_na(
+          .data$total_district_guids, 0
+        ),
+        inconsistent_district_guids = tidyr::replace_na(
+          .data$inconsistent_district_guids, 0
+        ),
+        consistent_district_guids = tidyr::replace_na(
+          .data$consistent_district_guids, 0
+        ),
+        inconsistent_guid = dplyr::if_else(
+          .data$inconsistent_district_guids == .data$total_district_guids,
+          "GUID_Inconsistent",
+          "No"
+        ),
+        Rolling_Period = p$rolling
+      )
+  }) |>
+    dplyr::rename(Country = ctry) |>
+    dplyr::select(Country, Rolling_Period, dplyr::everything()) |>
+    dplyr::arrange(.data$Country, .data$Rolling_Period)
+
+  guid_detail <- purrr::map_dfr(seq_len(nrow(periods)), function(i) {
+    p <- period_info(periods[i, ])
+    expected <- length(lubridate::year(p$start):lubridate::year(p$end))
+    pop |>
+      dplyr::filter(
+        .data$ctry %in% countries$ctry,
+        dplyr::between(.data$year, lubridate::year(p$start),
+                       lubridate::year(p$end))
+      ) |>
+      dplyr::distinct(.data$ctry, .data$adm2guid, .data$year) |>
+      dplyr::count(.data$ctry, .data$adm2guid, name = "years_present") |>
+      dplyr::mutate(
+        guid_status = dplyr::if_else(
+          .data$years_present < expected,
+          "Inconsistent", "Consistent"
+        )
+      ) |>
+      dplyr::filter(.data$guid_status == "Inconsistent") |>
+      dplyr::mutate(Rolling_Period = p$rolling)
+  })
+
+  guid_detail <- guid_detail |>
+    dplyr::rename(Country = ctry) |>
+    dplyr::select(Country, Rolling_Period, dplyr::everything()) |>
+    dplyr::arrange(.data$Country, .data$Rolling_Period, .data$adm2guid)
+
+  list(
+    District_Population_Check = district_check,
+    NPAFP_Age_Check = age_check,
+    GUID_Consistency_Check = guid_check,
+    C1_Checks = guid_detail
+  )
+}
+
+generate_GSAP_ctry_prioritization_checks <- function(
+    raw_data, start_date, end_date, output_path = NULL,
+    missing_agemonths = TRUE, include_c1_checks = FALSE) {
+  generate_checks(
+    raw_data = raw_data,
+    start_date = start_date,
+    end_date = end_date,
+    output_path = output_path,
+    missing_agemonths = missing_agemonths,
+    include_details_inconsisten_GUIDs = include_c1_checks
+  )
 }

@@ -33,9 +33,14 @@ clean_lab_data_regional(
 \code{tibble} Cleaned lab data.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
+}
+\details{
 Regional data have different columns compared to the WHO lab data. The cleaning
 of the regional data is adapted from the lab data cleaning code from the GPSAP
 indicator script.
+
+Cleans regional lab data. This was previously used in \code{\link[=clean_lab_data]{clean_lab_data()}}, but can be used on its own.
 }
 \examples{
 \dontrun{
@@ -53,4 +58,3 @@ ctry.data$lab_data <- read_csv(lab_path)
 ctry.data$lab_data <- clean_lab_data_regional(ctry.data, "2021-01-01", "2023-12-31")
 }
 }
-\keyword{internal}

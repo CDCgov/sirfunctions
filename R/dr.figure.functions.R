@@ -44,8 +44,9 @@ generate_ctry_timeliness_graph <- function(int.data,
     )
   }
 
+  # Exclude negative intervals and retain only valid (non-missing) medians.
   int.data <- int.data |>
-    dplyr::filter(medi >= 0 | !is.na(medi))
+    dplyr::filter(!is.na(medi), medi >= 0)
 
   if (nrow(int.data) == 0) {
     return(output_empty_image(output_path, "timely_nation.png"))
@@ -108,8 +109,11 @@ generate_ctry_timeliness_graph <- function(int.data,
 #' @param output_path `str` Path where to output the figure.
 #' @param afp.prov.year.lab `tibble` `r lifecycle::badge("deprecated")`
 #' Deprecated since it is not used anymore.
+#' @param max_prov_per_plot `numeric` Maximum number of provinces to show in each
+#'   output figure. Defaults to 12, which is suitable for a PowerPoint slide.
 #'
-#' @returns `ggplot` Plot of timeliness intervals at the country level.
+#' @returns A `ggplot` when one figure is produced, or a list of `ggplot`s when
+#'   the provinces are split across multiple figures.
 #' @examples
 #' \dontrun{
 #' # Attaching lab data
@@ -125,7 +129,8 @@ generate_ctry_timeliness_graph <- function(int.data,
 #' @export
 generate_prov_timeliness_graph <- function(int.data,
                                            output_path = Sys.getenv("DR_FIGURE_PATH"),
-                                           afp.prov.year.lab = lifecycle::deprecated()) {
+                                           afp.prov.year.lab = lifecycle::deprecated(),
+                                           max_prov_per_plot = 12) {
   if (!requireNamespace("forcats", quietly = TRUE)) {
     stop(
       'Package "forcats" must be installed to use this function.',
@@ -141,63 +146,117 @@ generate_prov_timeliness_graph <- function(int.data,
     )
   }
 
+  # Exclude negative intervals and retain only valid (non-missing) medians.
   int.data <- int.data |>
-    dplyr::filter(medi >= 0 | !is.na(medi))
+    dplyr::filter(!is.na(medi), medi >= 0)
+
+  if (!is.numeric(max_prov_per_plot) || length(max_prov_per_plot) != 1 ||
+      is.na(max_prov_per_plot) || max_prov_per_plot < 1) {
+    stop("max_prov_per_plot must be a positive number.", call. = FALSE)
+  }
+  max_prov_per_plot <- as.integer(max_prov_per_plot)
+
+  # Remove numbered outputs from an earlier run so stale slides are not picked
+  # up by generate_dr_ppt2().
+  old_prov_figures <- list.files(
+    output_path,
+    pattern = "^timely_prov_[0-9]+\\.png$",
+    full.names = TRUE
+  )
+  if (length(old_prov_figures) > 0) {
+    unlink(old_prov_figures)
+  }
 
   if (nrow(int.data) == 0) {
     return(output_empty_image(output_path, "timely_prov.png"))
   }
 
-  timely_prov <- ggplot2::ggplot(int.data |>
-    dplyr::filter(is.na(medi) == F &
-      is.na(prov) == F)) +
-    ggplot2::geom_bar(
-      ggplot2::aes(
-        x = as.character(labs),
-        y = medi,
-        fill = forcats::fct_rev(type)
-      ),
-      position = "stack",
-      stat = "identity"
-    ) +
-    ggplot2::geom_text(
-      ggplot2::aes(
-        x = labs,
-        y = medi,
-        label = medi,
-        group = forcats::fct_rev(type)
-      ),
-      size = 3,
-      position = ggplot2::position_stack(vjust = 0.5)
-    ) +
-    ggplot2::coord_flip() +
-    ggplot2::ylab("Median Days") +
-    ggplot2::xlab("Year of Paralysis Onset") +
-    ggplot2::scale_x_discrete() +
-    ggplot2::ylab("Days") +
-    ggplot2::xlab("Year") +
-    ggplot2::scale_fill_manual(
-      name = "Interval",
-      values = f.color.schemes("timeliness.col.vars"),
-      guide = ggplot2::guide_legend(reverse = TRUE),
-      drop = T
-    ) +
-    ggplot2::facet_grid(prov ~ ., scales = "free_y", space = "free", switch = "y", labeller = label_wrap_gen(8)) +
-    ggplot2::theme(
-      legend.position = "right",
-      legend.background = ggplot2::element_blank(),
-      strip.text.y = ggplot2::element_text(size = 7, angle = 0)
-    )
+  plot_data <- int.data |>
+    dplyr::filter(!is.na(medi), !is.na(prov)) |>
+    dplyr::distinct(prov) |>
+    dplyr::pull(prov)
 
-  ggplot2::ggsave(
-    "timely_prov.png",
-    plot = timely_prov,
-    path = output_path,
-    width = 14,
-    height = 10
+  if (length(plot_data) == 0) {
+    return(output_empty_image(output_path, "timely_prov.png"))
+  }
+
+  prov_groups <- split(
+    plot_data,
+    ceiling(seq_along(plot_data) / max_prov_per_plot)
   )
 
-  return(timely_prov)
+  plots <- lapply(seq_along(prov_groups), function(group_number) {
+    group_data <- int.data |>
+      dplyr::filter(!is.na(medi), !is.na(prov), prov %in% prov_groups[[group_number]])
+    plot_height <- max(10, length(prov_groups[[group_number]]) * 0.45)
+
+    timely_prov <- ggplot2::ggplot(group_data) +
+      ggplot2::geom_bar(
+        ggplot2::aes(
+          x = as.character(labs),
+          y = medi,
+          fill = forcats::fct_rev(type)
+        ),
+        position = "stack",
+        stat = "identity"
+      ) +
+      ggplot2::geom_text(
+        ggplot2::aes(
+          x = labs,
+          y = medi,
+          label = medi,
+          group = forcats::fct_rev(type)
+        ),
+        size = 3,
+        position = ggplot2::position_stack(vjust = 0.5)
+      ) +
+      ggplot2::coord_flip() +
+      ggplot2::ylab("Median Days") +
+      ggplot2::xlab("Year of Paralysis Onset") +
+      ggplot2::scale_x_discrete() +
+      ggplot2::ylab("Days") +
+      ggplot2::xlab("Year") +
+      ggplot2::scale_fill_manual(
+        name = "Interval",
+        values = f.color.schemes("timeliness.col.vars"),
+        guide = ggplot2::guide_legend(reverse = TRUE),
+        drop = TRUE
+      ) +
+      ggplot2::facet_grid(
+        prov ~ .,
+        scales = "free_y",
+        space = "free",
+        switch = "y",
+        labeller = ggplot2::label_wrap_gen(20)
+      ) +
+      ggplot2::theme(
+        legend.position = "right",
+        legend.background = ggplot2::element_blank(),
+        strip.text.y.left = ggplot2::element_text(
+          size = 8,
+          angle = 0,
+          lineheight = 0.9
+        )
+      )
+
+    filename <- if (length(prov_groups) == 1) {
+      "timely_prov.png"
+    } else {
+      paste0("timely_prov_", group_number, ".png")
+    }
+
+    ggplot2::ggsave(
+      filename,
+      plot = timely_prov,
+      path = output_path,
+      width = 14,
+      height = plot_height
+    )
+
+    timely_prov
+  })
+
+  if (length(plots) == 1) plots[[1]] else plots
 }
 
 
@@ -713,6 +772,9 @@ generate_es_site_det <- function(sia.data,
 #' @param es.data `tibble` ES data.
 #' @param es_start_date `str` Start date of analysis. By default, this is one year from the end date.
 #' @param es_end_date `str` End date of analysis.
+#' @param in_country_lab `logical` Whether samples are transported within the
+#' country. Defaults to `TRUE`, using a 3-day threshold. Set to `FALSE` for
+#' international transport, using a 7-day threshold.
 #' @param output_path `str` Local path for where to save the figure to.
 #' @param add_legend `logical` Whether to add or remove a legend in the figure.
 #' @param .color `str` What column to use as color. Defaults to `site.name`.
@@ -728,11 +790,13 @@ generate_es_site_det <- function(sia.data,
 generate_es_timely <- function(es.data,
                                es_start_date = (lubridate::as_date(es_end_date) - lubridate::years(1)),
                                es_end_date = end_date,
+                               in_country_lab = TRUE,
                                output_path = Sys.getenv("DR_FIGURE_PATH"),
                                add_legend = TRUE,
                                .color = "site.name") {
   es_start_date <- lubridate::as_date(es_start_date)
   es_end_date <- lubridate::as_date(es_end_date)
+  timely_threshold <- if (in_country_lab) 3 else 7
 
   es.data <- es.data |>
     dplyr::filter(dplyr::between(collect.date, es_start_date, es_end_date))
@@ -748,9 +812,14 @@ generate_es_timely <- function(es.data,
       units = "days"
     )
 
+  # Exclude negative transport intervals from all figure calculations.
+  # Missing intervals are retained so they can still be reported as missing.
+  es.data <- es.data |>
+    dplyr::filter(timely >= 0 | is.na(timely))
+
   per.time <- es.data %>%
-    dplyr::count(timely > 3) %>%
-    dplyr::rename(c("timely" = "timely > 3", "n" = "n"))
+    dplyr::count(timely > timely_threshold) %>%
+    dplyr::rename(c("timely" = "timely > timely_threshold", "n" = "n"))
   # The number that are false are the percentage timely
 
   per.timely.title <- paste0(
@@ -758,7 +827,8 @@ generate_es_timely <- function(es.data,
       100 * dplyr::filter(per.time, timely == FALSE)["n"] / sum(per.time$n),
       0
     ),
-    "% of samples arrived in lab within 3 days of collection - \n",
+    "% of samples arrived in lab within ", timely_threshold,
+    " days of collection - \n",
     format(es_start_date, "%B %Y"),
     " - ",
     format(es_end_date, "%B %Y")
@@ -777,9 +847,19 @@ generate_es_timely <- function(es.data,
 
   # Timeliness of ES
   # Excludes those with bad data (e.g. negative timeliness)
+  valid.timeliness <- as.numeric(es.data$timely)
+  valid.timeliness <- valid.timeliness[
+    is.finite(valid.timeliness) & valid.timeliness >= 0
+  ]
+  y.breaks <- if (length(valid.timeliness) > 0) {
+    seq(0, max(pretty(valid.timeliness)), 6)
+  } else {
+    0
+  }
+
   es.timely <- ggplot2::ggplot() +
     ggplot2::geom_hline(
-      yintercept = 3,
+      yintercept = timely_threshold,
       color = "dark gray",
       linetype = "dashed",
       lwd = 1
@@ -793,9 +873,7 @@ generate_es_timely <- function(es.data,
     ) +
     ggplot2::scale_y_continuous(
       labels = scales::number_format(accuracy = 1),
-      breaks = c(seq(0, max(
-        pretty(es.data$timely)
-      ), 6))
+      breaks = y.breaks
     ) +
     ggplot2::labs(x = "Date of collection", y = "Transport time to lab (days)", color = "Site Name") +
     ggplot2::labs(title = per.timely.title, caption = num.miss.capt) +
@@ -819,6 +897,258 @@ generate_es_timely <- function(es.data,
     height = 8
   )
   return(es.timely)
+}
+
+#' Case sex distribution per year
+#'
+#' Generates a stacked percentage bar plot displaying case sex by year. The
+#' denominator includes NPAFP, pending classification, lab-pending, compatible,
+#' and poliovirus cases.
+#'
+#' @param ctry.data `list` A large list containing polio data of country.
+#' This is the output of [extract_country_data()] or [init_dr()].
+#' @param start_date `str` Start date of analysis.
+#' @param end_date `str` End date of analysis.
+#' @param output_path `str` Local path of where to save the figure to.
+#'
+#' @returns `ggplot` A stacked percentage bar plot displaying case sex by year.
+#'
+#' @export
+generate_case_sex_graph <- function(ctry.data,
+                                start_date,
+                                end_date,
+                                output_path = Sys.getenv("DR_FIGURE_PATH")) {
+  start_date <- lubridate::as_date(start_date)
+  end_date <- lubridate::as_date(end_date)
+
+  sex_data <- ctry.data$afp.all.2 |>
+    dplyr::filter(
+      dplyr::between(date, start_date, end_date),
+      dplyr::coalesce(
+        cdc.classification.all2 %in% c("NPAFP", "PENDING", "LAB PENDING") |
+          stringr::str_detect(
+            as.character(cdc.classification.all2),
+            "VDPV|WILD|COMPATIBLE|VAPP"
+          ),
+        FALSE
+      )
+    ) |>
+    dplyr::mutate(
+      year = lubridate::year(date),
+      sex = dplyr::if_else(is.na(sex) | sex == "", "Unknown", as.character(sex))
+    ) |>
+    dplyr::count(year, sex, name = "count") |>
+    dplyr::group_by(year) |>
+    dplyr::mutate(
+      total_count = sum(count),
+      percentage = count / total_count * 100
+    ) |>
+    dplyr::ungroup()
+
+  if (nrow(sex_data) == 0) {
+    return(output_empty_image(output_path, "case.sex.g.png"))
+  }
+
+  sex_data$sex <- factor(
+    sex_data$sex,
+    levels = c("Male", "Female", "Unknown", setdiff(unique(sex_data$sex), c("Male", "Female", "Unknown")))
+  )
+
+  total_data <- sex_data |>
+    dplyr::distinct(year, total_count)
+
+  case_sex <- ggplot2::ggplot(
+    sex_data,
+    ggplot2::aes(x = factor(year), y = percentage, fill = sex)
+  ) +
+    ggplot2::geom_col() +
+    ggplot2::geom_text(
+      data = total_data,
+      ggplot2::aes(
+        x = factor(year),
+        y = 100,
+        label = paste0("n = ", total_count)
+      ),
+      vjust = -0.5,
+      color = "black",
+      size = 3,
+      inherit.aes = FALSE
+    ) +
+    ggplot2::scale_fill_manual(
+      values = c(
+        "Male" = "#003f5a",
+        "Female" = "#de6600",
+        "Unknown" = "lightgrey"
+      ),
+      drop = FALSE
+    ) +
+    ggplot2::scale_y_continuous(
+      limits = c(0, 110),
+      breaks = seq(0, 100, by = 20),
+      labels = function(x) paste0(x, "%"),
+      expand = c(0, 0)
+    ) +
+    ggplot2::labs(
+      title = "AFP Case Sex Distribution by Year",
+      subtitle = "Includes NPAFP, pending, lab-pending, compatible, and poliovirus cases",
+      x = NULL,
+      y = "Percentage",
+      fill = "Sex"
+    ) +
+    ggplot2::theme_classic() +
+    ggplot2::theme(
+      legend.position = "top",
+      legend.direction = "horizontal",
+      legend.box = "horizontal",
+      legend.title = ggplot2::element_text(face = "bold"),
+      legend.text = ggplot2::element_text(size = 10),
+      axis.text.x = ggplot2::element_text(angle = 0, hjust = 0.5)
+    )
+
+  ggplot2::ggsave(
+    "case.sex.g.png",
+    plot = case_sex,
+    path = output_path,
+    width = 14,
+    height = 8
+  )
+
+  case_sex
+}
+
+#' NPAFP case age distribution per year
+#'
+#' Generates a stacked percentage bar plot displaying age groups by year. The
+#' denominator includes NPAFP, pending classification, lab-pending, compatible,
+#' and poliovirus cases.
+#'
+#' @param ctry.data `list` A large list containing polio data of country.
+#' This is the output of [extract_country_data()] or [init_dr()].
+#' @param start_date `str` Start date of analysis.
+#' @param end_date `str` End date of analysis.
+#' @param output_path `str` Local path of where to save the figure to.
+#'
+#' @returns `ggplot` A stacked percentage bar plot displaying case age by year.
+#'
+#' @export
+generate_case_age_graph <- function(ctry.data,
+                                start_date,
+                                end_date,
+                                output_path = Sys.getenv("DR_FIGURE_PATH")) {
+  start_date <- lubridate::as_date(start_date)
+  end_date <- lubridate::as_date(end_date)
+
+  age_data <- ctry.data$afp.all.2 |>
+    dplyr::filter(
+      dplyr::between(date, start_date, end_date),
+      dplyr::coalesce(
+        cdc.classification.all2 %in% c("NPAFP", "PENDING", "LAB PENDING") |
+          stringr::str_detect(
+            as.character(cdc.classification.all2),
+            "VDPV|WILD|COMPATIBLE|VAPP"
+          ),
+        FALSE
+      )
+    ) |>
+    dplyr::mutate(
+      year = lubridate::year(date),
+      age_months = suppressWarnings(as.numeric(age.months)),
+      age_group = dplyr::case_when(
+        is.na(age_months) | age_months < 0 ~ "Missing",
+        age_months < 6 ~ "0-5 months",
+        age_months < 24 ~ "6-23 months",
+        age_months < 60 ~ "24-59 months",
+        age_months < 120 ~ "60-119 months",
+        age_months < 180 ~ "120-179 months",
+        TRUE ~ "180+ months"
+      )
+    ) |>
+    dplyr::count(year, age_group, name = "count") |>
+    dplyr::group_by(year) |>
+    dplyr::mutate(
+      total_count = sum(count),
+      percentage = count / total_count * 100
+    ) |>
+    dplyr::ungroup()
+
+  if (nrow(age_data) == 0) {
+    return(output_empty_image(output_path, "case.age.g.png"))
+  }
+
+  age_levels <- c(
+    "Missing",
+    "0-5 months",
+    "6-23 months",
+    "24-59 months",
+    "60-119 months",
+    "120-179 months",
+    "180+ months"
+  )
+  age_data$age_group <- factor(age_data$age_group, levels = age_levels)
+
+  total_data <- age_data |>
+    dplyr::distinct(year, total_count)
+
+  age_palette <- c(
+    "Missing" = "#bdbdbd",
+    "0-5 months" = "#003f5a",
+    "6-23 months" = "#2f7f9f",
+    "24-59 months" = "#66a61e",
+    "60-119 months" = "#e6ab02",
+    "120-179 months" = "#e66101",
+    "180+ months" = "#b2182b"
+  )
+
+  case_age <- ggplot2::ggplot(
+    age_data,
+    ggplot2::aes(x = factor(year), y = percentage, fill = age_group)
+  ) +
+    ggplot2::geom_col(position = ggplot2::position_stack(reverse = TRUE)) +
+    ggplot2::geom_text(
+      data = total_data,
+      ggplot2::aes(
+        x = factor(year),
+        y = 100,
+        label = paste0("n = ", total_count)
+      ),
+      vjust = -0.5,
+      color = "black",
+      size = 3,
+      inherit.aes = FALSE
+    ) +
+    ggplot2::scale_fill_manual(values = age_palette, drop = FALSE) +
+    ggplot2::scale_y_continuous(
+      limits = c(0, 110),
+      breaks = seq(0, 100, by = 20),
+      labels = function(x) paste0(x, "%"),
+      expand = c(0, 0)
+    ) +
+    ggplot2::labs(
+      title = "AFP Case Age Distribution by Year",
+      subtitle = "Includes NPAFP, pending, lab-pending, compatible, and poliovirus cases",
+      x = NULL,
+      y = "Percentage",
+      fill = "Age group"
+    ) +
+    ggplot2::theme_classic() +
+    ggplot2::theme(
+      legend.position = "top",
+      legend.direction = "horizontal",
+      legend.box = "horizontal",
+      legend.title = ggplot2::element_text(face = "bold"),
+      legend.text = ggplot2::element_text(size = 10),
+      axis.text.x = ggplot2::element_text(angle = 0, hjust = 0.5)
+    )
+
+  ggplot2::ggsave(
+    "case.age.g.png",
+    plot = case_age,
+    path = output_path,
+    width = 14,
+    height = 8
+  )
+
+  case_age
 }
 
 #' Immunization case status per year
@@ -1567,6 +1897,140 @@ generate_iss_barplot <- function(iss.data = NULL,
   )
 
   return(iss.data.vis)
+}
+
+#' Unreported AFP detections by province and year
+#'
+#' Creates a province-by-year tile plot from cleaned ISS/eSURV data. The
+#' `num_unreportedcases_afp` field is retained by [clean_iss_data()] and is
+#' also available in the cleaned data as `unrep_afp`.
+#'
+#' @param iss.data `tibble` ISS/eSURV data cleaned via [clean_iss_data()].
+#' @param start_date `str` Start date of the analysis.
+#' @param end_date `str` End date of the analysis.
+#' @param output_path `str` Local path where the figure is saved.
+#' @param unreported_cases_col `str` Column containing unreported AFP counts.
+#'   Defaults to automatic detection of `unrep_afp` or
+#'   `num_unreportedcases_afp`.
+#'
+#' @returns `ggplot` Province-by-year tile plot.
+#' @export
+generate_iss_unreported_afp_graph <- function(
+    iss.data = NULL,
+    start_date,
+    end_date,
+    output_path = Sys.getenv("DR_FIGURE_PATH"),
+    unreported_cases_col = NULL) {
+  if (is.null(iss.data)) {
+    return(message("No ISS data attached."))
+  }
+
+  start_date <- lubridate::as_date(start_date)
+  end_date <- lubridate::as_date(end_date)
+
+  unreported_col <- find_unreported_afp_column(iss.data, unreported_cases_col)
+
+  if (is.null(unreported_col)) {
+    stop(
+      "No unreported AFP column found. Supply `unreported_cases_col` or use a name containing both `unreported` and `AFP`.",
+      call. = FALSE
+    )
+  }
+
+  date_col <- if ("today_date" %in% names(iss.data)) {
+    "today_date"
+  } else if ("date_of_visit" %in% names(iss.data)) {
+    "date_of_visit"
+  } else {
+    stop("Cleaned ISS data must contain `today_date` or `date_of_visit`.", call. = FALSE)
+  }
+
+  province_col <- if ("prov" %in% names(iss.data)) {
+    "prov"
+  } else if ("states" %in% names(iss.data)) {
+    "states"
+  } else {
+    stop("ISS data must contain `prov` or `states` for the province name.", call. = FALSE)
+  }
+
+  review_years <- seq(lubridate::year(start_date), lubridate::year(end_date))
+
+  plot_data <- iss.data |>
+    dplyr::mutate(
+      .plot_date = lubridate::as_date(.data[[date_col]]),
+      .plot_prov = toupper(as.character(.data[[province_col]])),
+      .unreported_afp = suppressWarnings(as.numeric(.data[[unreported_col]]))
+    ) |>
+    dplyr::filter(
+      dplyr::between(.plot_date, start_date, end_date),
+      !is.na(.plot_prov),
+      .plot_prov != ""
+    ) |>
+    dplyr::mutate(year = lubridate::year(.plot_date)) |>
+    dplyr::group_by(year, prov = .plot_prov) |>
+    dplyr::summarise(
+      unreported_afp = sum(.unreported_afp, na.rm = TRUE),
+      .groups = "drop"
+    )
+
+  if (nrow(plot_data) == 0) {
+    return(output_empty_image(output_path, "iss.unreported.afp.prov.year.png"))
+  }
+
+  provinces <- sort(unique(plot_data$prov))
+  plot_data <- plot_data |>
+    tidyr::complete(
+      year = review_years,
+      prov = provinces,
+      fill = list(unreported_afp = 0)
+    )
+
+  province_order <- plot_data |>
+    dplyr::group_by(prov) |>
+    dplyr::summarise(total = sum(unreported_afp), .groups = "drop") |>
+    dplyr::arrange(total, prov) |>
+    dplyr::pull(prov)
+
+  plot_data <- plot_data |>
+    dplyr::mutate(
+      prov = factor(prov, levels = province_order),
+      year = factor(year, levels = review_years)
+    )
+
+  max_count <- max(plot_data$unreported_afp, na.rm = TRUE)
+  plot_height <- max(6, min(14, 3 + length(province_order) * 0.3))
+
+  unreported_plot <- ggplot2::ggplot(
+    plot_data,
+    ggplot2::aes(x = year, y = prov, fill = unreported_afp)
+  ) +
+    ggplot2::geom_tile(color = "black") +
+    ggplot2::scale_fill_gradientn(
+      colours = c("#F2F2F2", "#FEE0D2", "#FC9272", "#DE2D26", "#99000D"),
+      limits = c(0, max(1, max_count)),
+      name = "Unreported AFP\ndetections"
+    ) +
+    ggplot2::labs(
+      title = "Unreported AFP Detections by Province",
+      x = "Year",
+      y = "Province",
+      caption = "Counts are summed from the cleaned active-surveillance data."
+    ) +
+    ggplot2::theme_bw() +
+    ggplot2::theme(
+      panel.grid = ggplot2::element_blank(),
+      axis.text.y = ggplot2::element_text(size = 8)
+    )
+
+  ggplot2::ggsave(
+    "iss.unreported.afp.prov.year.png",
+    plot = unreported_plot,
+    path = output_path,
+    width = 14,
+    height = plot_height
+  )
+
+  return(unreported_plot)
 }
 
 ## Maps ----
@@ -2980,6 +3444,9 @@ generate_stool_ad_maps_dist <- function(ctry.data,
 #' @param start_date `str` Start date of analysis.
 #' @param end_date `str` End date of analysis.
 #' @param mark_x `logical` Mark where there are less than 5 AFP cases? Defaults to `TRUE`.
+#' @param in_country_lab `logical` Whether stool transport is within the country.
+#' Defaults to `TRUE`, using a 3-day threshold. Set to `FALSE` for international
+#' transport, using a 7-day threshold.
 #' @param pt_size `numeric` Size of the marks.
 #' @param output_path `str` Local path where to save the figure to.
 #'
@@ -3000,6 +3467,7 @@ generate_timeliness_maps <- function(ctry.data,
                                      start_date,
                                      end_date,
                                      mark_x = T,
+                                     in_country_lab = TRUE,
                                      pt_size = 4,
                                      output_path = Sys.getenv("DR_FIGURE_PATH")) {
   if (!requireNamespace("forcats", quietly = TRUE)) {
@@ -3034,6 +3502,8 @@ generate_timeliness_maps <- function(ctry.data,
     cli::cli_abort(error_message)
   }
 
+  ship_threshold <- if (in_country_lab) 3 else 7
+
   ctry.shape <- ctry.shape |>
     dplyr::filter(dplyr::between(
       active.year.01,
@@ -3050,6 +3520,14 @@ generate_timeliness_maps <- function(ctry.data,
     dplyr::mutate(year = active.year.01)
 
   long.timely <- ctry.data$afp.all.2 %>%
+    dplyr::mutate(
+      ship.3d.coll = dplyr::case_when(
+        !is.na(stool.date.sent.to.lab) & !is.na(datestool2) &
+          as.numeric(difftime(stool.date.sent.to.lab, datestool2, units = "days")) <= ship_threshold ~ TRUE,
+        !is.na(stool.date.sent.to.lab) & !is.na(datestool2) ~ FALSE,
+        TRUE ~ NA
+      )
+    ) |>
     dplyr::select(
       "epid",
       "noti.7d.on",
@@ -3351,7 +3829,11 @@ generate_timeliness_maps <- function(ctry.data,
       values = f.color.schemes("mapval"),
       drop = T
     ) +
-    ggplot2::ggtitle("Proportion of stools arriving at the lab within 3 days of collection") +
+    ggplot2::ggtitle(paste0(
+      "Proportion of stools arriving at the lab within ",
+      ship_threshold,
+      " days of collection"
+    )) +
     sirfunctions::f.plot.looks("epicurve")
 
 
@@ -4072,6 +4554,9 @@ generate_surv_ind_tab <- function(ctry.data,
 #' @param pstool `tibble` Stool adequacy at province level. Output of [f.stool.ad.01()] at the province level.
 #' @param start_date `str` Start date of analysis.
 #' @param end_date `str` End date of analysis.
+#' @param outbreak `logical` Whether to use outbreak NPAFP-rate coloring.
+#' When `TRUE`, rates below 2 are dark red, rates from 2 to below 3 are light
+#' red, and rates of 3 or more are white. Defaults to `FALSE`.
 #' @param prov.case.ind  `tibble` `r lifecycle::badge("deprecated")`
 #' Deprecated in favor of the more informative pnpafp param name.
 #'
@@ -4110,7 +4595,8 @@ generate_pop_tab <- function(pnpafp,
                              pstool,
                              start_date,
                              end_date,
-                             prov.case.ind = lifecycle::deprecated()) {
+                             prov.case.ind = lifecycle::deprecated(),
+                             outbreak = FALSE) {
 
   if (!requireNamespace("flextable", quietly = TRUE)) {
     stop('Package "flextable" must be installed to use this function.',
@@ -4196,17 +4682,40 @@ generate_pop_tab <- function(pnpafp,
   )
 
   # NPAFP table
-  col_palette <- c("#FF9999", "white")
-  col.npafp.rate <- sub.prov.join.wide[, c(paste0("npafp_rate_", date.analysis))] %>%
-    dplyr::mutate(dplyr::across(dplyr::everything(), \(x) tidyr::replace_na(x, 0))) %>%
-    dplyr::mutate(dplyr::across(c(dplyr::everything()), \(x) cut(
-      x,
-      breaks = c(0, 2),
-      right = F,
-      label = FALSE
-    )))
+  npafp.rate.data <- sub.prov.join.wide[, c(paste0("npafp_rate_", date.analysis))] %>%
+    dplyr::mutate(dplyr::across(dplyr::everything(), \(x) tidyr::replace_na(x, 0)))
 
-  npafp.rate.colors <- col_palette[as.matrix(col.npafp.rate)]
+  if (outbreak) {
+    col.npafp.rate <- npafp.rate.data |>
+      dplyr::mutate(dplyr::across(
+        dplyr::everything(),
+        \(x) cut(
+          x,
+          breaks = c(-Inf, 2, 3, Inf),
+          right = FALSE,
+          labels = c("<2", "2-<3", "3+")
+        )
+      ))
+
+    npafp.rate.colors <- c(
+      "<2" = "#CC0000",
+      "2-<3" = "#FF9999",
+      "3+" = "white"
+    )[as.matrix(col.npafp.rate)]
+  } else {
+    col.npafp.rate <- npafp.rate.data |>
+      dplyr::mutate(dplyr::across(
+        dplyr::everything(),
+        \(x) cut(
+          x,
+          breaks = c(0, 2),
+          right = FALSE,
+          label = FALSE
+        )
+      ))
+
+    npafp.rate.colors <- c("#FF9999", "white")[as.matrix(col.npafp.rate)]
+  }
 
   # Stool adequacy
   col_palette <- c("#FF9999", "white")
@@ -4627,6 +5136,9 @@ generate_60_day_tab <- function(cases.need60day) {
 #' [clean_ctry_data()] first. Otherwise, there will be an error.
 #' @param es_start_date `str` Start date of analysis. Defaults to a year before the end date.
 #' @param es_end_date `str` End date of analysis.
+#' @param in_country_lab `logical` Whether samples are transported within the
+#' country. Defaults to `TRUE`, using a 3-day threshold. Set to `FALSE` for
+#' international transport, using a 7-day threshold.
 #'
 #' @returns `flextable` Summary table of ES surveillance site performance.
 #' @examples
@@ -4639,7 +5151,8 @@ generate_60_day_tab <- function(cases.need60day) {
 #' @export
 generate_es_tab <- function(es.data,
                             es_start_date = (lubridate::as_date(es_end_date) - lubridate::years(1)),
-                            es_end_date = end_date) {
+                            es_end_date = end_date,
+                            in_country_lab = TRUE) {
 
   if (!requireNamespace("flextable", quietly = TRUE)) {
     stop('Package "flextable" must be installed to use this function.',
@@ -4649,6 +5162,7 @@ generate_es_tab <- function(es.data,
 
   es_start_date <- lubridate::as_date(es_start_date)
   es_end_date <- lubridate::as_date(es_end_date)
+  timely_threshold <- if (in_country_lab) 3 else 7
 
   es.data <- es.data |>
     dplyr::filter(dplyr::between(collect.date, es_start_date, es_end_date))
@@ -4656,7 +5170,8 @@ generate_es_tab <- function(es.data,
   # Big table that needs calculating
   # Cols = province, district, site name, earliest sample collected in POLIS,
   # n samples collected (earliest to analysis date), % EV detected, % good condition
-  # % arrived within 3 days, days from collection to lab arrival (median + range),
+  # % arrived within the timely threshold, days from collection to lab arrival
+  # (median + range),
   # WPV/VDPV
 
   # ev.pct = ev percent
@@ -4708,7 +5223,7 @@ generate_es_tab <- function(es.data,
       # no of bad specimens excluded
       condition.pct = 100 * sum(sample.condition == "Good", na.rm = T) / dplyr::n(),
       # specimens in good condition
-      trans.pct = round(100 * sum(as.numeric(timely) <= 3, na.rm = TRUE) / dplyr::n(), 0),
+      trans.pct = round(100 * sum(as.numeric(timely) <= timely_threshold, na.rm = TRUE) / dplyr::n(), 0),
       # % timely
       med.trans = paste0(
         median(as.numeric(timely), na.rm = T),
@@ -4784,7 +5299,7 @@ generate_es_tab <- function(es.data,
       num.spec.bad = "Excluded samples with bad data (negative or N/A time intervals)",
       ev.pct = "% detected EV",
       condition.pct = "% good condition",
-      trans.pct = "% arriving within 3 days",
+      trans.pct = paste0("% arriving within ", timely_threshold, " days"),
       med.trans = "Median lab transport time (d)",
       num.wpv.or.vdpv = "No. VDPV or WPV"
     ) |>

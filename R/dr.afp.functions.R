@@ -740,6 +740,42 @@ generate_int_data <- function(afp_data, pop_data, start_date, end_date,
     values_to = "value"
   )
 
+  # Log negative AFP timeliness intervals before excluding them from the
+  # summary calculations used by the timeliness figures.
+  negative_intervals <- int.data |>
+    dplyr::filter(!is.na(value), value < 0) |>
+    dplyr::mutate(
+      spatial_scale = spatial_scale,
+      error = "Negative timeliness interval"
+    ) |>
+    dplyr::select(
+      dplyr::any_of(c(
+        "spatial_scale", "epid", "year", "ctry", "prov", "dist",
+        "adm0guid", "adm1guid", "type", "value", "error"
+      ))
+    )
+
+  if (nrow(negative_intervals) > 0) {
+    error_path <- Sys.getenv("DR_ERROR_PATH")
+    error_file <- file.path(error_path, "afp.timeliness.errors.csv")
+
+    if (nzchar(error_path) && dir.exists(error_path)) {
+      if (file.exists(error_file)) {
+        negative_intervals <- dplyr::bind_rows(
+          readr::read_csv(error_file, show_col_types = FALSE),
+          negative_intervals
+        ) |>
+          dplyr::distinct()
+      }
+
+      readr::write_csv(negative_intervals, error_file)
+    }
+  }
+
+  # Exclude negative intervals before calculating medians and frequencies.
+  int.data <- int.data |>
+    dplyr::filter(is.na(value) | value >= 0)
+
   int.data <- switch(spatial_scale,
     "ctry" = {
       int.data <- int.data |>
