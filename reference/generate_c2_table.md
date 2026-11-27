@@ -15,7 +15,8 @@ generate_c2_table(
   spatial_scale,
   risk_category = NULL,
   lab_locs = NULL,
-  risk_table = NULL
+  risk_table = NULL,
+  lab_data = NULL
 )
 ```
 
@@ -51,12 +52,19 @@ generate_c2_table(
   `tibble` Summary of the sequencing capacities of labs. Output of
   [`get_lab_locs()`](https://cdcgov.github.io/sirfunctions/reference/get_lab_locs.md).
   Defaults to `NULL`, which will download the information directly from
-  EDAV. .
+  EDAV.
 
 - risk_table:
 
   `tibble` Priority level of each country. Defaults to `NULL`, which
   will download the information directly from EDAV.
+
+- lab_data:
+
+  `tibble` Optional cleaned laboratory data containing
+  `DateStoolReceivedinLab`. When supplied, this field is preferred for
+  the shipment and optimized timeliness indicators. If it is missing for
+  an EPID, the existing AFP `stooltolabdate` value is retained.
 
 ## Value
 

@@ -19,7 +19,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">sirfunctions</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.1.9</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -102,9 +102,10 @@ folder.</li>
 <code>name</code>: the name of the KPI run. By default, it will be
 the date <code><a href="../reference/init_kpi.html">init_kpi()</a></code> was ran.</li>
 <li>
-<code>edav</code>: whether the analysis should access resources from
-EDAV or not. EDAV is the data science platform within CDC. For non-CDC
-employees, please set this to <code>FALSE</code>.</li>
+<code>edav</code>: whether to load the global polio data from EDAV,
+the data science platform within CDC. Lab data are always downloaded
+from EDAV, regardless of this setting, so the pipeline requires EDAV
+access.</li>
 </ul>
 <div class="section level3">
 <h3 id="initializing-the-pipeline">Initializing the pipeline<a class="anchor" aria-label="anchor" href="#initializing-the-pipeline"></a>
@@ -117,9 +118,11 @@ employees, please set this to <code>FALSE</code>.</li>
 folder, as well as set the paths to export the tables and figures. In
 the KPI run folder, there are three subfolders: data, figures, and
 tables. The KPI template is also created, which contains all the code
-necessary to run the KPI analysis. The function will download the global
-polio dataset and the lab data if available. It will load both the polio
-and lab data to the R environment.</p>
+necessary to run the KPI analysis. The function will load cached global
+polio data or download it if no cache exists. It downloads
+<code>cleaned_lab_data.rda</code> from EDAV on every run, loads
+<code>lab_data</code> into the R environment, and saves a local
+snapshot. Previous lab caches are not used.</p>
 <p><strong>NOTE:</strong> If there’s a message about being unable to
 pull data from EDAV, contact Stephanie Kovacs at <a href="mailto:uvx4@cdc.gov" class="email">uvx4@cdc.gov</a>. This is
 likely a permissions issue.</p>
@@ -129,12 +132,12 @@ likely a permissions issue.</p>
 </h4>
 <p>Run the following:
 <code>init_kpi("path_to_kpi_folder", edav = FALSE)</code></p>
-<p>Upon running, it will set up the folder structure but not download
-the lab and polio data. There will be several warnings about needing to
-create the polio data list locally, as well as saving the lab data
-locally. Please follow the instructions included in these warnings. To
-create the global polio dataset, please see the
-<code>Generating Global Polio Data</code> vignette.</p>
+<p>This sets up the folder structure and uses local global polio data.
+If no cached polio data exist, follow the message to build
+<code>raw_data</code> locally; see the
+<code>Generating Global Polio Data</code> vignette. Lab data still come
+from EDAV on every run, so <code>edav = FALSE</code> does not enable
+running the pipeline without EDAV access.</p>
 <p>Once <code><a href="../reference/init_kpi.html">init_kpi()</a></code> completely runs, open the template file.
 The function will link to the location of this template file and it can
 be linked if running the code in RStudio.</p>
@@ -179,17 +182,16 @@ R to variables <code>lab_locs</code> (lab info) and
 the columns by default, especially when column names contain spaces.</p>
 </div>
 <div class="section level4">
-<h4 id="cleaning-the-lab-data">Cleaning the lab data<a class="anchor" aria-label="anchor" href="#cleaning-the-lab-data"></a>
+<h4 id="preparing-the-lab-data">Preparing the lab data<a class="anchor" aria-label="anchor" href="#preparing-the-lab-data"></a>
 </h4>
-<p>The lab data is sourced from WHO. Please request this data from
-Pham-Minh, Ly Mathilde, Florence at <a href="mailto:phamm@who.int" class="email">phamm@who.int</a> if not already loaded. Then, run the
-<code><a href="../reference/clean_lab_data.html">clean_lab_data()</a></code> function. For non-CDC employees, pass the
-absolute path to the lab information file in the
-<code>lab_locs_path</code> parameter of the cleaning function.</p>
-<p>After cleaning, you can use the
-<code><a href="../reference/get_lab_date_col_missingness.html">get_lab_date_col_missingness()</a></code> function to check the
-proportion of missingness for each date column. It also has a
-<code>group_by</code> parameter that can be used to group results (ex.
+<p><code><a href="../reference/init_kpi.html">init_kpi()</a></code> loads the pre-cleaned lab dataset from
+<code>CLEANED_LAB_DATA</code> on EDAV. The generated template calls
+<code>add_rolling_years(lab_data, start_date, end_date, "CaseDate")</code>
+to select the analysis period and add rolling-year fields. It does not
+call <code><a href="../reference/clean_lab_data.html">clean_lab_data()</a></code>.</p>
+<p>You can use the <code><a href="../reference/get_lab_date_col_missingness.html">get_lab_date_col_missingness()</a></code> function
+to check the proportion of missingness for each date column. It also has
+a <code>group_by</code> parameter that can be used to group results (ex.
 countries, regions, or labs).</p>
 </div>
 </div>
@@ -200,15 +202,12 @@ countries, regions, or labs).</p>
 <div class="section level3">
 <h3 id="start-and-end-dates">Start and end dates<a class="anchor" aria-label="anchor" href="#start-and-end-dates"></a>
 </h3>
-<p>Before creating the table, set the start and end dates. The analyses
-are on rolling 12 months. It is important to set the end date day to be
-one day before the start date. For example, if the start date is
-1/<strong>1</strong>/2023, then end date must be
-<strong>12/31</strong>/2025. For start dates in March, please pay
-attention to whether the end date is on a leap year. For example (for a
-rolling 2 year period), 3/1/2022 will have an end date of 2/29/2024
-since 2024 is a leap year but 3/1/23 will have an end date of
-2/28/2025.</p>
+<p>The KPI template uses an inclusive rolling 2-year window. Edit only
+<code>end_date</code>; the template calculates <code>start_date</code>
+as two years before the end date plus one day. For example, an end date
+of <code>2026-07-31</code> produces a start date of
+<code>2024-08-01</code>. The date arithmetic also handles leap
+years.</p>
 </div>
 <div class="section level3">
 <h3 id="creating-the-c1-c4-tables">Creating the C1-C4 tables<a class="anchor" aria-label="anchor" href="#creating-the-c1-c4-tables"></a>

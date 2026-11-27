@@ -1,8 +1,6 @@
 # Clean lab data from the regional offices.
 
-Regional data have different columns compared to the WHO lab data. The
-cleaning of the regional data is adapted from the lab data cleaning code
-from the GPSAP indicator script.
+**\[deprecated\]**
 
 ## Usage
 
@@ -52,6 +50,16 @@ clean_lab_data_regional(
 ## Value
 
 `tibble` Cleaned lab data.
+
+## Details
+
+Regional data have different columns compared to the WHO lab data. The
+cleaning of the regional data is adapted from the lab data cleaning code
+from the GPSAP indicator script.
+
+Cleans regional lab data. This was previously used in
+[`clean_lab_data()`](https://cdcgov.github.io/sirfunctions/reference/clean_lab_data.md),
+but can be used on its own.
 
 ## Examples
 

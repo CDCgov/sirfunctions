@@ -50,7 +50,8 @@ init_dr(
 
 - lab_data_path:
 
-  `str` Location of the lab data. Defaults to `NULL`.
+  Retained for compatibility and ignored. Lab data are always loaded
+  from `CLEANED_LAB_DATA` on EDAV.
 
 - iss_data_path:
 
@@ -89,6 +90,13 @@ init_dr(
 ## Value
 
 `list` A list containing all dataframe for all polio data.
+
+## Details
+
+Lab data are downloaded from EDAV on every run, independently of
+`use_edav`, which controls the POLIS data source. Local lab files and
+previous lab caches are not used. No lab cleaning is performed during
+the desk review.
 
 ## Examples
 

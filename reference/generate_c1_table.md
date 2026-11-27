@@ -14,7 +14,9 @@ generate_c1_table(
   end_date,
   risk_category = NULL,
   risk_table = NULL,
-  lab_locs = NULL
+  lab_locs = NULL,
+  missing_agemonths = FALSE,
+  stool_na_if_no_gt5_npafp = FALSE
 )
 ```
 
@@ -48,7 +50,17 @@ generate_c1_table(
   `tibble` Summary of the sequencing capacities of labs. Output of
   [`get_lab_locs()`](https://cdcgov.github.io/sirfunctions/reference/get_lab_locs.md).
   Defaults to `NULL`, which will download the information directly from
-  EDAV. .
+  EDAV.
+
+- missing_agemonths:
+
+  `logical` Whether to include AFP cases with missing `age.months` in
+  the NPAFP calculation. Defaults to `FALSE`.
+
+- stool_na_if_no_gt5_npafp:
+
+  `logical` Whether to return `NA` for subnational stool adequacy when
+  no district has more than five AFP cases. Defaults to `FALSE`. .
 
 ## Value
 

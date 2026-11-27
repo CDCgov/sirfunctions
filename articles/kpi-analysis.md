@@ -30,9 +30,9 @@ function. The function takes three arguments:
 - `name`: the name of the KPI run. By default, it will be the date
   [`init_kpi()`](https://cdcgov.github.io/sirfunctions/reference/init_kpi.md)
   was ran.
-- `edav`: whether the analysis should access resources from EDAV or not.
-  EDAV is the data science platform within CDC. For non-CDC employees,
-  please set this to `FALSE`.
+- `edav`: whether to load the global polio data from EDAV, the data
+  science platform within CDC. Lab data are always downloaded from EDAV,
+  regardless of this setting, so the pipeline requires EDAV access.
 
 ### Initializing the pipeline
 
@@ -44,9 +44,11 @@ The function will set up the folder structure within the kpi_analysis
 folder, as well as set the paths to export the tables and figures. In
 the KPI run folder, there are three subfolders: data, figures, and
 tables. The KPI template is also created, which contains all the code
-necessary to run the KPI analysis. The function will download the global
-polio dataset and the lab data if available. It will load both the polio
-and lab data to the R environment.
+necessary to run the KPI analysis. The function will load cached global
+polio data or download it if no cache exists. It downloads
+`cleaned_lab_data.rda` from EDAV on every run, loads `lab_data` into the
+R environment, and saves a local snapshot. Previous lab caches are not
+used.
 
 **NOTE:** If there’s a message about being unable to pull data from
 EDAV, contact Stephanie Kovacs at <uvx4@cdc.gov>. This is likely a
@@ -56,12 +58,11 @@ permissions issue.
 
 Run the following: `init_kpi("path_to_kpi_folder", edav = FALSE)`
 
-Upon running, it will set up the folder structure but not download the
-lab and polio data. There will be several warnings about needing to
-create the polio data list locally, as well as saving the lab data
-locally. Please follow the instructions included in these warnings. To
-create the global polio dataset, please see the
-`Generating Global Polio Data` vignette.
+This sets up the folder structure and uses local global polio data. If
+no cached polio data exist, follow the message to build `raw_data`
+locally; see the `Generating Global Polio Data` vignette. Lab data still
+come from EDAV on every run, so `edav = FALSE` does not enable running
+the pipeline without EDAV access.
 
 Once
 [`init_kpi()`](https://cdcgov.github.io/sirfunctions/reference/init_kpi.md)
@@ -106,17 +107,16 @@ instead of the base
 base function renames some of the columns by default, especially when
 column names contain spaces.
 
-#### Cleaning the lab data
+#### Preparing the lab data
 
-The lab data is sourced from WHO. Please request this data from
-Pham-Minh, Ly Mathilde, Florence at <phamm@who.int> if not already
-loaded. Then, run the
-[`clean_lab_data()`](https://cdcgov.github.io/sirfunctions/reference/clean_lab_data.md)
-function. For non-CDC employees, pass the absolute path to the lab
-information file in the `lab_locs_path` parameter of the cleaning
-function.
+[`init_kpi()`](https://cdcgov.github.io/sirfunctions/reference/init_kpi.md)
+loads the pre-cleaned lab dataset from `CLEANED_LAB_DATA` on EDAV. The
+generated template calls
+`add_rolling_years(lab_data, start_date, end_date, "CaseDate")` to
+select the analysis period and add rolling-year fields. It does not call
+[`clean_lab_data()`](https://cdcgov.github.io/sirfunctions/reference/clean_lab_data.md).
 
-After cleaning, you can use the
+You can use the
 [`get_lab_date_col_missingness()`](https://cdcgov.github.io/sirfunctions/reference/get_lab_date_col_missingness.md)
 function to check the proportion of missingness for each date column. It
 also has a `group_by` parameter that can be used to group results (ex.
@@ -126,14 +126,11 @@ countries, regions, or labs).
 
 ### Start and end dates
 
-Before creating the table, set the start and end dates. The analyses are
-on rolling 12 months. It is important to set the end date day to be one
-day before the start date. For example, if the start date is
-1/**1**/2023, then end date must be **12/31**/2025. For start dates in
-March, please pay attention to whether the end date is on a leap year.
-For example (for a rolling 2 year period), 3/1/2022 will have an end
-date of 2/29/2024 since 2024 is a leap year but 3/1/23 will have an end
-date of 2/28/2025.
+The KPI template uses an inclusive rolling 2-year window. Edit only
+`end_date`; the template calculates `start_date` as two years before the
+end date plus one day. For example, an end date of `2026-07-31` produces
+a start date of `2024-08-01`. The date arithmetic also handles leap
+years.
 
 ### Creating the C1-C4 tables
 

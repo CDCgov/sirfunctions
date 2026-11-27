@@ -7,7 +7,7 @@ Generates lab intervals related to the KPI code.
 ## Usage
 
 ``` r
-generate_kpi_lab_timeliness(lab_data, start_date, end_date, afp_data)
+generate_kpi_lab_timeliness(lab_data, start_date, end_date, afp_data = NULL)
 ```
 
 ## Arguments

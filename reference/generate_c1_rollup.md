@@ -1,4 +1,4 @@
-# Generate C1 rollup for high-priority countries
+# Generate C1 rollup by priority level and WHO region
 
 **\[experimental\]**
 
@@ -10,7 +10,7 @@ their AFP and ES indicators.
 ``` r
 generate_c1_rollup(
   c1,
-  priority_level = "HIGH",
+  priority_level = c("LOW (WATCHLIST)", "MEDIUM", "HIGH"),
   who_region = NULL,
   .group_by = "rolling_period",
   npafp_target = 80,
@@ -29,7 +29,8 @@ generate_c1_rollup(
 
 - priority_level:
 
-  `str or list` Priority level. Defaults to `"HIGH"`. Valid values are
+  `str or list` Priority level. Defaults to
+  `c("LOW (WATCHLIST)", "MEDIUM", "HIGH")`. Valid values are
   `"LOW", "LOW (WATCHLIST)", "MEDIUM", "HIGH"`
 
 - who_region:

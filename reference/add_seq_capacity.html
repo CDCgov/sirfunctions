@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">sirfunctions</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.1.9</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -42,7 +42,13 @@
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">add_seq_capacity</span><span class="op">(</span><span class="va">df</span>, ctry_col <span class="op">=</span> <span class="st">"ctry"</span>, lab_locs <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">add_seq_capacity</span><span class="op">(</span></span>
+<span>  <span class="va">df</span>,</span>
+<span>  ctry_col <span class="op">=</span> <span class="st">"ctry"</span>,</span>
+<span>  lab_locs <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  lab_data_cleaned <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  date_col <span class="op">=</span> <span class="st">"dateonset"</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -53,14 +59,29 @@
 <dd><p><code>tibble</code> Dataset with at least a country column to join to.</p></dd>
 
 
+<dt id="arg-ctry-col">ctry_col<a class="anchor" aria-label="anchor" href="#arg-ctry-col"></a></dt>
+<dd><p><code>str</code> Country column in <code>df</code>. Defaults to <code>"ctry"</code>.</p></dd>
+
+
 <dt id="arg-lab-locs">lab_locs<a class="anchor" aria-label="anchor" href="#arg-lab-locs"></a></dt>
 <dd><p><code>tibble</code> Lab testing information table. Defaults to <code>NULL</code>. If
 <code>NULL</code>, attempts to download the table from EDAV.</p></dd>
 
+
+<dt id="arg-lab-data-cleaned">lab_data_cleaned<a class="anchor" aria-label="anchor" href="#arg-lab-data-cleaned"></a></dt>
+<dd><p><code>tibble</code> Cleaned lab data information table. Defaults
+to <code>NULL</code>. If <code>NULL</code>, uses the lab testing information table.</p></dd>
+
+
+<dt id="arg-date-col">date_col<a class="anchor" aria-label="anchor" href="#arg-date-col"></a></dt>
+<dd><p><code>str</code> Date column in <code>df</code> used to determine sequencing capacity.
+Defaults to <code>"dateonset"</code>. Use <code>"date"</code> for standardized AFP data and
+<code>"collect.date"</code> for environmental surveillance data.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p><code>tibble</code> A dataset with country lab information attached.</p>
+    <p><code>tibble</code> A dataset with country sequencing capacity information attached.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

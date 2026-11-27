@@ -1,4 +1,4 @@
-# Table of information regarding testing labs in each country
+# Imports information on testing labs for each country, either from a CSV file or downloaded from EDAV. If no argument is passed, the function will download the table from EDAV.
 
 Imports information on testing labs for each country, either from a CSV
 file or downloaded from EDAV. If no argument is passed, the function

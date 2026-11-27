@@ -5,6 +5,12 @@
 - [`add_rolling_years()`](https://cdcgov.github.io/sirfunctions/reference/add_rolling_years.md)
   **\[experimental\]** : Label rolling year periods
 
+- [`analyze_GSAP_ctry_prioritization_data()`](https://cdcgov.github.io/sirfunctions/reference/analyze_GSAP_ctry_prioritization_data.md)
+  : Analyze country-prioritization immunity and virus data
+
+- [`calculate_GSAP_ctry_prioritization()`](https://cdcgov.github.io/sirfunctions/reference/calculate_GSAP_ctry_prioritization.md)
+  : Calculate final country-prioritization scores and output table
+
 - [`check_afp_geographies()`](https://cdcgov.github.io/sirfunctions/reference/check_afp_geographies.md)
   **\[experimental\]** : Check whether the AFP geography matches those
   of the population dataset
@@ -27,6 +33,12 @@
 
 - [`clean_lab_data()`](https://cdcgov.github.io/sirfunctions/reference/clean_lab_data.md)
   : Clean lab data
+
+- [`clean_lab_data_regional()`](https://cdcgov.github.io/sirfunctions/reference/clean_lab_data_regional.md)
+  **\[deprecated\]** : Clean lab data from the regional offices.
+
+- [`clean_lab_data_who()`](https://cdcgov.github.io/sirfunctions/reference/clean_lab_data_who.md)
+  **\[deprecated\]** : Clean polio lab data from WHO
 
 - [`clear_local_polio_data_cache()`](https://cdcgov.github.io/sirfunctions/reference/clear_local_polio_data_cache.md)
   : Clear local polio data cache
@@ -73,6 +85,9 @@
 - [`explore_edav()`](https://cdcgov.github.io/sirfunctions/reference/explore_edav.md)
   **\[experimental\]** : Interactive loading of EDAV data
 
+- [`export_GSAP_ctry_prioritization()`](https://cdcgov.github.io/sirfunctions/reference/export_GSAP_ctry_prioritization.md)
+  : Export a country-prioritization workbook
+
 - [`export_kpi_table()`](https://cdcgov.github.io/sirfunctions/reference/export_kpi_table.md)
   **\[experimental\]** : Export KPI tables
 
@@ -118,6 +133,9 @@
 - [`generate_60_day_table_data()`](https://cdcgov.github.io/sirfunctions/reference/generate_60_day_table_data.md)
   : Generate summary table for those requiring 60-day follow-up
 
+- [`generate_GSAP_ctry_prioritization()`](https://cdcgov.github.io/sirfunctions/reference/generate_GSAP_ctry_prioritization.md)
+  : Generate a country prioritization workbook
+
 - [`generate_ad_final_col()`](https://cdcgov.github.io/sirfunctions/reference/generate_ad_final_col.md)
   :
 
@@ -145,7 +163,8 @@
   : Generate one AFP desk-review PowerPoint per prov
 
 - [`generate_c1_rollup()`](https://cdcgov.github.io/sirfunctions/reference/generate_c1_rollup.md)
-  **\[experimental\]** : Generate C1 rollup for high-priority countries
+  **\[experimental\]** : Generate C1 rollup by priority level and WHO
+  region
 
 - [`generate_c1_table()`](https://cdcgov.github.io/sirfunctions/reference/generate_c1_table.md)
   **\[experimental\]** : GPEI Strategy surveillance KPIs
@@ -164,6 +183,9 @@
 
 - [`generate_case_num_dose_g()`](https://cdcgov.github.io/sirfunctions/reference/generate_case_num_dose_g.md)
   : Immunization case status per year
+
+- [`generate_checks()`](https://cdcgov.github.io/sirfunctions/reference/generate_checks.md)
+  : Generate diagnostic checks workbook
 
 - [`generate_ctry_timeliness_graph()`](https://cdcgov.github.io/sirfunctions/reference/generate_ctry_timeliness_graph.md)
   : Timeliness intervals of samples at the country level
@@ -385,7 +407,9 @@
   : Get missingness of date variables in the lab dataset
 
 - [`get_lab_locs()`](https://cdcgov.github.io/sirfunctions/reference/get_lab_locs.md)
-  : Table of information regarding testing labs in each country
+  : Imports information on testing labs for each country, either from a
+  CSV file or downloaded from EDAV. If no argument is passed, the
+  function will download the table from EDAV.
 
 - [`get_ppt_template()`](https://cdcgov.github.io/sirfunctions/reference/get_ppt_template.md)
   : Get path of the PowerPoint template
@@ -402,6 +426,9 @@
 
 - [`get_vpd_vars()`](https://cdcgov.github.io/sirfunctions/reference/get_vpd_vars.md)
   : Obtain available variables for VPD data
+
+- [`init_country_prioritization()`](https://cdcgov.github.io/sirfunctions/reference/init_country_prioritization.md)
+  : Initialize a country-prioritization analysis
 
 - [`init_dr()`](https://cdcgov.github.io/sirfunctions/reference/init_dr.md)
   : Set up the folders and load polio data for the desk review
@@ -432,6 +459,12 @@
 
 - [`load_lab_data()`](https://cdcgov.github.io/sirfunctions/reference/load_lab_data.md)
   : Function to load the raw lab data locally
+
+- [`prepare_GSAP_ctry_prioritization_data()`](https://cdcgov.github.io/sirfunctions/reference/prepare_GSAP_ctry_prioritization_data.md)
+  : Prepare country-prioritization source data
+
+- [`read_GSAP_immunity_data()`](https://cdcgov.github.io/sirfunctions/reference/read_GSAP_immunity_data.md)
+  : Read WUENIC coverage inputs for country prioritization
 
 - [`send_outlook_email()`](https://cdcgov.github.io/sirfunctions/reference/send_outlook_email.md)
   : Send email through Outlook

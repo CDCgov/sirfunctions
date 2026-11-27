@@ -25,12 +25,20 @@ init_kpi(path = getwd(), name = NULL, edav = TRUE)
 
 - edav:
 
-  `logical` Whether to use EDAV to load the raw_data and lab_data files.
-  Defaults to `TRUE`.
+  `logical` Whether to use EDAV to load the global polio data. Defaults
+  to `TRUE`. Lab data are always loaded from EDAV.
 
 ## Value
 
 Does not return anything
+
+## Details
+
+Pre-cleaned lab data are downloaded from `CLEANED_LAB_DATA` on EDAV on
+every run, independently of `edav`. Previous lab caches are not used. A
+local snapshot is saved in the analysis data folder. The generated
+template adds rolling-year fields without calling
+[`clean_lab_data()`](https://cdcgov.github.io/sirfunctions/reference/clean_lab_data.md).
 
 ## Examples
 

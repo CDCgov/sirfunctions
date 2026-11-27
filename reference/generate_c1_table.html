@@ -11,7 +11,7 @@ regional and global levels."><meta property="og:image" content="https://cdcgov.g
 
     <a class="navbar-brand me-2" href="../index.html">sirfunctions</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.1.9</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -54,7 +54,9 @@ regional and global levels.</p>
 <span>  <span class="va">end_date</span>,</span>
 <span>  risk_category <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  risk_table <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  lab_locs <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  lab_locs <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  missing_agemonths <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  stool_na_if_no_gt5_npafp <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -88,7 +90,18 @@ which will download the information directly from EDAV.</p></dd>
 <dt id="arg-lab-locs">lab_locs<a class="anchor" aria-label="anchor" href="#arg-lab-locs"></a></dt>
 <dd><p><code>tibble</code> Summary of the sequencing capacities of labs.
 Output of <code><a href="get_lab_locs.html">get_lab_locs()</a></code>. Defaults to <code>NULL</code>, which will download the information
-directly from EDAV.
+directly from EDAV.</p></dd>
+
+
+<dt id="arg-missing-agemonths">missing_agemonths<a class="anchor" aria-label="anchor" href="#arg-missing-agemonths"></a></dt>
+<dd><p><code>logical</code> Whether to include AFP cases with missing
+<code>age.months</code> in the NPAFP calculation. Defaults to <code>FALSE</code>.</p></dd>
+
+
+<dt id="arg-stool-na-if-no-gt-npafp">stool_na_if_no_gt5_npafp<a class="anchor" aria-label="anchor" href="#arg-stool-na-if-no-gt-npafp"></a></dt>
+<dd><p><code>logical</code> Whether to return <code>NA</code> for
+subnational stool adequacy when no district has more than five AFP cases.
+Defaults to <code>FALSE</code>.
 .</p></dd>
 
 </dl></div>

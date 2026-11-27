@@ -41,7 +41,7 @@ generate_pos_timeliness(
   `tibble` Summary of the sequencing capacities of labs. Output of
   [`get_lab_locs()`](https://cdcgov.github.io/sirfunctions/reference/get_lab_locs.md).
   Defaults to `NULL`, which will download the information directly from
-  EDAV. .
+  EDAV.
 
 ## Value
 

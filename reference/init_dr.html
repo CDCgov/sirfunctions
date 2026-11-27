@@ -13,7 +13,7 @@ the desk review is prefixed with &quot;DR&quot;) . The function only supports ru
 
     <a class="navbar-brand me-2" href="../index.html">sirfunctions</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.1.9</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -91,7 +91,8 @@ Defaults to the current working directory.</p></dd>
 
 
 <dt id="arg-lab-data-path">lab_data_path<a class="anchor" aria-label="anchor" href="#arg-lab-data-path"></a></dt>
-<dd><p><code>str</code> Location of the lab data. Defaults to <code>NULL</code>.</p></dd>
+<dd><p>Retained for compatibility and ignored. Lab data are always
+loaded from <code>CLEANED_LAB_DATA</code> on EDAV.</p></dd>
 
 
 <dt id="arg-iss-data-path">iss_data_path<a class="anchor" aria-label="anchor" href="#arg-iss-data-path"></a></dt>
@@ -128,6 +129,12 @@ spatial files, coverage data, and population data. Defaults to <code>"GID/PEB/SI
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p><code>list</code> A list containing all dataframe for all polio data.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>Lab data are downloaded from EDAV on every run, independently of
+<code>use_edav</code>, which controls the POLIS data source. Local lab files and previous
+lab caches are not used. No lab cleaning is performed during the desk review.</p>
     </div>
 
     <div class="section level2">

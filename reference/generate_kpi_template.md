@@ -20,7 +20,7 @@ generate_kpi_template(output_path, name, edav)
 
 - edav:
 
-  `logical` Whether the init pulled data from EDAV or not.
+  `logical` Whether the init pulls global polio data from EDAV.
 
 ## Value
 

@@ -19,9 +19,8 @@ generate_lab_timeliness(
 
 - lab_data:
 
-  `tibble` Lab data. Ensure that this lab data is cleaned using
-  [`clean_lab_data()`](https://cdcgov.github.io/sirfunctions/reference/clean_lab_data.md)
-  before running the function.
+  `tibble` Pre-cleaned lab data loaded from EDAV by
+  [`init_dr()`](https://cdcgov.github.io/sirfunctions/reference/init_dr.md).
 
 - spatial.scale:
 
@@ -52,9 +51,9 @@ generate_lab_timeliness(
 
 ``` r
 if (FALSE) { # \dontrun{
-lab_path <- "C:/Users/XRG9/lab_data_who.csv"
-ctry.data <- init_dr("algeria", lab_data_path = lab_path)
-ctry.data$lab_data <- clean_lab_data(ctry.data, "2021-01-01", "2023-12-31")
-lab.timeliness.ctry <- generate_lab_timeliness(ctry.data$lab_data, "ctry", start_date, end_date)
+init_dr("algeria", start_date = "2021-01-01", end_date = "2023-12-31")
+lab.timeliness.ctry <- generate_lab_timeliness(
+  dplyr::filter(lab_data, ctry == "ALGERIA"), "ctry", start_date, end_date
+)
 } # }
 ```

@@ -1,8 +1,6 @@
 # Clean polio lab data from WHO
 
-Cleans the lab data from WHO. This is used in
-[`clean_lab_data()`](https://cdcgov.github.io/sirfunctions/reference/clean_lab_data.md),
-but can be used on its own.
+**\[deprecated\]**
 
 ## Usage
 
@@ -41,6 +39,14 @@ clean_lab_data_who(
 ## Value
 
 `tibble` Cleaned lab data.
+
+## Details
+
+this function is no longer referenced within the sirfunctions package.
+
+Cleans the lab data from WHO. This was previously used in
+[`clean_lab_data()`](https://cdcgov.github.io/sirfunctions/reference/clean_lab_data.md),
+but can be used on its own.
 
 ## Examples
 
